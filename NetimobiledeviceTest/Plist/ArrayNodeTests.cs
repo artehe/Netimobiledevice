@@ -81,7 +81,7 @@ public class ArrayNodeTests
                 new IntegerNode(2)
             };
 
-        ArrayNode value = (ArrayNode) property;
+        ArrayNode value = property.AsArrayNode();
 
         Assert.AreEqual(3, value.Count);
 

@@ -7,7 +7,7 @@ namespace Netimobiledevice.Plist;
 /// <summary>
 /// Represents an integer value from a plist
 /// </summary>
-internal sealed class IntegerNode : PropertyNode<long>
+public sealed class IntegerNode : PropertyNode<long>
 {
     /// <summary>
     /// Gets the length of this PList element.

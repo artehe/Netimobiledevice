@@ -6,7 +6,7 @@ namespace Netimobiledevice.Plist;
 /// <summary>
 /// Represents a Dictionary value from a plist.
 /// </summary>
-internal sealed class DictionaryNode : PropertyNode, IDictionary<string, PropertyNode>
+public sealed class DictionaryNode : PropertyNode, IDictionary<string, PropertyNode>
 {
     private readonly IDictionary<string, PropertyNode> _dictionary = new Dictionary<string, PropertyNode>();
 

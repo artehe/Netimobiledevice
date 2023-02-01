@@ -1,3 +1,4 @@
+using Netimobiledevice.Exceptions;
 using System.Xml;
 
 namespace Netimobiledevice.Plist;
@@ -5,7 +6,7 @@ namespace Netimobiledevice.Plist;
 /// <summary>
 /// Base class for every type of node a plist can contain.
 /// </summary>
-internal abstract class PropertyNode
+public abstract class PropertyNode
 {
     /// <summary>
     /// Gets the binary tag.
@@ -25,6 +26,38 @@ internal abstract class PropertyNode
     /// <value>The xml tag.</value>
     internal string XmlTag => NodeType.ToEnumMemberAttrValue();
 
+    internal ArrayNode AsArrayNode()
+    {
+        if (NodeType != PlistType.Array) {
+            throw new PlistException($"Invalid type expected {PlistType.Array} found {NodeType}");
+        }
+        return (ArrayNode) this;
+    }
+
+    internal DictionaryNode AsDictionaryNode()
+    {
+        if (NodeType != PlistType.Dict) {
+            throw new PlistException($"Invalid type expected {PlistType.Dict} found {NodeType}");
+        }
+        return (DictionaryNode) this;
+    }
+
+    internal IntegerNode AsIntegerNode()
+    {
+        if (NodeType != PlistType.Integer) {
+            throw new PlistException($"Invalid type expected {PlistType.Integer} found {NodeType}");
+        }
+        return (IntegerNode) this;
+    }
+
+    internal StringNode AsStringNode()
+    {
+        if (NodeType != PlistType.String && NodeType != PlistType.UString) {
+            throw new PlistException($"Invalid type expected {PlistType.String} or {PlistType.UString} found {NodeType}");
+        }
+        return (StringNode) this;
+    }
+
     internal abstract void ReadBinary(Stream stream, int nodeLength);
 
     internal abstract void ReadXml(XmlReader reader);
@@ -34,7 +67,7 @@ internal abstract class PropertyNode
     internal abstract void WriteXml(XmlWriter writer);
 }
 
-internal abstract class PropertyNode<T> : PropertyNode, IEquatable<PropertyNode>
+public abstract class PropertyNode<T> : PropertyNode, IEquatable<PropertyNode>
 {
     internal override bool IsBinaryUnique => true;
     /// <summary>
