@@ -1,5 +1,6 @@
 ﻿using Netimobiledevice.Exceptions;
 using Netimobiledevice.Plist;
+using Netimobiledevice.Usbmuxd.Responses;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
@@ -20,14 +21,14 @@ internal class UsbmuxdSocket
     private static readonly EndPoint WindowsSocketAddress = new IPEndPoint(IPAddress.Parse(USBMUXD_SOCKET_IP), USBMUXD_SOCKET_PORT);
     private static readonly UnixDomainSocketEndPoint UnixSocketAddress = new UnixDomainSocketEndPoint(USBMUXD_SOCKET_FILE);
 
-    private int SocketTimeout { get; set; } = 5000;
-
     private readonly Socket socket;
-    private readonly UsbmuxdVersion protocolVersion;
+
+    private int SocketTimeout { get; set; } = 5000;
+    public UsbmuxdVersion ProtocolVersion { get; }
 
     public UsbmuxdSocket(UsbmuxdVersion version)
     {
-        protocolVersion = version;
+        ProtocolVersion = version;
 
         try {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
@@ -96,9 +97,9 @@ internal class UsbmuxdSocket
         return header.Length;
     }
 
-    public UsbmuxdResponse ReceivePlistResponse(int expectedTag)
+    public PlistResponse ReceivePlistResponse(int expectedTag)
     {
-        int recieveLength = ReceivePacket(out UsbmuxdHeader header, out byte[] data);
+        int recieveLength = ReceivePacket(out UsbmuxdHeader header, out byte[] payload);
         if (recieveLength < 0) {
             throw new UsbmuxException();
         }
@@ -113,12 +114,7 @@ internal class UsbmuxdSocket
             throw new UsbmuxException($"Reply tag mismatch: expected {expectedTag}, got {header.Tag}");
         }
 
-        PropertyNode plist;
-        using (Stream stream = new MemoryStream(data)) {
-            plist = PropertyList.Load(stream);
-        }
-
-        UsbmuxdResponse response = new UsbmuxdResponse(header, plist);
+        PlistResponse response = new PlistResponse(header, payload);
         return response;
     }
 
@@ -126,7 +122,7 @@ internal class UsbmuxdSocket
     {
         UsbmuxdHeader header = new UsbmuxdHeader {
             Length = Marshal.SizeOf(typeof(UsbmuxdHeader)),
-            Version = protocolVersion,
+            Version = ProtocolVersion,
             Message = message,
             Tag = tag
         };

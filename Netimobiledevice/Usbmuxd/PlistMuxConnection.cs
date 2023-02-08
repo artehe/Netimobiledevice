@@ -1,5 +1,6 @@
 ﻿using Netimobiledevice.Exceptions;
 using Netimobiledevice.Plist;
+using Netimobiledevice.Usbmuxd.Responses;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
@@ -54,6 +55,34 @@ internal class PlistMuxConnection : UsbmuxConnection
         return string.Empty;
     }
 
+    private UsbmuxdResult SendReceive(PropertyNode msg)
+    {
+        Sock.SendPlistPacket(Tag, msg);
+        Tag++;
+
+        PlistResponse response = Sock.ReceivePlistResponse(Tag - 1);
+        DictionaryNode respPlist = response.Plist.AsDictionaryNode();
+
+        string msgType = respPlist["MessageType"].AsStringNode().Value;
+        if (msgType != "Result") {
+            throw new UsbmuxException($"Got an invalid message: {response}");
+        }
+
+        UsbmuxdResult result = (UsbmuxdResult) respPlist["Number"].AsIntegerNode().Value;
+        if (result != UsbmuxdResult.Ok) {
+            throw new UsbmuxException($"Got an error message: {response}");
+        }
+        return result;
+    }
+
+    public override UsbmuxdResult Listen()
+    {
+        Sock.SetTimeout(-1);
+
+        PropertyNode plistMessage = CreatePlistMessage("Listen");
+        return SendReceive(plistMessage);
+    }
+
     public override void UpdateDeviceList(int timeout = 5000)
     {
         // Get the list of devices synchronously without waiting for the timeout
@@ -62,9 +91,10 @@ internal class PlistMuxConnection : UsbmuxConnection
         Sock.SendPlistPacket(Tag, plistMessage);
         Tag++;
 
-        UsbmuxdResponse response = Sock.ReceivePlistResponse(Tag - 1);
-        PropertyNode deviceListPlist = response.Data.AsDictionaryNode()["DeviceList"];
-        foreach (PropertyNode entry in deviceListPlist.AsArrayNode()) {
+        PlistResponse response = Sock.ReceivePlistResponse(Tag - 1);
+        DictionaryNode responseDict = response.Plist.AsDictionaryNode();
+        ArrayNode deviceListPlist = responseDict["DeviceList"].AsArrayNode();
+        foreach (PropertyNode entry in deviceListPlist) {
             DictionaryNode dict = entry.AsDictionaryNode();
             string messageType = dict["MessageType"].AsStringNode().Value;
             if (messageType == "Attached") {

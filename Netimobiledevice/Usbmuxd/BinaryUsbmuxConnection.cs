@@ -1,80 +1,49 @@
 ﻿using Netimobiledevice.Exceptions;
+using Netimobiledevice.Usbmuxd.Responses;
 
 namespace Netimobiledevice.Usbmuxd;
 
 internal class BinaryUsbmuxConnection : UsbmuxConnection
 {
-    /// <summary>
-    /// After initiating the "Connect" packet, this same socket will be used to transfer data into the service
-    /// residing inside the target device. when this happens, we can no longer send/receive control commands to
-    /// usbmux on same socket
-    /// </summary>
-    private readonly bool connected = false;
-
     public BinaryUsbmuxConnection(UsbmuxdSocket sock) : base(sock) { }
 
-    /// <summary>
-    /// Verify active state is in state for control messages
-    /// </summary>
-    /// <exception cref="UsbmuxException"></exception>
-    private void AssertNotConnected()
-    {
-        if (connected) {
-            throw new UsbmuxException("Usbmux is connected, cannot issue control packets");
-        }
-    }
-
-    /// <summary>
-    /// Start listening for events of attached and detached devices
-    /// </summary>
-    private void Listen()
-    {
-        SendReceive(UsbmuxdMessageType.Listen);
-    }
-
-    private UsbmuxdResponse Receive(int expectedTag = -1)
-    {
-        AssertNotConnected();
-        Sock.ReceivePacket(out UsbmuxdHeader header, out byte[] payload);
-        if (expectedTag > -1 && header.Tag != expectedTag) {
-            throw new UsbmuxException($"Reply tag mismatch expected {expectedTag} but got {header.Tag}");
-        }
-        return new UsbmuxdResponse(header, payload);
-    }
-
-    private void SendReceive(UsbmuxdMessageType messageType)
+    private UsbmuxdResult SendReceive(UsbmuxdMessageType messageType)
     {
         Sock.SendPacket(messageType, Tag, new List<byte>());
-        UsbmuxdResponse response = Receive(Tag - 1);
-        if (response.Header.Message != UsbmuxdMessageType.Result) {
-            throw new UsbmuxException($"Unexpected message type received expected {UsbmuxdMessageType.Result} but got {response.Header.Message}");
+        (UsbmuxdHeader header, byte[] payload) = Receive(Tag - 1);
+
+        if (header.Message != UsbmuxdMessageType.Result) {
+            throw new UsbmuxException($"Unexpected message type received expected {UsbmuxdMessageType.Result} but got {header.Message}");
         }
 
-        byte[] resultData = response.Data;
-        int resultInt = BitConverter.ToInt32(resultData);
-        UsbmuxdResult result = (UsbmuxdResult) resultInt;
-        if (result != UsbmuxdResult.Ok) {
-            throw new UsbmuxException($"{messageType} failed with error code {result}");
+        ResultResponse response = new ResultResponse(header, payload);
+        if (response.Result != UsbmuxdResult.Ok) {
+            throw new UsbmuxException($"{messageType} failed with error code {response.Result}");
         }
+        return response.Result;
     }
 
     private void ReceiveDeviceStateUpdate()
     {
-        UsbmuxdResponse response = Receive();
-        if (response.Header.Message == UsbmuxdMessageType.Add) {
+        (UsbmuxdHeader header, byte[] payload) = Receive();
+        if (header.Message == UsbmuxdMessageType.Add) {
             // Old protocol only supported USB devices
-            UsbmuxdDeviceRecord deviceRecord = UsbmuxdDeviceRecord.FromBytes(response.Data);
-            UsbmuxdDevice usbmuxdDevice = new UsbmuxdDevice(deviceRecord.DeviceId, deviceRecord.SerialNumber, UsbmuxdConnectionType.Usb);
+            AddResponse response = new AddResponse(header, payload);
+            UsbmuxdDevice usbmuxdDevice = new UsbmuxdDevice(response.DeviceRecord.DeviceId, response.DeviceRecord.SerialNumber, UsbmuxdConnectionType.Usb);
             AddDevice(usbmuxdDevice);
         }
-        else if (response.Header.Message == UsbmuxdMessageType.Remove) {
-            byte[] resultData = response.Data;
-            int deviceId = BitConverter.ToInt32(resultData);
-            RemoveDevice(deviceId);
+        else if (header.Message == UsbmuxdMessageType.Remove) {
+            RemoveResponse response = new RemoveResponse(header, payload);
+            RemoveDevice(response.DeviceId);
         }
         else {
-            throw new UsbmuxException($"Invalid packet type received: {response.Data}");
+            throw new UsbmuxException($"Invalid packet type received: {header.Message}");
         }
+    }
+
+    public override UsbmuxdResult Listen()
+    {
+        return SendReceive(UsbmuxdMessageType.Listen);
     }
 
     public override void UpdateDeviceList(int timeout = 5000)
