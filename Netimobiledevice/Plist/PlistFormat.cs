@@ -1,16 +1,17 @@
-namespace Netimobiledevice.Plist;
-
-/// <summary>
-/// The format of a given Plist
-/// </summary>
-public enum PlistFormat
+namespace Netimobiledevice.Plist
 {
     /// <summary>
-    /// Binary format
+    /// The format of a given Plist
     /// </summary>
-    Binary,
-    /// <summary>
-    /// XML format.
-    /// </summary>
-    Xml
+    public enum PlistFormat
+    {
+        /// <summary>
+        /// Binary format
+        /// </summary>
+        Binary,
+        /// <summary>
+        /// XML format.
+        /// </summary>
+        Xml
+    }
 }

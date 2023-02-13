@@ -1,32 +1,34 @@
-﻿using System.Runtime.InteropServices;
+﻿using System;
+using System.Runtime.InteropServices;
 
-namespace Netimobiledevice.Usbmuxd;
-
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-internal struct UsbmuxdDeviceRecord
+namespace Netimobiledevice.Usbmuxd
 {
-    public int DeviceId;
-    public short ProductId;
-    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
-    public string SerialNumber;
-    public int Location;
-
-    internal static UsbmuxdDeviceRecord FromBytes(byte[] arr)
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    internal struct UsbmuxdDeviceRecord
     {
-        UsbmuxdDeviceRecord str = new UsbmuxdDeviceRecord();
+        public int DeviceId;
+        public short ProductId;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+        public string SerialNumber;
+        public int Location;
 
-        int size = Marshal.SizeOf(str);
-        IntPtr ptr = IntPtr.Zero;
-        try {
-            ptr = Marshal.AllocHGlobal(size);
+        internal static UsbmuxdDeviceRecord FromBytes(byte[] arr)
+        {
+            UsbmuxdDeviceRecord str = new UsbmuxdDeviceRecord();
 
-            Marshal.Copy(arr, 0, ptr, size);
+            int size = Marshal.SizeOf(str);
+            IntPtr ptr = IntPtr.Zero;
+            try {
+                ptr = Marshal.AllocHGlobal(size);
 
-            str = (UsbmuxdDeviceRecord) Marshal.PtrToStructure(ptr, str.GetType());
+                Marshal.Copy(arr, 0, ptr, size);
+
+                str = (UsbmuxdDeviceRecord) Marshal.PtrToStructure(ptr, str.GetType());
+            }
+            finally {
+                Marshal.FreeHGlobal(ptr);
+            }
+            return str;
         }
-        finally {
-            Marshal.FreeHGlobal(ptr);
-        }
-        return str;
     }
 }

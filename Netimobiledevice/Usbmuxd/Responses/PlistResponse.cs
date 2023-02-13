@@ -1,20 +1,22 @@
 ﻿using Netimobiledevice.Plist;
+using System.IO;
 
-namespace Netimobiledevice.Usbmuxd.Responses;
-
-internal readonly struct PlistResponse
+namespace Netimobiledevice.Usbmuxd.Responses
 {
-    public UsbmuxdHeader Header { get; }
-    public PropertyNode Plist { get; }
-
-    public PlistResponse(UsbmuxdHeader header, byte[] data)
+    internal readonly struct PlistResponse
     {
-        Header = header;
+        public UsbmuxdHeader Header { get; }
+        public PropertyNode Plist { get; }
 
-        PropertyNode plist;
-        using (Stream stream = new MemoryStream(data)) {
-            plist = PropertyList.Load(stream);
+        public PlistResponse(UsbmuxdHeader header, byte[] data)
+        {
+            Header = header;
+
+            PropertyNode plist;
+            using (Stream stream = new MemoryStream(data)) {
+                plist = PropertyList.Load(stream);
+            }
+            Plist = plist;
         }
-        Plist = plist;
     }
 }

@@ -1,10 +1,13 @@
-﻿namespace Netimobiledevice.Exceptions;
+﻿using System;
 
-internal class PlistException : Exception
+namespace Netimobiledevice.Exceptions
 {
-    /// <summary>
-    /// Initializes a new instance of the <see cref="PlistException"/> class.
-    /// </summary>
-    /// <param name="message">Message.</param>
-    public PlistException(string message) : base(message) { }
+    internal class PlistException : Exception
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PlistException"/> class.
+        /// </summary>
+        /// <param name="message">Message.</param>
+        public PlistException(string message) : base(message) { }
+    }
 }

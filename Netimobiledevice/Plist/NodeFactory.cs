@@ -1,4 +1,6 @@
 ﻿using Netimobiledevice.Exceptions;
+using System;
+using System.Collections.Generic;
 
 namespace Netimobiledevice.Plist
 {

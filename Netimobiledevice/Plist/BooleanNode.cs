@@ -1,4 +1,5 @@
 ﻿using Netimobiledevice.Exceptions;
+using System.IO;
 using System.Xml;
 
 namespace Netimobiledevice.Plist

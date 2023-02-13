@@ -1,10 +1,13 @@
-﻿namespace Netimobiledevice.Exceptions;
+﻿using System;
 
-internal class UsbmuxException : Exception
+namespace Netimobiledevice.Exceptions
 {
-    public UsbmuxException() : base() { }
+    internal class UsbmuxException : Exception
+    {
+        public UsbmuxException() : base() { }
 
-    public UsbmuxException(string message) : base(message) { }
+        public UsbmuxException(string message) : base(message) { }
 
-    public UsbmuxException(string message, Exception innerException) : base(message, innerException) { }
+        public UsbmuxException(string message, Exception innerException) : base(message, innerException) { }
+    }
 }

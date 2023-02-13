@@ -1,5 +1,9 @@
 ﻿using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Exceptions;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 
 namespace Netimobiledevice.Plist
 {

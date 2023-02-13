@@ -1,99 +1,102 @@
 ﻿using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Exceptions;
+using System;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 
-namespace Netimobiledevice.Plist;
-
-/// <summary>
-/// Represents a DateTime Value from a PList
-/// </summary>
-internal sealed class DateNode : PropertyNode<DateTime>
+namespace Netimobiledevice.Plist
 {
-    private static DateTime MacEpoch => new DateTime(2001, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-    internal override int BinaryLength => 3;
-    internal override PlistType NodeType => PlistType.Date;
-
     /// <summary>
-    /// Initializes a new instance of the <see cref="DateNode"/> class.
+    /// Represents a DateTime Value from a PList
     /// </summary>
-    public DateNode()
+    internal sealed class DateNode : PropertyNode<DateTime>
     {
-    }
+        private static DateTime MacEpoch => new DateTime(2001, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        internal override int BinaryLength => 3;
+        internal override PlistType NodeType => PlistType.Date;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="DateNode"/> class.
-    /// </summary>
-    /// <param name="value">The value of this element.</param>
-    public DateNode(DateTime value)
-    {
-        Value = value;
-    }
-
-    /// <summary>
-    /// Parses the specified value from a given string, read from Xml.
-    /// </summary>
-    /// <param name="data">The string whis is parsed.</param>
-    internal override void Parse(string data)
-    {
-        Value = DateTime.Parse(data, CultureInfo.InvariantCulture);
-    }
-
-    /// <summary>
-    /// Reads this element binary from the reader.
-    /// </summary>
-    internal override void ReadBinary(Stream stream, int nodeLength)
-    {
-        Debug.WriteLine("Unverified");
-
-        byte[] buf = new byte[1 << nodeLength];
-        if (stream.Read(buf, 0, buf.Length) != buf.Length) {
-            throw new PlistFormatException();
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DateNode"/> class.
+        /// </summary>
+        public DateNode()
+        {
         }
 
-        double ticks;
-        switch (nodeLength) {
-            case 0: {
-                throw new PlistFormatException("Date < 32Bit");
-            }
-            case 1: {
-                throw new PlistFormatException("Date < 32Bit");
-            }
-            case 2: {
-                ticks = EndianBitConverter.BigEndian.ToSingle(buf, 0);
-                break;
-            }
-            case 3: {
-                ticks = EndianBitConverter.BigEndian.ToDouble(buf, 0);
-                break;
-            }
-            default: {
-                throw new PlistFormatException("Date > 64Bit");
-            }
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DateNode"/> class.
+        /// </summary>
+        /// <param name="value">The value of this element.</param>
+        public DateNode(DateTime value)
+        {
+            Value = value;
         }
 
-        Value = MacEpoch.AddSeconds(ticks);
-    }
+        /// <summary>
+        /// Parses the specified value from a given string, read from Xml.
+        /// </summary>
+        /// <param name="data">The string whis is parsed.</param>
+        internal override void Parse(string data)
+        {
+            Value = DateTime.Parse(data, CultureInfo.InvariantCulture);
+        }
 
-    /// <summary>
-    /// Gets the XML string representation of the Value.
-    /// </summary>
-    /// <returns>
-    /// The XML string representation of the Value.
-    /// </returns>
-    internal override string ToXmlString()
-    {
-        return Value.ToUniversalTime().ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss.ffffffZ");
-    }
+        /// <summary>
+        /// Reads this element binary from the reader.
+        /// </summary>
+        internal override void ReadBinary(Stream stream, int nodeLength)
+        {
+            Debug.WriteLine("Unverified");
 
-    /// <summary>
-    /// Writes this element binary to the writer.
-    /// </summary>
-    internal override void WriteBinary(Stream stream)
-    {
-        Debug.WriteLine("Unverified");
-        TimeSpan ts = Value - MacEpoch;
-        byte[] buf = EndianBitConverter.BigEndian.GetBytes(ts.TotalSeconds);
-        stream.Write(buf, 0, buf.Length);
+            byte[] buf = new byte[1 << nodeLength];
+            if (stream.Read(buf, 0, buf.Length) != buf.Length) {
+                throw new PlistFormatException();
+            }
+
+            double ticks;
+            switch (nodeLength) {
+                case 0: {
+                    throw new PlistFormatException("Date < 32Bit");
+                }
+                case 1: {
+                    throw new PlistFormatException("Date < 32Bit");
+                }
+                case 2: {
+                    ticks = EndianBitConverter.BigEndian.ToSingle(buf, 0);
+                    break;
+                }
+                case 3: {
+                    ticks = EndianBitConverter.BigEndian.ToDouble(buf, 0);
+                    break;
+                }
+                default: {
+                    throw new PlistFormatException("Date > 64Bit");
+                }
+            }
+
+            Value = MacEpoch.AddSeconds(ticks);
+        }
+
+        /// <summary>
+        /// Gets the XML string representation of the Value.
+        /// </summary>
+        /// <returns>
+        /// The XML string representation of the Value.
+        /// </returns>
+        internal override string ToXmlString()
+        {
+            return Value.ToUniversalTime().ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss.ffffffZ");
+        }
+
+        /// <summary>
+        /// Writes this element binary to the writer.
+        /// </summary>
+        internal override void WriteBinary(Stream stream)
+        {
+            Debug.WriteLine("Unverified");
+            TimeSpan ts = Value - MacEpoch;
+            byte[] buf = EndianBitConverter.BigEndian.GetBytes(ts.TotalSeconds);
+            stream.Write(buf, 0, buf.Length);
+        }
     }
 }

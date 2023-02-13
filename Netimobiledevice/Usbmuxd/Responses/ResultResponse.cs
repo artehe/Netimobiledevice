@@ -1,15 +1,18 @@
-﻿namespace Netimobiledevice.Usbmuxd.Responses;
+﻿using System;
 
-internal readonly struct ResultResponse
+namespace Netimobiledevice.Usbmuxd.Responses
 {
-    public UsbmuxdHeader Header { get; }
-    public UsbmuxdResult Result { get; }
-
-    public ResultResponse(UsbmuxdHeader header, byte[] data)
+    internal readonly struct ResultResponse
     {
-        Header = header;
+        public UsbmuxdHeader Header { get; }
+        public UsbmuxdResult Result { get; }
 
-        int resultInt = BitConverter.ToInt32(data);
-        Result = (UsbmuxdResult) resultInt;
+        public ResultResponse(UsbmuxdHeader header, byte[] data)
+        {
+            Header = header;
+
+            int resultInt = BitConverter.ToInt32(data);
+            Result = (UsbmuxdResult) resultInt;
+        }
     }
 }

@@ -1,13 +1,14 @@
-﻿namespace Netimobiledevice.Usbmuxd.Responses;
-
-internal readonly struct AddResponse
+﻿namespace Netimobiledevice.Usbmuxd.Responses
 {
-    public UsbmuxdHeader Header { get; }
-    public UsbmuxdDeviceRecord DeviceRecord { get; }
-
-    public AddResponse(UsbmuxdHeader header, byte[] data)
+    internal readonly struct AddResponse
     {
-        Header = header;
-        DeviceRecord = UsbmuxdDeviceRecord.FromBytes(data);
+        public UsbmuxdHeader Header { get; }
+        public UsbmuxdDeviceRecord DeviceRecord { get; }
+
+        public AddResponse(UsbmuxdHeader header, byte[] data)
+        {
+            Header = header;
+            DeviceRecord = UsbmuxdDeviceRecord.FromBytes(data);
+        }
     }
 }
