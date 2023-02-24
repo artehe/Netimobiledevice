@@ -2,7 +2,7 @@
 
 namespace Netimobiledevice.Exceptions
 {
-    internal class UsbmuxException : Exception
+    public class UsbmuxException : Exception
     {
         public UsbmuxException() : base() { }
 

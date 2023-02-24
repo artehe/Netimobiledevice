@@ -5,7 +5,7 @@ namespace Netimobiledevice.Exceptions
     /// <summary>
     /// Property list format exception.
     /// </summary>
-    internal class PlistFormatException : Exception
+    public class PlistFormatException : Exception
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="PlistFormatException"/> class.

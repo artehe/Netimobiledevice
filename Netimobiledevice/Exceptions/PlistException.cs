@@ -2,7 +2,7 @@
 
 namespace Netimobiledevice.Exceptions
 {
-    internal class PlistException : Exception
+    public class PlistException : Exception
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="PlistException"/> class.
