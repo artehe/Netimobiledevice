@@ -41,9 +41,9 @@ namespace Netimobiledevice.Usbmuxd
         private static string GetBundleId()
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
-                string executeablePath = Assembly.GetEntryAssembly().Location;
-                string executeableDir = Path.GetDirectoryName(executeablePath);
-                string infoPlistPath = executeableDir.Replace("MacOS/", "Info.plist");
+                string executeablePath = Assembly.GetExecutingAssembly().Location;
+                string executeableDir = Path.GetDirectoryName(executeablePath) ?? string.Empty;
+                string infoPlistPath = Path.Combine(executeableDir, "..", "Info.plist");
 
                 if (File.Exists(infoPlistPath)) {
                     using (FileStream fileStream = File.OpenRead(infoPlistPath)) {
