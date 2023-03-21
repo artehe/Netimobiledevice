@@ -21,9 +21,6 @@ namespace Netimobiledevice.Usbmuxd
         private const string USBMUXD_SOCKET_IP = "127.0.0.1";
         private const int USBMUXD_SOCKET_PORT = 27015;
 
-        private static readonly EndPoint WindowsSocketAddress = new IPEndPoint(IPAddress.Parse(USBMUXD_SOCKET_IP), USBMUXD_SOCKET_PORT);
-        private static readonly UnixDomainSocketEndPoint UnixSocketAddress = new UnixDomainSocketEndPoint(USBMUXD_SOCKET_FILE);
-
         private readonly Socket socket;
 
         private int SocketTimeout { get; set; } = 5000;
@@ -35,12 +32,14 @@ namespace Netimobiledevice.Usbmuxd
 
             try {
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+                    EndPoint windowsSocketAddress = new IPEndPoint(IPAddress.Parse(USBMUXD_SOCKET_IP), USBMUXD_SOCKET_PORT);
                     socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.IP);
-                    socket.Connect(WindowsSocketAddress);
+                    socket.Connect(windowsSocketAddress);
                 }
                 else {
+                    UnixDomainSocketEndPoint unixSocketAddress = new UnixDomainSocketEndPoint(USBMUXD_SOCKET_FILE);
                     socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.IP);
-                    socket.Connect(UnixSocketAddress);
+                    socket.Connect(unixSocketAddress);
                 }
             }
             catch (SocketException ex) {
