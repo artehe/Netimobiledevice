@@ -1,7 +1,9 @@
-﻿using Netimobiledevice.Exceptions;
+﻿using Netimobiledevice.EndianBitConversion;
+using Netimobiledevice.Exceptions;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd.Responses;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
@@ -12,7 +14,7 @@ namespace Netimobiledevice.Usbmuxd
         private const string PLIST_CLIENT_VERSION_STRING = "1.0.0.0";
         private const int PLIST_USBMUX_VERSION = 3;
 
-        public PlistMuxConnection(UsbmuxdSocket sock) : base(sock) { }
+        public PlistMuxConnection(UsbmuxdSocket sock) : base(sock, UsbmuxdVersion.Plist) { }
 
         private static PropertyNode CreatePlistMessage(string messageType)
         {
@@ -58,10 +60,9 @@ namespace Netimobiledevice.Usbmuxd
 
         private UsbmuxdResult SendReceive(PropertyNode msg)
         {
-            Sock.SendPlistPacket(Tag, msg);
-            Tag++;
+            Send(msg);
 
-            PlistResponse response = Sock.ReceivePlistResponse(Tag - 1);
+            PlistResponse response = ReceivePlist(Tag - 1);
             DictionaryNode respPlist = response.Plist.AsDictionaryNode();
 
             string msgType = respPlist["MessageType"].AsStringNode().Value;
@@ -76,6 +77,16 @@ namespace Netimobiledevice.Usbmuxd
             return result;
         }
 
+        protected override void RequestConnect(long deviceId, ushort port)
+        {
+            DictionaryNode dict = new DictionaryNode {
+                { "MessageType", new StringNode("Connect") },
+                { "DeviceID", new IntegerNode(deviceId) },
+                { "PortNumber", new IntegerNode(EndianNetworkConverter.HostToNetworkOrder(port)) }
+            };
+            SendReceive(dict);
+        }
+
         public override UsbmuxdResult Listen()
         {
             Sock.SetTimeout(-1);
@@ -84,15 +95,31 @@ namespace Netimobiledevice.Usbmuxd
             return SendReceive(plistMessage);
         }
 
+        public PlistResponse ReceivePlist(int expectedTag)
+        {
+            (UsbmuxdHeader header, byte[] payload) = Receive(expectedTag);
+            if (header.Message != UsbmuxdMessageType.Plist) {
+                throw new UsbmuxException($"Received non-plist type {header}");
+            }
+
+            PlistResponse response = new PlistResponse(header, payload);
+            return response;
+        }
+
+        public int Send(PropertyNode msg)
+        {
+            byte[] payload = PropertyList.SaveAsByteArray(msg, PlistFormat.Xml).ToArray();
+            return SendPacket(UsbmuxdMessageType.Plist, Tag, payload);
+        }
+
         public override void UpdateDeviceList(int timeout = 5000)
         {
             // Get the list of devices synchronously without waiting for the timeout
             Devices.Clear();
             PropertyNode plistMessage = CreatePlistMessage("ListDevices");
-            Sock.SendPlistPacket(Tag, plistMessage);
-            Tag++;
+            Send(plistMessage);
 
-            PlistResponse response = Sock.ReceivePlistResponse(Tag - 1);
+            PlistResponse response = ReceivePlist(Tag - 1);
             DictionaryNode responseDict = response.Plist.AsDictionaryNode();
             ArrayNode deviceListPlist = responseDict["DeviceList"].AsArrayNode();
             foreach (PropertyNode entry in deviceListPlist) {

@@ -1,4 +1,3 @@
-using Netimobiledevice.Exceptions;
 using System;
 using System.Collections.Generic;
 
@@ -18,12 +17,8 @@ namespace Netimobiledevice.Usbmuxd
         /// USB connections
         /// </param>
         /// <returns>The device info.</returns>
-        public static UsbmuxdDevice GetDevice(string udid, UsbmuxdConnectionType? connectionType = null)
+        public static UsbmuxdDevice? GetDevice(string udid, UsbmuxdConnectionType? connectionType = null)
         {
-            if (string.IsNullOrWhiteSpace(udid)) {
-                throw new ArgumentNullException(nameof(udid), "udid can't be null, empty, or whitespace");
-            }
-
             UsbmuxdDevice? tmp = null;
             foreach (UsbmuxdDevice device in GetDeviceList()) {
                 if (connectionType != null && device.ConnectionType != connectionType) {
@@ -31,7 +26,7 @@ namespace Netimobiledevice.Usbmuxd
                     continue;
                 }
 
-                if (device.Serial != udid) {
+                if (!string.IsNullOrEmpty(udid) && device.Serial != udid) {
                     // If a specific udid was desired and not of this one then skip
                     continue;
                 }
@@ -44,11 +39,7 @@ namespace Netimobiledevice.Usbmuxd
                     return device;
                 }
             }
-
-            if (tmp == null) {
-                throw new UsbmuxException($"Unable to find connected device with udid - {udid}");
-            }
-            return (UsbmuxdDevice) tmp;
+            return tmp;
         }
 
         /// <summary>

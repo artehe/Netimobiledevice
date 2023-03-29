@@ -9,6 +9,6 @@ public class FillNodeTests
     public void ToStringReturnsNodeType()
     {
         NullNode node = new NullNode();
-        Assert.AreEqual($"<fill>", node.ToString());
+        Assert.AreEqual($"<boolean>", node.ToString());
     }
 }

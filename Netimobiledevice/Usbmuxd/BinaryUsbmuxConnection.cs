@@ -1,4 +1,5 @@
-﻿using Netimobiledevice.Exceptions;
+﻿using Netimobiledevice.EndianBitConversion;
+using Netimobiledevice.Exceptions;
 using Netimobiledevice.Usbmuxd.Responses;
 using System;
 using System.Collections.Generic;
@@ -7,11 +8,11 @@ namespace Netimobiledevice.Usbmuxd
 {
     internal class BinaryUsbmuxConnection : UsbmuxConnection
     {
-        public BinaryUsbmuxConnection(UsbmuxdSocket sock) : base(sock) { }
+        public BinaryUsbmuxConnection(UsbmuxdSocket sock) : base(sock, UsbmuxdVersion.Binary) { }
 
         private UsbmuxdResult SendReceive(UsbmuxdMessageType messageType)
         {
-            Sock.SendPacket(messageType, Tag, new List<byte>());
+            SendPacket(messageType, Tag, Array.Empty<byte>());
             (UsbmuxdHeader header, byte[] payload) = Receive(Tag - 1);
 
             if (header.Message != UsbmuxdMessageType.Result) {
@@ -40,6 +41,27 @@ namespace Netimobiledevice.Usbmuxd
             }
             else {
                 throw new UsbmuxException($"Invalid packet type received: {header.Message}");
+            }
+        }
+
+        protected override void RequestConnect(long deviceId, ushort port)
+        {
+            List<byte> message = new List<byte>();
+            message.AddRange(BitConverter.GetBytes((int) deviceId));
+            message.AddRange(BitConverter.GetBytes((int) EndianNetworkConverter.HostToNetworkOrder(port)));
+            message.Add(0x00);
+            message.Add(0x00);
+
+            SendPacket(UsbmuxdMessageType.Connect, Tag, message.ToArray());
+
+            (UsbmuxdHeader header, byte[]? payload) = Receive();
+            if (header.Message != UsbmuxdMessageType.Result) {
+                throw new UsbmuxException($"Unxepected message type received: {header.Message}");
+            }
+
+            ResultResponse response = new ResultResponse(header, payload);
+            if (response.Result != UsbmuxdResult.Ok) {
+                throw new UsbmuxException($"{UsbmuxdMessageType.Connect} failed with error code {response.Result}");
             }
         }
 

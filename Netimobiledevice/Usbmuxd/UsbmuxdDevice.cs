@@ -1,12 +1,13 @@
 ﻿using Netimobiledevice.Plist;
 using System;
+using System.Net.Sockets;
 
 namespace Netimobiledevice.Usbmuxd
 {
     /// <summary>
     /// Usbmuxd Device information.
     /// </summary>
-    public struct UsbmuxdDevice
+    public class UsbmuxdDevice
     {
         public UsbmuxdConnectionType ConnectionType { get; private set; }
         public long DeviceId { get; private set; }
@@ -34,6 +35,18 @@ namespace Netimobiledevice.Usbmuxd
             DeviceId = deviceId;
             Serial = serialNumber;
             ConnectionType = connectionType;
+        }
+
+        public Socket Connect(ushort port)
+        {
+            var muxConnection = UsbmuxConnection.Create();
+            try {
+                return muxConnection.Connect(this, port);
+            }
+            catch {
+                muxConnection.Close();
+                throw;
+            }
         }
     }
 }
