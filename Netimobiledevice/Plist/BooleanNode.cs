@@ -7,7 +7,7 @@ namespace Netimobiledevice.Plist
     /// <summary>
 	/// Represents a Boolean value from a PList
 	/// </summary>
-    internal sealed class BooleanNode : PropertyNode<bool>
+    public sealed class BooleanNode : PropertyNode<bool>
     {
         internal override int BinaryLength => Value ? 9 : 8;
         /// <summary>

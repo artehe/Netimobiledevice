@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
 using System.Xml;
 
 namespace Netimobiledevice.Plist
@@ -81,7 +82,6 @@ namespace Netimobiledevice.Plist
         {
             bool wasEmpty = reader.IsEmptyElement;
             reader.Read();
-
             if (wasEmpty) {
                 return;
             }
@@ -95,11 +95,42 @@ namespace Netimobiledevice.Plist
                 reader.ReadEndElement();
 
                 reader.MoveToContent();
-                var node = NodeFactory.Create(reader.LocalName);
+                PropertyNode node = NodeFactory.Create(reader.LocalName);
                 node.ReadXml(reader);
                 Add(key, node);
 
                 reader.MoveToContent();
+            }
+
+            reader.ReadEndElement();
+        }
+
+        /// <summary>
+        /// Generates an object from its XML representation.
+        /// </summary>
+        /// <param name="reader">The <see cref="XmlReader"/> stream from which the object is deserialized.</param>
+        internal override async Task ReadXmlAsync(XmlReader reader)
+        {
+            bool wasEmpty = reader.IsEmptyElement;
+            await reader.ReadAsync();
+            if (wasEmpty) {
+                return;
+            }
+
+            // make sure we are position at an element, skipping white space and such
+            _ = await reader.MoveToContentAsync();
+
+            while (reader.NodeType != XmlNodeType.EndElement) {
+                reader.ReadStartElement("key");
+                string key = await reader.ReadContentAsStringAsync();
+                reader.ReadEndElement();
+
+                await reader.MoveToContentAsync();
+                PropertyNode node = NodeFactory.Create(reader.LocalName);
+                await node.ReadXmlAsync(reader);
+                Add(key, node);
+
+                await reader.MoveToContentAsync();
             }
 
             reader.ReadEndElement();
@@ -120,7 +151,7 @@ namespace Netimobiledevice.Plist
         internal override void WriteXml(XmlWriter writer)
         {
             writer.WriteStartElement(XmlTag);
-            foreach (var key in Keys) {
+            foreach (string key in Keys) {
                 writer.WriteStartElement("key");
                 writer.WriteValue(key);
                 writer.WriteEndElement();

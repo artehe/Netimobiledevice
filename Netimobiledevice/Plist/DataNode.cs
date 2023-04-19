@@ -7,7 +7,7 @@ namespace Netimobiledevice.Plist
     /// <summary>
     /// Represents a byte[] value from a Plist
     /// </summary>
-    internal sealed class DataNode : PropertyNode<byte[]>
+    public sealed class DataNode : PropertyNode<byte[]>
     {
         /// <summary>
         /// Gets the length of this PList element.

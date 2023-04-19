@@ -1,5 +1,6 @@
 ﻿using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 using System.Xml;
 
 namespace Netimobiledevice.Plist
@@ -7,13 +8,25 @@ namespace Netimobiledevice.Plist
     /// <summary>
     /// Parses, saves, and creates a Plist file
     /// </summary>
-    internal static class PropertyList
+    public static class PropertyList
     {
         private static bool IsFormatBinary(Stream stream)
         {
             byte[] buf = new byte[8];
             // Read in first 8 bytes
-            stream.Read(buf, 0, buf.Length);
+            stream.Read(buf);
+            // Rewind
+            stream.Seek(0, SeekOrigin.Begin);
+            // Compare to known indicator
+            // TODO: validate version as well
+            return Encoding.UTF8.GetString(buf, 0, 6) == "bplist";
+        }
+
+        private static async Task<bool> IsFormatBinaryAsync(Stream stream)
+        {
+            byte[] buf = new byte[8];
+            // Read in first 8 bytes
+            await stream.ReadAsync(buf);
             // Rewind
             stream.Seek(0, SeekOrigin.Begin);
             // Compare to known indicator
@@ -25,6 +38,14 @@ namespace Netimobiledevice.Plist
         {
             var reader = new BinaryFormatReader();
             return reader.Read(stream);
+        }
+
+        private static async Task<PropertyNode> LoadAsBinaryAsync(Stream stream)
+        {
+            return await Task.Run(() => {
+                var reader = new BinaryFormatReader();
+                return reader.Read(stream);
+            });
         }
 
         private static PropertyNode LoadAsXml(Stream stream)
@@ -41,6 +62,27 @@ namespace Netimobiledevice.Plist
                 reader.MoveToContent();
                 PropertyNode node = NodeFactory.Create(reader.LocalName);
                 node.ReadXml(reader);
+
+                reader.ReadEndElement();
+
+                return node;
+            }
+        }
+
+        private static async Task<PropertyNode> LoadAsXmlAsync(Stream stream)
+        {
+            // Set resolver to null in order to avoid calls to apple.com to resolve DTD
+            var settings = new XmlReaderSettings {
+                DtdProcessing = DtdProcessing.Ignore,
+            };
+
+            using (var reader = XmlReader.Create(stream, settings)) {
+                await reader.MoveToContentAsync();
+                reader.ReadStartElement("plist");
+
+                await reader.MoveToContentAsync();
+                PropertyNode node = NodeFactory.Create(reader.LocalName);
+                await node.ReadXmlAsync(reader);
 
                 reader.ReadEndElement();
 
@@ -114,6 +156,42 @@ namespace Netimobiledevice.Plist
             bool isBinary = IsFormatBinary(stream);
             // Detect binary format, and read using the appropriate method
             return isBinary ? LoadAsBinary(stream) : LoadAsXml(stream);
+        }
+
+        /// <summary>
+        /// Loads the Plist from specified stream.
+        /// </summary>
+        /// <param name="stream">The stream containing the Plist.</param>
+        /// <returns>A <see cref="PropertyNode"/> object loaded from the stream</returns>
+        public static async Task<PropertyNode> LoadAsync(Stream stream)
+        {
+            bool isBinary = await IsFormatBinaryAsync(stream);
+            // Detect binary format, and read using the appropriate method
+            return isBinary ? await LoadAsBinaryAsync(stream) : await LoadAsXmlAsync(stream);
+        }
+
+        /// <summary>
+        /// Loads the Plist from the specified byte array
+        /// </summary>
+        /// <param name="data">The byte array containing the Plist.</param>
+        /// <returns>A <see cref="PropertyNode"/> object loaded from the stream</returns>
+        public static PropertyNode LoadFromByteArray(byte[] data)
+        {
+            using (MemoryStream ms = new MemoryStream(data)) {
+                return Load(ms);
+            }
+        }
+
+        /// <summary>
+        /// Loads the Plist from the specified byte array asyncronously
+        /// </summary>
+        /// <param name="data">The byte array containing the Plist.</param>
+        /// <returns>A <see cref="PropertyNode"/> object loaded from the stream</returns>
+        public static async Task<PropertyNode> LoadFromByteArrayAsync(byte[] data)
+        {
+            using (MemoryStream ms = new MemoryStream(data)) {
+                return await LoadAsync(ms);
+            }
         }
 
         /// <summary>

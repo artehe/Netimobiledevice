@@ -1,6 +1,7 @@
 using Netimobiledevice.Exceptions;
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using System.Xml;
 
 namespace Netimobiledevice.Plist
@@ -64,6 +65,8 @@ namespace Netimobiledevice.Plist
 
         internal abstract void ReadXml(XmlReader reader);
 
+        internal abstract Task ReadXmlAsync(XmlReader reader);
+
         internal abstract void WriteBinary(Stream stream);
 
         internal abstract void WriteXml(XmlWriter writer);
@@ -88,6 +91,17 @@ namespace Netimobiledevice.Plist
         {
             reader.ReadStartElement();
             Parse(reader.ReadContentAsString());
+            reader.ReadEndElement();
+        }
+
+        /// <summary>
+        /// Generates an object from its XML representation.
+        /// </summary>
+        /// <param name="reader">The <see cref="XmlReader"/> stream from which the object is deserialized.</param>
+        internal override async Task ReadXmlAsync(XmlReader reader)
+        {
+            reader.ReadStartElement();
+            Parse(await reader.ReadContentAsStringAsync());
             reader.ReadEndElement();
         }
 

@@ -8,7 +8,7 @@ namespace Netimobiledevice.Plist
     /// <summary>
     /// Represents a double value from a Plist
     /// </summary>
-    internal sealed class RealNode : PropertyNode<double>
+    public sealed class RealNode : PropertyNode<double>
     {
         internal override int BinaryLength => 3;
         internal override PlistType NodeType => PlistType.Real;

@@ -10,7 +10,7 @@ namespace Netimobiledevice.Plist
     /// <summary>
     /// Represents a DateTime Value from a PList
     /// </summary>
-    internal sealed class DateNode : PropertyNode<DateTime>
+    public sealed class DateNode : PropertyNode<DateTime>
     {
         private static DateTime MacEpoch => new DateTime(2001, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         internal override int BinaryLength => 3;

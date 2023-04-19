@@ -2,11 +2,12 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
 using System.Xml;
 
 namespace Netimobiledevice.Plist
 {
-    internal sealed class ArrayNode : PropertyNode, IList<PropertyNode>
+    public sealed class ArrayNode : PropertyNode, IList<PropertyNode>
     {
         private readonly IList<PropertyNode> _list = new List<PropertyNode>();
 
@@ -64,7 +65,6 @@ namespace Netimobiledevice.Plist
         {
             bool wasEmpty = reader.IsEmptyElement;
             reader.Read();
-
             if (wasEmpty) {
                 return;
             }
@@ -73,11 +73,37 @@ namespace Netimobiledevice.Plist
             _ = reader.MoveToContent();
 
             while (reader.NodeType != XmlNodeType.EndElement) {
-                var plelem = NodeFactory.Create(reader.LocalName);
+                PropertyNode plelem = NodeFactory.Create(reader.LocalName);
                 plelem.ReadXml(reader);
 
                 Add(plelem);
                 reader.MoveToContent();
+            }
+
+            reader.ReadEndElement();
+        }
+
+        /// <summary>
+        /// Generates an object from its XML representation.
+        /// </summary>
+        /// <param name="reader">The <see cref="XmlReader"/> stream from which the object is deserialized.</param>
+        internal override async Task ReadXmlAsync(XmlReader reader)
+        {
+            bool wasEmpty = reader.IsEmptyElement;
+            await reader.ReadAsync();
+            if (wasEmpty) {
+                return;
+            }
+
+            // Make sure we are position at an element, skipping white space and such
+            _ = await reader.MoveToContentAsync();
+
+            while (reader.NodeType != XmlNodeType.EndElement) {
+                PropertyNode plelem = NodeFactory.Create(reader.LocalName);
+                await plelem.ReadXmlAsync(reader);
+
+                Add(plelem);
+                await reader.MoveToContentAsync();
             }
 
             reader.ReadEndElement();

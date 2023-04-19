@@ -1,5 +1,7 @@
 ﻿using Netimobiledevice.Exceptions;
 using System.IO;
+using System.Threading.Tasks;
+using System.Xml;
 
 namespace Netimobiledevice.Plist
 {
@@ -7,7 +9,7 @@ namespace Netimobiledevice.Plist
     /// Represents a fill element in a Plist
     /// </summary>
     /// <remarks>Is skipped in Xml-Serialization</remarks>
-    internal sealed class FillNode : PropertyNode
+    public sealed class FillNode : PropertyNode
     {
         /// <summary>
         /// Gets the length of this PList node.
@@ -41,6 +43,15 @@ namespace Netimobiledevice.Plist
         /// </summary>
         /// <param name="reader">The <see cref="T:System.Xml.XmlReader"/> stream from which the object is deserialized.</param>
         internal override void ReadXml(System.Xml.XmlReader reader)
+        {
+            reader.ReadStartElement(XmlTag);
+        }
+
+        /// <summary>
+        /// Generates an object from its XML representation.
+        /// </summary>
+        /// <param name="reader">The <see cref="T:System.Xml.XmlReader"/> stream from which the object is deserialized.</param>
+        internal override async Task ReadXmlAsync(XmlReader reader)
         {
             reader.ReadStartElement(XmlTag);
         }

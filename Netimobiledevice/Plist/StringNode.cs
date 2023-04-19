@@ -9,7 +9,7 @@ namespace Netimobiledevice.Plist
     /// <summary>
     /// Represents a string value from a PList 
     /// </summary>
-    internal sealed class StringNode : PropertyNode<string>
+    public sealed class StringNode : PropertyNode<string>
     {
         private static readonly byte[] _utf8Bytes = {
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,

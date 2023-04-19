@@ -1,5 +1,7 @@
 ﻿using Netimobiledevice.Exceptions;
 using System.IO;
+using System.Threading.Tasks;
+using System.Xml;
 
 namespace Netimobiledevice.Plist
 {
@@ -7,7 +9,7 @@ namespace Netimobiledevice.Plist
     /// Represents a null element in a PList
     /// </summary>
     /// <remarks>Is skipped in Xml-Serialization</remarks>
-    internal sealed class NullNode : PropertyNode
+    public sealed class NullNode : PropertyNode
     {
         internal override int BinaryLength => 0;
         /// <summary>
@@ -33,7 +35,12 @@ namespace Netimobiledevice.Plist
         /// Generates an object from its XML representation.
         /// </summary>
         /// <param name="reader">The <see cref="XmlReader"/> stream from which the object is deserialized.</param>
-        internal override void ReadXml(System.Xml.XmlReader reader)
+        internal override void ReadXml(XmlReader reader)
+        {
+            reader.ReadStartElement(XmlTag);
+        }
+
+        internal override async Task ReadXmlAsync(XmlReader reader)
         {
             reader.ReadStartElement(XmlTag);
         }
@@ -49,7 +56,7 @@ namespace Netimobiledevice.Plist
         /// Converts an object into its XML representation.
         /// </summary>
         /// <param name="writer">The <see cref="XmlWriter"/> stream to which the object is serialized.</param>
-        internal override void WriteXml(System.Xml.XmlWriter writer)
+        internal override void WriteXml(XmlWriter writer)
         {
             writer.WriteStartElement(XmlTag);
             writer.WriteEndElement();

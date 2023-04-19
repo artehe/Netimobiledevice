@@ -8,7 +8,7 @@ namespace Netimobiledevice.Plist
     /// <summary>
     /// Represents a UID value from a Plist
     /// </summary>
-    internal sealed class UidNode : PropertyNode<ulong>
+    public sealed class UidNode : PropertyNode<ulong>
     {
         internal override int BinaryLength {
             get {
