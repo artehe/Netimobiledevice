@@ -10,11 +10,12 @@
 	</PropertyGroup>
 
 	<PropertyGroup>
-		<Version>0.1.5</Version>
+		<Version>0.1.6</Version>
 		<AssemblyVersion>$(Version)</AssemblyVersion>
 		<FileVersion>$(Version)</FileVersion>
 		<PackageLicenseFile>LICENSE</PackageLicenseFile>
 		<PackageProjectUrl>https://github.com/artehe/Netimobiledevice</PackageProjectUrl>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageTags>ios;ipad;iphone;libimobiledevice;netcore;usbmuxd</PackageTags>
 		<RepositoryUrl>https://github.com/artehe/Netimobiledevice</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
@@ -24,6 +25,7 @@
 
 	<ItemGroup>
 		<None Include="..\LICENSE" Pack="true" PackagePath="" />
+		<None Include="..\README.md" Pack="true" PackagePath="" />
 	</ItemGroup>
 	
 	<ItemGroup>
