@@ -29,38 +29,6 @@ namespace Netimobiledevice.Plist
         /// <value>The xml tag.</value>
         internal string XmlTag => NodeType.ToEnumMemberAttrValue();
 
-        internal ArrayNode AsArrayNode()
-        {
-            if (NodeType != PlistType.Array) {
-                throw new PlistException($"Invalid type expected {PlistType.Array} found {NodeType}");
-            }
-            return (ArrayNode) this;
-        }
-
-        internal DictionaryNode AsDictionaryNode()
-        {
-            if (NodeType != PlistType.Dict) {
-                throw new PlistException($"Invalid type expected {PlistType.Dict} found {NodeType}");
-            }
-            return (DictionaryNode) this;
-        }
-
-        internal IntegerNode AsIntegerNode()
-        {
-            if (NodeType != PlistType.Integer) {
-                throw new PlistException($"Invalid type expected {PlistType.Integer} found {NodeType}");
-            }
-            return (IntegerNode) this;
-        }
-
-        internal StringNode AsStringNode()
-        {
-            if (NodeType != PlistType.String && NodeType != PlistType.UString) {
-                throw new PlistException($"Invalid type expected {PlistType.String} or {PlistType.UString} found {NodeType}");
-            }
-            return (StringNode) this;
-        }
-
         internal abstract void ReadBinary(Stream stream, int nodeLength);
 
         internal abstract void ReadXml(XmlReader reader);
@@ -70,6 +38,94 @@ namespace Netimobiledevice.Plist
         internal abstract void WriteBinary(Stream stream);
 
         internal abstract void WriteXml(XmlWriter writer);
+
+        public ArrayNode AsArrayNode()
+        {
+            if (NodeType != PlistType.Array) {
+                throw new PlistException($"Invalid type expected {PlistType.Array} found {NodeType}");
+            }
+            return (ArrayNode) this;
+        }
+
+        public BooleanNode AsBooleanNode()
+        {
+            if (NodeType != PlistType.Boolean) {
+                throw new PlistException($"Invalid type expected {PlistType.Boolean} found {NodeType}");
+            }
+            return (BooleanNode) this;
+        }
+
+        public DataNode AsDataNode()
+        {
+            if (NodeType != PlistType.Data) {
+                throw new PlistException($"Invalid type expected {PlistType.Data} found {NodeType}");
+            }
+            return (DataNode) this;
+        }
+
+        public DateNode AsDateNode()
+        {
+            if (NodeType != PlistType.Date) {
+                throw new PlistException($"Invalid type expected {PlistType.Date} found {NodeType}");
+            }
+            return (DateNode) this;
+        }
+
+        public DictionaryNode AsDictionaryNode()
+        {
+            if (NodeType != PlistType.Dict) {
+                throw new PlistException($"Invalid type expected {PlistType.Dict} found {NodeType}");
+            }
+            return (DictionaryNode) this;
+        }
+
+        public FillNode AsFillNode()
+        {
+            if (NodeType != PlistType.Fill) {
+                throw new PlistException($"Invalid type expected {PlistType.Fill} found {NodeType}");
+            }
+            return (FillNode) this;
+        }
+
+        public IntegerNode AsIntegerNode()
+        {
+            if (NodeType != PlistType.Integer) {
+                throw new PlistException($"Invalid type expected {PlistType.Integer} found {NodeType}");
+            }
+            return (IntegerNode) this;
+        }
+
+        public NullNode AsNullNode()
+        {
+            if (NodeType != PlistType.Null) {
+                throw new PlistException($"Invalid type expected {PlistType.Null} found {NodeType}");
+            }
+            return (NullNode) this;
+        }
+
+        public RealNode AsRealNode()
+        {
+            if (NodeType != PlistType.Real) {
+                throw new PlistException($"Invalid type expected {PlistType.Real} found {NodeType}");
+            }
+            return (RealNode) this;
+        }
+
+        public StringNode AsStringNode()
+        {
+            if (NodeType != PlistType.String && NodeType != PlistType.UString) {
+                throw new PlistException($"Invalid type expected {PlistType.String} or {PlistType.UString} found {NodeType}");
+            }
+            return (StringNode) this;
+        }
+
+        public UidNode AsUidNode()
+        {
+            if (NodeType != PlistType.Uid) {
+                throw new PlistException($"Invalid type expected {PlistType.Uid} found {NodeType}");
+            }
+            return (UidNode) this;
+        }
     }
 
     public abstract class PropertyNode<T> : PropertyNode, IEquatable<PropertyNode>
