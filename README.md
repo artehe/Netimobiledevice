@@ -1,14 +1,58 @@
 # Netimobiledevice
 
-Pure .Net Core implementation for working with iOS devices (iPhone, iPad, iPod).
+Netimobiledevice is a .Net Core implementation for working with all iOS devices (iPhone, iPad, iPod).
+
+- [Netimobiledevice](#Netimobiledevice)
+    * [Features](#Features)
+    * [Installation](#Installation)
+    * [Usage](#Usage)
+    * [License](#License)
+    * [Contributing](#Contributing)
+    * [Acknowledgments](#Acknowledgments)
+
+## Features
+
+ - Device discovery using Usbmux
+ - Connect to devices
+ - Handling of all Plist types
 
 ## Installation
 
-The fastest way of getting started is to install the NuGet package.
+To install Netimobiledevice, you can use the following command in the Package Manager Console:
+
+```powershell
+Install-Package Netimobiledevice
+```
+
+Alternatively, you can use the .NET CLI:
 
 ```csharp
 dotnet add package Netimobiledevice
 ```
+
+# Usage
+
+A few examples of how to use Netimobiledevice are below.
+
+Get a list of all currently connected devices using:
+
+```csharp
+using Netimobiledevice.Usbmuxd;
+
+List<UsbmuxdDevice> devices = Usbmux.GetDeviceList();
+Console.WriteLine($"There's {devices.Count} devices connected");
+foreach (UsbmuxdDevice device in devices) {
+    Console.WriteLine($"Device found: {device.DeviceId} - {device.Serial}");
+}
+```    
+
+## License
+
+This project is licensed under the [GNU GENERAL PUBLIC LICENSE](https://github.com/artehe/Netimobiledevice/blob/main/LICENSE).
+
+## Contributing
+
+Contributions are welcome. Please submit a pull request or create an issue to discuss your proposed changes.
 
 ## Acknowledgments
 
