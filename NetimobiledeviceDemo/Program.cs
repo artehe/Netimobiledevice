@@ -1,4 +1,7 @@
-﻿using Netimobiledevice.Usbmuxd;
+﻿using Netimobiledevice.Lockdown;
+using Netimobiledevice.Lockdown.Services;
+using Netimobiledevice.Plist;
+using Netimobiledevice.Usbmuxd;
 
 namespace NetimobiledeviceDemo;
 
@@ -13,6 +16,12 @@ public class Program
         }
 
         Usbmux.Subscribe(SubscriptionCallback);
+        Usbmux.Unsubscribe();
+
+        LockdownClient lockdown = new LockdownClient();
+        SpringBoardServicesService springBoard = new SpringBoardServicesService(lockdown);
+        PropertyNode png = springBoard.GetIconPNGData("net.whatsapp.WhatsApp");
+
         Console.ReadLine();
     }
 

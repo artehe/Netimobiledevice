@@ -87,6 +87,22 @@ namespace Netimobiledevice.Usbmuxd
             SendReceive(dict);
         }
 
+        public PropertyNode GetPairRecord(string serial)
+        {
+            // Serials are saved inside usbmuxd without '-'
+            DictionaryNode message = CreatePlistMessage("ReadPairRecord").AsDictionaryNode();
+            message.Add("PairRecordID", new StringNode(serial));
+            Send(message);
+
+            DictionaryNode response = ReceivePlist(Tag - 1).Plist.AsDictionaryNode();
+            if (response.ContainsKey("PairRecordData")) {
+                return response["PairRecordData"];
+            }
+            else {
+                throw new NotPairedException();
+            }
+        }
+
         public override UsbmuxdResult Listen()
         {
             Sock.SetTimeout(-1);
@@ -104,6 +120,18 @@ namespace Netimobiledevice.Usbmuxd
 
             PlistResponse response = new PlistResponse(header, payload);
             return response;
+        }
+
+        public void SavePairRecord(string serial, int deviceId, byte[] recordData)
+        {
+            // Serials are saved inside usbmuxd without '-'
+            DictionaryNode message = new DictionaryNode {
+                { "MessageType", new StringNode("SavePairRecord") },
+                { "PairRecordID", new StringNode(serial) },
+                { "PairRecordData", new DataNode(recordData) },
+                { "DeviceID", new IntegerNode(deviceId) }
+            };
+            SendReceive(message);
         }
 
         public int Send(PropertyNode msg)

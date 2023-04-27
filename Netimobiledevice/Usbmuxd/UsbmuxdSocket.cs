@@ -11,9 +11,9 @@ namespace Netimobiledevice.Usbmuxd
     /// </summary>
     internal class UsbmuxdSocket
     {
+        private const int USBMUXD_SOCKET_PORT = 27015;
         private const string USBMUXD_SOCKET_FILE = "/var/run/usbmuxd";
         private const string USBMUXD_SOCKET_IP = "127.0.0.1";
-        private const int USBMUXD_SOCKET_PORT = 27015;
 
         private readonly Socket socket;
 
