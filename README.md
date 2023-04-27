@@ -1,6 +1,6 @@
 # Netimobiledevice
 
-Netimobiledevice is a .Net Core implementation for working with all iOS devices (iPhone, iPad, iPod).
+Netimobiledevice is a .Net Core implementation for working with all iOS devices (iPhone, iPad, iPod) as well the plists that they use.
 
 - [Netimobiledevice](#Netimobiledevice)
     * [Features](#Features)
@@ -44,7 +44,28 @@ Console.WriteLine($"There's {devices.Count} devices connected");
 foreach (UsbmuxdDevice device in devices) {
     Console.WriteLine($"Device found: {device.DeviceId} - {device.Serial}");
 }
-```    
+```
+
+Listen to connection events:
+
+```csharp
+Usbmux.Subscribe(SubscriptionCallback);
+
+private static void SubscriptionCallback(UsbmuxdDevice device, UsbmuxdConnectionEventType connectionEvent)
+{
+    Console.WriteLine("NewCallbackExecuted");
+    Console.WriteLine($"Connection event: {connectionEvent}");
+    Console.WriteLine($"Device: {device.DeviceId} - {device.Serial}");
+}
+```
+
+Get the app icon displayed on the home screen as a PNG:
+
+```csharp
+LockdownClient lockdown = new LockdownClient();
+SpringBoardServicesService springBoard = new SpringBoardServicesService(lockdown);
+PropertyNode png = springBoard.GetIconPNGData("net.whatsapp.WhatsApp");
+```
 
 ## License
 
