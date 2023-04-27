@@ -105,6 +105,17 @@ namespace Netimobiledevice.Lockdown
             return muxDevice;
         }
 
+        public byte[] Receive(int length = 4096)
+        {
+            byte[] buffer = new byte[length];
+            if (length <= 0) {
+                return Array.Empty<byte>();
+            }
+
+            networkStream.Read(buffer);
+            return buffer;
+        }
+
         public PropertyNode? ReceivePlist()
         {
             byte[] plistBytes = ReceivePrefixed();
@@ -149,6 +160,8 @@ namespace Netimobiledevice.Lockdown
 
             SslStream sslStream = new SslStream(networkStream, true, UserCertificateValidationCallback, null, EncryptionPolicy.AllowNoEncryption);
             try {
+                // NOTE: For some reason we need to re-export and then import the cert again ¯\_(ツ)_/¯
+                // see this for more details: https://github.com/dotnet/runtime/issues/45680
                 sslStream.AuthenticateAsClient(string.Empty, new X509CertificateCollection() { new X509Certificate2(cert.Export(X509ContentType.Pkcs12)) }, SslProtocols.None, false);
             }
             catch (AuthenticationException ex) {

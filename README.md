@@ -6,15 +6,16 @@ Netimobiledevice is a .Net Core implementation for working with all iOS devices 
     * [Features](#Features)
     * [Installation](#Installation)
     * [Usage](#Usage)
+    * [Services](#Services)
     * [License](#License)
     * [Contributing](#Contributing)
     * [Acknowledgments](#Acknowledgments)
 
 ## Features
 
- - Device discovery using Usbmux
- - Connect to devices
- - Handling of all Plist types
+ - Device discovery and connection via Usbmux.
+ - Interact with iOS services
+ - Handle all Plists whether they are in XML or Binary format
 
 ## Installation
 
@@ -66,6 +67,15 @@ LockdownClient lockdown = new LockdownClient();
 SpringBoardServicesService springBoard = new SpringBoardServicesService(lockdown);
 PropertyNode png = springBoard.GetIconPNGData("net.whatsapp.WhatsApp");
 ```
+
+## Services
+
+The list of all the services from lockdownd which have been implemented and the functions available for each one. Clicking on the service name will take you to it's implementation, to learn more about it.
+
+- [com.apple.springboardservices](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/SpringBoardServicesService.cs)
+  * Get icons from the installed apps on the device.
+- [com.apple.syslog_relay](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/SyslogService.cs)
+  * Streams the raw syslog lines from the device.
 
 ## License
 

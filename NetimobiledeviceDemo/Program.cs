@@ -22,6 +22,11 @@ public class Program
         SpringBoardServicesService springBoard = new SpringBoardServicesService(lockdown);
         PropertyNode png = springBoard.GetIconPNGData("net.whatsapp.WhatsApp");
 
+        SyslogService syslog = new SyslogService(lockdown);
+        foreach (string line in syslog.Watch()) {
+            Console.WriteLine(line);
+        }
+
         Console.ReadLine();
     }
 
