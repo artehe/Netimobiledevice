@@ -1,16 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFrameworks>net5.0;net6.0</TargetFrameworks>
-		<CheckForOverflowUnderflow>True</CheckForOverflowUnderflow>
+		<CheckForOverflowUnderflow>False</CheckForOverflowUnderflow>
 		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-		<ImplicitUsings>disable</ImplicitUsings>
-		<Nullable>enable</Nullable>
-		<IsTrimmable>true</IsTrimmable>
 		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+		<ImplicitUsings>disable</ImplicitUsings>
+		<IsTrimmable>true</IsTrimmable>
+		<Nullable>enable</Nullable>
+		<TargetFrameworks>net5.0;net6.0</TargetFrameworks>
 	</PropertyGroup>
 
 	<PropertyGroup>
-		<Version>0.1.6</Version>
+		<Version>0.1.7</Version>
 		<AssemblyVersion>$(Version)</AssemblyVersion>
 		<FileVersion>$(Version)</FileVersion>
 		<PackageLicenseFile>LICENSE</PackageLicenseFile>
