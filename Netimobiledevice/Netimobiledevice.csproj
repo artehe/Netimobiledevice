@@ -19,11 +19,11 @@
 		<PackageLicenseFile>LICENSE</PackageLicenseFile>
 		<PackageProjectUrl>https://github.com/artehe/Netimobiledevice</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<PackageTags>ios;ipad;iphone;libimobiledevice;netcore;usbmuxd</PackageTags>
+		<PackageTags>imobiledevice;ios;ipad;iphone;libimobiledevice;netcore;usbmuxd</PackageTags>
 		<RepositoryUrl>https://github.com/artehe/Netimobiledevice</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<Title>$(AssemblyName)</Title>
-		<Version>0.2.0</Version>
+		<Version>0.2.1</Version>
 	</PropertyGroup>
 
 	<ItemGroup>
