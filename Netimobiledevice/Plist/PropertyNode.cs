@@ -181,9 +181,9 @@ namespace Netimobiledevice.Plist
         /// <returns>
         /// true if the current object is equal to the <paramref name="other"/> parameter, otherwise false.
         /// </returns>
-        public bool Equals(PropertyNode other)
+        public bool Equals(PropertyNode? other)
         {
-            return (other is PropertyNode<T>) && (Value.Equals(((PropertyNode<T>) other).Value));
+            return (other is PropertyNode<T> node) && Value.Equals(node.Value);
         }
 
         /// <summary>
@@ -192,10 +192,9 @@ namespace Netimobiledevice.Plist
         /// <param name="obj">The <see cref="System.Object"/> to compare with the current PropertyNode.</param>
         /// <returns>true if the specified <see cref="System.Object"/> is equal to the current
         /// PropertyNode, otherwise false</returns>
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
-            var node = obj as PropertyNode;
-            return node != null && Equals(node);
+            return obj is PropertyNode node && Equals(node);
         }
 
         /// <summary>

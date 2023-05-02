@@ -31,7 +31,7 @@ namespace Netimobiledevice.Plist
     };
         private static readonly HashSet<char> _utf8Chars = new HashSet<char>(Encoding.UTF8.GetChars(_utf8Bytes));
 
-        private string _value;
+        private string _value = string.Empty;
 
         /// <summary>
         /// Gets the length of this PList element.

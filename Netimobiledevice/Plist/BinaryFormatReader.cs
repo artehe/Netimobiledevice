@@ -30,21 +30,13 @@ namespace Netimobiledevice.Plist
 
         private static ulong GetNodeOffset(ReaderState readerState, byte[] bufKeys, int index)
         {
-            switch (readerState.ObjectRefSize) {
-                case 1:
-                    return bufKeys[index];
-
-                case 2:
-                    return EndianBitConverter.BigEndian.ToUInt16(bufKeys, readerState.ObjectRefSize * index);
-
-                case 4:
-                    return EndianBitConverter.BigEndian.ToUInt32(bufKeys, readerState.ObjectRefSize * index);
-
-                case 8:
-                    return EndianBitConverter.BigEndian.ToUInt64(bufKeys, readerState.ObjectRefSize * index);
-            }
-
-            throw new PlistFormatException("$Unexpected index size: {readerState.IndexSize}.");
+            return readerState.ObjectRefSize switch {
+                1 => bufKeys[index],
+                2 => EndianBitConverter.BigEndian.ToUInt16(bufKeys, readerState.ObjectRefSize * index),
+                4 => EndianBitConverter.BigEndian.ToUInt32(bufKeys, readerState.ObjectRefSize * index),
+                8 => EndianBitConverter.BigEndian.ToUInt64(bufKeys, readerState.ObjectRefSize * index),
+                _ => throw new PlistFormatException("$Unexpected index size: {readerState.IndexSize}."),
+            };
         }
 
         private static NodeTagAndLength GetObjectLengthAndTag(Stream stream)
@@ -101,15 +93,15 @@ namespace Netimobiledevice.Plist
             }
 
             for (int i = 0; i < nodeLength; i++) {
-                var topNode = GetNodeOffset(readerState, buf, i);
+                ulong topNode = GetNodeOffset(readerState, buf, i);
                 node.Add(ReadInternal(readerState, topNode));
             }
         }
 
         private void ReadInDictionary(IDictionary<string, PropertyNode> node, int nodeLength, ReaderState readerState)
         {
-            var bufKeys = new byte[nodeLength * readerState.ObjectRefSize];
-            var bufVals = new byte[nodeLength * readerState.ObjectRefSize];
+            byte[] bufKeys = new byte[nodeLength * readerState.ObjectRefSize];
+            byte[] bufVals = new byte[nodeLength * readerState.ObjectRefSize];
 
             if (readerState.Stream.Read(bufKeys, 0, bufKeys.Length) != bufKeys.Length) {
                 throw new PlistFormatException();
@@ -119,17 +111,16 @@ namespace Netimobiledevice.Plist
                 throw new PlistFormatException();
             }
 
-            for (var i = 0; i < nodeLength; i++) {
-                var topNode = GetNodeOffset(readerState, bufKeys, i);
-                var plKey = ReadInternal(readerState, topNode);
+            for (int i = 0; i < nodeLength; i++) {
+                ulong topNode = GetNodeOffset(readerState, bufKeys, i);
+                PropertyNode plKey = ReadInternal(readerState, topNode);
 
-                var stringKey = plKey as StringNode;
-                if (stringKey == null) {
+                if (plKey is not StringNode stringKey) {
                     throw new PlistFormatException("Key is not a string");
                 }
 
                 topNode = GetNodeOffset(readerState, bufVals, i);
-                var plVal = ReadInternal(readerState, topNode);
+                PropertyNode plVal = ReadInternal(readerState, topNode);
 
                 node.Add(stringKey.Value, plVal);
             }
@@ -163,14 +154,12 @@ namespace Netimobiledevice.Plist
 
             // array and dictionary are special-cased here
             // while primitives handle their own loading
-            ArrayNode? arrayNode = node as ArrayNode;
-            if (arrayNode != null) {
+            if (node is ArrayNode arrayNode) {
                 ReadInArray(arrayNode, objectLength, readerState);
                 return node;
             }
 
-            DictionaryNode? dictionaryNode = node as DictionaryNode;
-            if (dictionaryNode != null) {
+            if (node is DictionaryNode dictionaryNode) {
                 ReadInDictionary(dictionaryNode, objectLength, readerState);
                 return node;
             }

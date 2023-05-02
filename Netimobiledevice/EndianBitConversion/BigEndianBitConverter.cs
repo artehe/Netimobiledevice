@@ -49,7 +49,7 @@
 
             int highBytes = (value[startIndex] << 24) | (value[startIndex + 1] << 16) | (value[startIndex + 2] << 8) | (value[startIndex + 3]);
             int lowBytes = (value[startIndex + 4] << 24) | (value[startIndex + 5] << 16) | (value[startIndex + 6] << 8) | (value[startIndex + 7]);
-            return ((uint) lowBytes | ((long) highBytes << 32));
+            return (uint) lowBytes | ((long) highBytes << 32);
         }
     }
 }
