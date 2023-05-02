@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
@@ -17,9 +18,7 @@ namespace Netimobiledevice.Plist
             stream.Read(buf);
             // Rewind
             stream.Seek(0, SeekOrigin.Begin);
-            // Compare to known indicator
-            // TODO: validate version as well
-            return Encoding.UTF8.GetString(buf, 0, 6) == "bplist";
+            return ValidateBinaryHeader(buf);
         }
 
         private static async Task<bool> IsFormatBinaryAsync(Stream stream)
@@ -29,9 +28,7 @@ namespace Netimobiledevice.Plist
             await stream.ReadAsync(buf);
             // Rewind
             stream.Seek(0, SeekOrigin.Begin);
-            // Compare to known indicator
-            // TODO: validate version as well
-            return Encoding.UTF8.GetString(buf, 0, 6) == "bplist";
+            return ValidateBinaryHeader(buf);
         }
 
         private static PropertyNode LoadAsBinary(Stream stream)
@@ -144,6 +141,19 @@ namespace Netimobiledevice.Plist
                 var writer = new BinaryFormatWriter();
                 writer.Write(stream, rootNode);
             }
+        }
+
+        private static bool ValidateBinaryHeader(byte[] buf)
+        {
+            if (Encoding.UTF8.GetString(buf, 0, 6) != "bplist") {
+                return false;
+            }
+
+            string versionString = Encoding.UTF8.GetString(buf, 6, 2);
+            return versionString switch {
+                "00" => true,
+                _ => throw new NotImplementedException($"The binary plist version {versionString} is not implemented yet"),
+            };
         }
 
         /// <summary>
