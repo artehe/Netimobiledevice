@@ -70,6 +70,7 @@ namespace Netimobiledevice.Plist
         {
             // Set resolver to null in order to avoid calls to apple.com to resolve DTD
             var settings = new XmlReaderSettings {
+                Async = true,
                 DtdProcessing = DtdProcessing.Ignore,
             };
 

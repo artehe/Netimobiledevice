@@ -1,5 +1,6 @@
 ﻿using Netimobiledevice.Exceptions;
 using System.IO;
+using System.Threading.Tasks;
 using System.Xml;
 
 namespace Netimobiledevice.Plist
@@ -63,6 +64,18 @@ namespace Netimobiledevice.Plist
         {
             Parse(reader.LocalName);
             reader.ReadStartElement();
+        }
+
+        /// <summary>
+		/// Generates an object from its XML representation.
+		/// </summary>
+		/// <param name="reader">The <see cref="XmlReader"/> stream from which the object is deserialized.</param>
+        internal override async Task ReadXmlAsync(XmlReader reader)
+        {
+            await Task.Run(() => {
+                Parse(reader.LocalName);
+                reader.ReadStartElement();
+            });
         }
 
         /// <summary>
