@@ -42,7 +42,7 @@ namespace Netimobiledevice.Plist
 
         internal override async Task ReadXmlAsync(XmlReader reader)
         {
-            reader.ReadStartElement(XmlTag);
+            await Task.Run(() => reader.ReadStartElement(XmlTag));
         }
 
         /// <summary>

@@ -53,7 +53,7 @@ namespace Netimobiledevice.Plist
         /// <param name="reader">The <see cref="T:System.Xml.XmlReader"/> stream from which the object is deserialized.</param>
         internal override async Task ReadXmlAsync(XmlReader reader)
         {
-            reader.ReadStartElement(XmlTag);
+            await Task.Run(() => reader.ReadStartElement(XmlTag));
         }
 
         /// <summary>
