@@ -21,7 +21,7 @@ namespace Netimobiledevice.Lockdown.Services
 
         public SyslogService(LockdownClient client) : base(client) { }
 
-        private string DecodeLine(byte[] line)
+        private static string DecodeLine(byte[] line)
         {
             return Encoding.UTF8.GetString(line);
         }

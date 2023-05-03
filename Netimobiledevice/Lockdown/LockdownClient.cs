@@ -220,7 +220,7 @@ namespace Netimobiledevice.Lockdown
             // Second look for the usbmuxd pair record
             UsbmuxConnection mux = UsbmuxConnection.Create();
             if (medium == ConnectionMedium.USBMUX && mux is PlistMuxConnection plistMuxConnection) {
-                pairRecord = plistMuxConnection.GetPairRecord(identifier).AsDictionaryNode();
+                pairRecord = plistMuxConnection.GetPairRecord(identifier);
             }
             mux.Close();
             if (pairRecord != null) {
