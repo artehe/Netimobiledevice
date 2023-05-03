@@ -11,6 +11,7 @@ using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown
 {
@@ -49,14 +50,21 @@ namespace Netimobiledevice.Lockdown
             return new ServiceConnection(sock, targetDevice);
         }
 
-        private byte[] ReceiveAll(int size)
+        private async Task<byte[]> ReceiveAll(int size)
         {
             if (size <= 0) {
                 return Array.Empty<byte>();
             }
-
             byte[] buffer = new byte[size];
-            networkStream.Read(buffer);
+
+            // For some reason when reading data that is >32000 bytes we need
+            // a short delay otherwise it doesn't read the last few bytes properly.
+            await Task.Delay(25);
+
+            int bytesRead = await networkStream.ReadAsync(buffer);
+            if (bytesRead != size) {
+                throw new IOException($"Expected {size} bytes to be read but got {bytesRead} bytes read");
+            }
             return buffer;
         }
 
@@ -64,15 +72,15 @@ namespace Netimobiledevice.Lockdown
         /// Receive a data block prefixed with a u32 length field
         /// </summary>
         /// <returns>The data without the u32 field length as a byte array</returns>
-        private byte[] ReceivePrefixed()
+        private async Task<byte[]> ReceivePrefixed()
         {
-            byte[] sizeBytes = ReceiveAll(4);
+            byte[] sizeBytes = await ReceiveAll(4);
             if (sizeBytes.Length != 4) {
                 return Array.Empty<byte>();
             }
 
             int size = EndianBitConverter.BigEndian.ToInt32(sizeBytes, 0);
-            return ReceiveAll(size);
+            return await ReceiveAll(size);
         }
 
         private void SendAll(byte[] data)
@@ -118,7 +126,7 @@ namespace Netimobiledevice.Lockdown
 
         public PropertyNode? ReceivePlist()
         {
-            byte[] plistBytes = ReceivePrefixed();
+            byte[] plistBytes = ReceivePrefixed().GetAwaiter().GetResult();
             if (plistBytes.Length == 0) {
                 return null;
             }
