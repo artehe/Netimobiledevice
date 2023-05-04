@@ -24,6 +24,8 @@ jobs:
         source-url: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
       env:
         NUGET_AUTH_TOKEN: '%NUGET_AUTH_TOKEN%'
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v1.3.1
     - name: Restore dependencies
       run: dotnet restore
     - name: Build
@@ -31,9 +33,9 @@ jobs:
     - name: Test
       run: dotnet test --no-restore --verbosity normal
     - name: PublishNuget
-      run: dotnet nuget push **/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.PUBLISH_TO_NUGET }} --skip-duplicate
+      run: dotnet nuget push "**/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.PUBLISH_TO_NUGET }} --skip-duplicate
     - name: PublishGithub
       # The github token is automatically being pulled from the workflow
-      run: dotnet nuget push **/*.nupkg --no-symbols --skip-duplicate
+      run: nuget.exe push "**/*.nupkg" -NoSymbols -SkipDuplicate
       env:
         NUGET_AUTH_TOKEN: ${{ github.token }}
