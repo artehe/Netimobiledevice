@@ -12,8 +12,7 @@
 	<PropertyGroup>
 		<AssemblyVersion>$(Version)</AssemblyVersion>
 		<Description>
-			Netimobiledevice is a .Net Core implementation for working with all iOS devices 
-			(iPhone, iPad, iPod) as well the plists that they use.
+			Netimobiledevice is a .Net Core implementation for working with all iOS devices (iPhone, iPad, iPod) as well the plists that they use.
 		</Description>
 		<FileVersion>$(Version)</FileVersion>
 		<PackageLicenseFile>LICENSE</PackageLicenseFile>
@@ -23,7 +22,7 @@
 		<RepositoryUrl>https://github.com/artehe/Netimobiledevice</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<Title>$(AssemblyName)</Title>
-		<Version>0.2.3</Version>
+		<Version>0.2.4</Version>
 	</PropertyGroup>
 
 	<ItemGroup>
