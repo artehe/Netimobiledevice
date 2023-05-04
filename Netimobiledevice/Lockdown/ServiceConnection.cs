@@ -20,7 +20,7 @@ namespace Netimobiledevice.Lockdown
     /// </summary>
     public class ServiceConnection
     {
-        private UsbmuxdDevice? muxDevice;
+        private readonly UsbmuxdDevice? muxDevice;
         private Stream networkStream;
 
         private ServiceConnection(Socket sock, UsbmuxdDevice? muxDevice = null)
@@ -57,14 +57,12 @@ namespace Netimobiledevice.Lockdown
             }
             byte[] buffer = new byte[size];
 
-            // For some reason when reading data that is >32000 bytes we need
-            // a short delay otherwise it doesn't read the last few bytes properly.
-            await Task.Delay(25);
-
-            int bytesRead = await networkStream.ReadAsync(buffer);
-            if (bytesRead != size) {
-                throw new IOException($"Expected {size} bytes to be read but got {bytesRead} bytes read");
+            int totalBytesRead = 0;
+            while (totalBytesRead < size) {
+                int bytesRead = await networkStream.ReadAsync(buffer, totalBytesRead, size - totalBytesRead);
+                totalBytesRead += bytesRead;
             }
+
             return buffer;
         }
 
@@ -124,16 +122,13 @@ namespace Netimobiledevice.Lockdown
             return buffer;
         }
 
-        public PropertyNode? ReceivePlist()
+        public async Task<PropertyNode?> ReceivePlist()
         {
-            byte[] plistBytes = ReceivePrefixed().GetAwaiter().GetResult();
+            byte[] plistBytes = await ReceivePrefixed();
             if (plistBytes.Length == 0) {
                 return null;
             }
-
-            using (Stream stream = new MemoryStream(plistBytes)) {
-                return PropertyList.Load(stream);
-            }
+            return await PropertyList.LoadFromByteArrayAsync(plistBytes);
         }
 
         public void SendPlist(PropertyNode data)
@@ -150,7 +145,7 @@ namespace Netimobiledevice.Lockdown
         public PropertyNode? SendReceivePlist(PropertyNode data)
         {
             SendPlist(data);
-            return ReceivePlist();
+            return ReceivePlist().GetAwaiter().GetResult();
         }
 
         public void StartSSL(byte[] certData, byte[] privateKeyData)
