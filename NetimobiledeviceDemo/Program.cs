@@ -19,11 +19,16 @@ public class Program
         Usbmux.Unsubscribe();
 
         LockdownClient lockdown = new LockdownClient();
+
+        InstallationProxyService installationProxyService = new InstallationProxyService(lockdown);
+        ArrayNode apps = await installationProxyService.Browse();
+
         SpringBoardServicesService springBoard = new SpringBoardServicesService(lockdown);
         PropertyNode png = springBoard.GetIconPNGData("net.whatsapp.WhatsApp");
 
         OsTraceService osTraceService = new OsTraceService(lockdown);
         DictionaryNode pidList = await osTraceService.GetPidList();
+        File.WriteAllBytes(@"C:\Users\Mark\Downloads\test.plist", PropertyList.SaveAsByteArray(pidList, PlistFormat.Xml));
 
         SyslogService syslog = new SyslogService(lockdown);
         foreach (string line in syslog.Watch()) {
