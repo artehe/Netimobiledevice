@@ -72,6 +72,8 @@ PropertyNode png = springBoard.GetIconPNGData("net.whatsapp.WhatsApp");
 
 The list of all the services from lockdownd which have been implemented and the functions available for each one. Clicking on the service name will take you to it's implementation, to learn more about it.
 
+- [com.apple.os_trace_relay](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/OsTraceService.cs)
+  * Get pid list
 - [com.apple.springboardservices](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/SpringBoardServicesService.cs)
   * Get icons from the installed apps on the device.
 - [com.apple.syslog_relay](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/SyslogService.cs)
