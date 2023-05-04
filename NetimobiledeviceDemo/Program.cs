@@ -7,7 +7,7 @@ namespace NetimobiledeviceDemo;
 
 public class Program
 {
-    internal static void Main(string[] args)
+    internal static async Task Main(string[] args)
     {
         List<UsbmuxdDevice> devices = Usbmux.GetDeviceList();
         Console.WriteLine($"There's {devices.Count} devices connected");
@@ -21,6 +21,9 @@ public class Program
         LockdownClient lockdown = new LockdownClient();
         SpringBoardServicesService springBoard = new SpringBoardServicesService(lockdown);
         PropertyNode png = springBoard.GetIconPNGData("net.whatsapp.WhatsApp");
+
+        OsTraceService osTraceService = new OsTraceService(lockdown);
+        DictionaryNode pidList = await osTraceService.GetPidList();
 
         SyslogService syslog = new SyslogService(lockdown);
         foreach (string line in syslog.Watch()) {
