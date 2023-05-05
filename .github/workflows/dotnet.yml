@@ -35,6 +35,6 @@ jobs:
     - name: PublishNuget
       run: dotnet nuget push "**/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.PUBLISH_TO_NUGET }} --skip-duplicate
     - name: PublishGithub
-      run: dotnet nuget push "**/*.nupkg" --source "github" --api-key ${{ secrets.PUBLISH_TO_GITHUB }} --skip-duplicat
+      run: dotnet nuget push "**/*.nupkg" --source "github" --api-key ${{ secrets.PUBLISH_TO_GITHUB }} --skip-duplicate
       env:
         NUGET_AUTH_TOKEN: ${{ github.token }}
