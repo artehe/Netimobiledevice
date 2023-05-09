@@ -72,6 +72,9 @@ PropertyNode png = springBoard.GetIconPNGData("net.whatsapp.WhatsApp");
 
 The list of all the services from lockdownd which have been implemented and the functions available for each one. Clicking on the service name will take you to it's implementation, to learn more about it.
 
+- [com.apple.mobile.diagnostics_relay](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/DiagnosticsService.cs)
+  * Query MobileGestalt & IORegistry keys.
+  * Reboot, shutdown or put the device in sleep mode.
 - [com.apple.mobile.installation_proxy](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/OsTraceService.cs)
   * Browse installed applications
   * Manage applications (install/uninstall/update)
