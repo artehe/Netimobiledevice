@@ -15,7 +15,6 @@ namespace Netimobiledevice.Lockdown
         private const string DEFAULT_CLIENT_NAME = "Netimobiledevice";
         private const ushort SERVICE_PORT = 62078;
 
-        private string deviceClass;
         private byte[] devicePublicKey;
         /// <summary>
         /// User agent to use when identifying for lockdownd
@@ -25,90 +24,33 @@ namespace Netimobiledevice.Lockdown
         private string hostId;
         private string identifier;
         private ConnectionMedium medium;
+        private string pairingRecordsCacheDir;
         /// <summary>
         /// The pairing record for the connected device
         /// </summary>
-        private string pairingRecordsCacheDir;
         private DictionaryNode? pairRecord;
         private Version productVersion;
         private ServiceConnection service;
         private string sessionId;
         private string systemBUID;
-        private string udid;
         private DictionaryNode allValues;
         private UsbmuxdConnectionType usbmuxdConnectionType;
 
         private StringNode WifiMacAddress => allValues["WiFiAddress"].AsStringNode();
+        public string DeviceName => GetValue("DeviceName").AsStringNode().Value;
+        public bool EnableWifiConnections {
+            get => GetValue("com.apple.mobile.wireless_lockdown", "EnableWifiConnections").AsBooleanNode().Value;
+            set => SetValue("com.apple.mobile.wireless_lockdown", "EnableWifiConnections", new BooleanNode(value));
+        }
+        public string DeviceClass { get; private set; } = LockdownDeviceClass.UNKNOWN;
+        public string UDID { get; private set; } = string.Empty;
+        public string SerialNumber { get; private set; } = string.Empty;
 
-        /// <summary>
-        /// Create the LockdownClient
-        /// </summary>
-        /// <param name="serial">Serial number for device to connect to (over usbmux)</param>
-        /// <param name="connectionType">Specify what connection type to use</param>
-        /// <param name="autoPair">Should pairing with the device be automatically attempted</param>
-        /// <param name="pairTimeout">if using autoPair, this timeout is for the user's Trust dialog. If not set will wait forever</param>
-        public LockdownClient(
-            string? serial = null,
-            UsbmuxdConnectionType connectionType = UsbmuxdConnectionType.Usb,
-            bool autoPair = true,
-            int pairTimeout = -1,
-            string pairingRecordsCacheDir = null)
+        private LockdownClient()
         {
-            identifier = serial ?? string.Empty;
             medium = ConnectionMedium.USBMUX;
-            usbmuxdConnectionType = connectionType;
-            service = ServiceConnection.Create(medium, identifier, SERVICE_PORT, usbmuxdConnectionType);
-
-            if (string.IsNullOrEmpty(pairingRecordsCacheDir)) {
-                this.pairingRecordsCacheDir = string.Empty;
-            }
-            else {
-                this.pairingRecordsCacheDir = pairingRecordsCacheDir;
-                Directory.CreateDirectory(pairingRecordsCacheDir);
-            }
-
-            if (QueryType() != "com.apple.mobile.lockdown") {
-                throw new IncorrectModeException();
-            }
-
-            allValues = GetValue().AsDictionaryNode();
-            udid = allValues["UniqueDeviceID"].AsStringNode().Value;
-            productVersion = new Version(allValues["ProductVersion"].AsStringNode().Value);
-
-            try {
-                deviceClass = DeviceClass.GetDeviceClass(allValues["DeviceClass"]);
-            }
-            catch (Exception) {
-                deviceClass = DeviceClass.UNKNOWN;
-            }
-
-            if (string.IsNullOrEmpty(identifier) && medium == ConnectionMedium.USBMUX) {
-                // Attempt get identifier from mux device serial
-                identifier = service.GetUsbmuxdDevice()?.Serial ?? string.Empty;
-            }
-            if (string.IsNullOrEmpty(identifier) && !string.IsNullOrEmpty(udid)) {
-                // Attempt get identifier from queried udid
-                identifier = udid;
-            }
-
-            if (!ValidatePairing()) {
-                // Device is not paired
-                if (!autoPair) {
-                    // Pairing by default was not requested
-                    return;
-                }
-
-                Pair(pairTimeout);
-
-                // Get sessionId
-                if (!ValidatePairing()) {
-                    throw new FatalPairingException();
-                }
-            }
-
-            // Reload data after pairing
-            allValues = GetValue().AsDictionaryNode();
-            udid = allValues["UniqueDeviceID"].AsStringNode().Value;
+            usbmuxdConnectionType = UsbmuxdConnectionType.Usb;
+            pairingRecordsCacheDir = string.Empty;
         }
 
         private ServiceConnection CreateServiceConnection(ushort port)
@@ -177,24 +119,6 @@ namespace Netimobiledevice.Lockdown
                 }
             }
             return response;
-        }
-
-        private PropertyNode GetValue(string? domain = null, string? key = null)
-        {
-            DictionaryNode options = new DictionaryNode();
-            if (!string.IsNullOrEmpty(domain)) {
-                options.Add("Domain", new StringNode(domain));
-            }
-            if (!string.IsNullOrEmpty(key)) {
-                options.Add("Key", new StringNode(key));
-            }
-
-            DictionaryNode result = Request("GetValue", options).AsDictionaryNode();
-
-            if (result.ContainsKey("Data")) {
-                return result["Data"];
-            }
-            return result["Value"];
         }
 
         /// <summary>
@@ -357,7 +281,8 @@ namespace Netimobiledevice.Lockdown
 
                 UsbmuxConnection mux = UsbmuxConnection.Create();
                 if (mux is PlistMuxConnection plistMuxConnection) {
-                    plistMuxConnection.SavePairRecord(identifier, (int) service.GetUsbmuxdDevice()?.DeviceId, recordData);
+                    int deviceId = (int) (service.GetUsbmuxdDevice()?.DeviceId ?? 0);
+                    plistMuxConnection.SavePairRecord(identifier, deviceId, recordData);
                 }
                 mux.Close();
             }
@@ -383,7 +308,7 @@ namespace Netimobiledevice.Lockdown
                 return false;
             }
 
-            if (productVersion < new Version("7.0") && deviceClass != DeviceClass.WATCH) {
+            if (productVersion < new Version("7.0") && DeviceClass != LockdownDeviceClass.WATCH) {
                 try {
                     DictionaryNode options = new DictionaryNode {
                         { "PairRecord", pairRecord }
@@ -398,7 +323,7 @@ namespace Netimobiledevice.Lockdown
             hostId = pairRecord["HostID"].AsStringNode().Value;
             systemBUID = pairRecord["SystemBUID"].AsStringNode().Value;
 
-            DictionaryNode startSession = new DictionaryNode();
+            DictionaryNode startSession;
             try {
                 DictionaryNode options = new DictionaryNode {
                     { "HostID", new StringNode(hostId) },
@@ -432,15 +357,137 @@ namespace Netimobiledevice.Lockdown
             File.WriteAllBytes(file, data);
         }
 
+        /// <summary>
+        /// Gets the value for the specified domain and key.
+        /// </summary>
+        /// <param name="domain">The domain to obtain the value from.</param>
+        /// <param name="key">The key of the property to obtain.</param>
+        /// <returns>The value obtained.</returns>
+        public PropertyNode GetValue(string? domain, string? key)
+        {
+            DictionaryNode options = new DictionaryNode();
+            if (!string.IsNullOrEmpty(domain)) {
+                options.Add("Domain", new StringNode(domain));
+            }
+            if (!string.IsNullOrEmpty(key)) {
+                options.Add("Key", new StringNode(key));
+            }
+
+            DictionaryNode result = Request("GetValue", options).AsDictionaryNode();
+
+            if (result.ContainsKey("Data")) {
+                return result["Data"];
+            }
+            return result["Value"];
+        }
+
+        /// <summary>
+        /// Gets the value for the specified key in the root domain.
+        /// </summary>
+        /// <param name="key">The key of the property to obtain.</param>
+        /// <returns>The string value obtained.</returns>
+        public PropertyNode GetValue(string? key)
+        {
+            return GetValue(null, key);
+        }
+
+        /// <summary>
+        /// Get every value for the specified in the root domain.
+        /// </summary>
+        /// <returns>The values obtained.</returns>
+        public PropertyNode GetValue()
+        {
+            return GetValue(null, null);
+        }
+
+        public PropertyNode SetValue(string? domain, string? key, PropertyNode value)
+        {
+            DictionaryNode options = new DictionaryNode();
+
+            if (!string.IsNullOrWhiteSpace(domain)) {
+                options.Add("Domain", new StringNode(domain));
+            }
+            if (!string.IsNullOrWhiteSpace(key)) {
+                options.Add("Key", new StringNode(key));
+            }
+
+            options.Add("Value", value);
+
+            return Request("SetValue", options);
+        }
+
         public ServiceConnection StartService(string serviceName)
         {
             DictionaryNode attr = GetServiceConnectionAttributes(serviceName).AsDictionaryNode();
             ServiceConnection serviceConnection = CreateServiceConnection((ushort) attr["Port"].AsIntegerNode().Value);
 
             if (attr.ContainsKey("EnableServiceSSL") && attr["EnableServiceSSL"].AsBooleanNode().Value) {
+                if (pairRecord == null) {
+                    throw new Exception("Pair Record is null when it shouldn't be");
+                }
                 serviceConnection.StartSSL(pairRecord["HostCertificate"].AsDataNode().Value, pairRecord["HostPrivateKey"].AsDataNode().Value);
             }
             return serviceConnection;
+        }
+
+        /// <summary>
+        /// Create the LockdownClient
+        /// </summary>
+        /// <param name="udid">UDID of the device to connect to (over usbmux)</param>
+        /// <param name="connectionType">Specify what connection type to use</param>
+        /// <param name="autoPair">Should pairing with the device be automatically attempted</param>
+        /// <param name="pairTimeout">if using autoPair, this timeout is for the user's Trust dialog. If not set will wait forever</param>
+        public static LockdownClient CreateLockdownClient(string udid, bool autoPair = false)
+        {
+            LockdownClient client = new LockdownClient {
+                identifier = udid
+            };
+            client.service = ServiceConnection.Create(client.medium, client.identifier, SERVICE_PORT, client.usbmuxdConnectionType);
+
+            if (client.QueryType() != "com.apple.mobile.lockdown") {
+                throw new IncorrectModeException();
+            }
+
+            client.allValues = client.GetValue().AsDictionaryNode();
+            client.UDID = client.allValues["UniqueDeviceID"].AsStringNode().Value;
+            client.productVersion = new Version(client.allValues["ProductVersion"].AsStringNode().Value);
+
+            try {
+                client.DeviceClass = LockdownDeviceClass.GetDeviceClass(client.allValues["DeviceClass"]);
+            }
+            catch (Exception) {
+                client.DeviceClass = LockdownDeviceClass.UNKNOWN;
+            }
+
+            if (string.IsNullOrEmpty(client.identifier) && client.medium == ConnectionMedium.USBMUX) {
+                // Attempt get identifier from mux device serial
+                client.identifier = client.service.GetUsbmuxdDevice()?.Serial ?? string.Empty;
+            }
+            if (string.IsNullOrEmpty(client.identifier) && !string.IsNullOrEmpty(udid)) {
+                // Attempt get identifier from queried udid
+                client.identifier = udid;
+            }
+
+            if (!client.ValidatePairing()) {
+                // Device is not paired
+                if (!autoPair) {
+                    // Pairing by default was not requested
+                    return client;
+                }
+
+                client.Pair(-1);
+
+                // Get sessionId
+                if (!client.ValidatePairing()) {
+                    throw new FatalPairingException();
+                }
+            }
+
+            // Reload data after pairing
+            client.allValues = client.GetValue().AsDictionaryNode();
+            client.UDID = client.allValues["UniqueDeviceID"].AsStringNode().Value;
+
+            return client;
         }
     }
 }

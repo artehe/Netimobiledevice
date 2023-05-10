@@ -11,14 +11,18 @@ public class Program
     {
         List<UsbmuxdDevice> devices = Usbmux.GetDeviceList();
         Console.WriteLine($"There's {devices.Count} devices connected");
+        UsbmuxdDevice? testDevice = null;
         foreach (UsbmuxdDevice device in devices) {
             Console.WriteLine($"Device found: {device.DeviceId} - {device.Serial}");
+            if (device.ConnectionType == UsbmuxdConnectionType.Usb) {
+                testDevice = device;
+            }
         }
 
         Usbmux.Subscribe(SubscriptionCallback);
         Usbmux.Unsubscribe();
 
-        LockdownClient lockdown = new LockdownClient();
+        LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty);
 
         InstallationProxyService installationProxyService = new InstallationProxyService(lockdown);
         ArrayNode apps = await installationProxyService.Browse();
