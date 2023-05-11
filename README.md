@@ -78,6 +78,8 @@ The list of all the services from lockdownd which have been implemented and the 
 - [com.apple.mobile.installation_proxy](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/OsTraceService.cs)
   * Browse installed applications
   * Manage applications (install/uninstall/update)
+- [com.apple.mobile.notification_proxy](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/NotificationProxyService.cs) & [com.apple.mobile.insecure_notification_proxy](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/NotificationProxyService.cs)
+  * API wrapper for NotifyPost() & NotifyRegisterCallback()
 - [com.apple.os_trace_relay](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/InstallationProxyService.cs)
   * Get pid list
 - [com.apple.springboardservices](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/SpringBoardServicesService.cs)
