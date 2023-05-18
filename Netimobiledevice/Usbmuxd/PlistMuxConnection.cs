@@ -106,7 +106,8 @@ namespace Netimobiledevice.Usbmuxd
 
         public override UsbmuxdResult Listen()
         {
-            Sock.SetTimeout(-1);
+            connectionTimeout = -1;
+            Sock.SetTimeout(connectionTimeout);
 
             PropertyNode plistMessage = CreatePlistMessage("Listen");
             return SendReceive(plistMessage);
