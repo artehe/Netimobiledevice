@@ -61,7 +61,7 @@ namespace Netimobiledevice.Usbmuxd
                 return recievedLength;
             }
 
-            header = UsbmuxdHeader.FromBytes(headerBuffer);
+            header = StructExtentions.FromBytes<UsbmuxdHeader>(headerBuffer);
             byte[] payloadLoc = Array.Empty<byte>();
 
             int payloadSize = header.Length - Marshal.SizeOf(header);

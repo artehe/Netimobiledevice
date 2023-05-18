@@ -17,5 +17,18 @@ namespace Netimobiledevice.Extentions
 
             return arr;
         }
+
+        public static T FromBytes<T>(byte[] bytearray) where T : struct
+        {
+            T obj = new T();
+            int size = Marshal.SizeOf(obj);
+
+            IntPtr ptr = Marshal.AllocHGlobal(size);
+            Marshal.Copy(bytearray, 0, ptr, size);
+            obj = Marshal.PtrToStructure<T>(ptr);
+            Marshal.FreeHGlobal(ptr);
+
+            return obj;
+        }
     }
 }
