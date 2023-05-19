@@ -1,4 +1,5 @@
 ﻿using Netimobiledevice.Exceptions;
+using Netimobiledevice.Extentions;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd.Responses;
 using System;
@@ -11,12 +12,15 @@ namespace Netimobiledevice.Usbmuxd
 {
     internal abstract class UsbmuxConnection
     {
+        protected const int DEFAULT_CONNECTION_TIMEOUT = 5000;
+
         /// <summary>
         /// After initiating the "Connect" packet, this same socket will be used to transfer data into the service
         /// residing inside the target device. when this happens, we can no longer send/receive control commands to
         /// usbmux on same socket
         /// </summary>
         private bool connected = false;
+        protected int connectionTimeout = DEFAULT_CONNECTION_TIMEOUT;
 
         protected UsbmuxdSocket Sock { get; }
         /// <summary>
@@ -45,7 +49,7 @@ namespace Netimobiledevice.Usbmuxd
                 Version = 0
             };
 
-            Sock.SetTimeout(5000);
+            Sock.SetTimeout(connectionTimeout);
             byte[] headerBuffer = Sock.Receive(Marshal.SizeOf(header));
             int recievedLength = headerBuffer.Length;
             if (recievedLength < 0) {
@@ -57,14 +61,14 @@ namespace Netimobiledevice.Usbmuxd
                 return recievedLength;
             }
 
-            header = UsbmuxdHeader.FromBytes(headerBuffer);
+            header = StructExtentions.FromBytes<UsbmuxdHeader>(headerBuffer);
             byte[] payloadLoc = Array.Empty<byte>();
 
             int payloadSize = header.Length - Marshal.SizeOf(header);
             if (payloadSize > 0) {
                 uint rsize = 0;
                 do {
-                    Sock.SetTimeout(5000);
+                    Sock.SetTimeout(connectionTimeout);
                     payloadLoc = Sock.Receive(payloadSize);
                     int res = payloadLoc.Length;
                     if (res < 0) {

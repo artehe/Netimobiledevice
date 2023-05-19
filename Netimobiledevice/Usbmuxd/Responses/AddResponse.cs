@@ -1,4 +1,6 @@
-﻿namespace Netimobiledevice.Usbmuxd.Responses
+﻿using Netimobiledevice.Extentions;
+
+namespace Netimobiledevice.Usbmuxd.Responses
 {
     internal readonly struct AddResponse
     {
@@ -8,7 +10,7 @@
         public AddResponse(UsbmuxdHeader header, byte[] data)
         {
             Header = header;
-            DeviceRecord = UsbmuxdDeviceRecord.FromBytes(data);
+            DeviceRecord = StructExtentions.FromBytes<UsbmuxdDeviceRecord>(data);
         }
     }
 }

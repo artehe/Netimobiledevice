@@ -63,7 +63,7 @@ private static void SubscriptionCallback(UsbmuxdDevice device, UsbmuxdConnection
 Get the app icon displayed on the home screen as a PNG:
 
 ```csharp
-LockdownClient lockdown = new LockdownClient();
+LockdownClient lockdown = LockdownClient.CreateLockdownClient("60653a518d33eb53b3ca2212cd1f44e162a42069");
 SpringBoardServicesService springBoard = new SpringBoardServicesService(lockdown);
 PropertyNode png = springBoard.GetIconPNGData("net.whatsapp.WhatsApp");
 ```
@@ -72,9 +72,14 @@ PropertyNode png = springBoard.GetIconPNGData("net.whatsapp.WhatsApp");
 
 The list of all the services from lockdownd which have been implemented and the functions available for each one. Clicking on the service name will take you to it's implementation, to learn more about it.
 
+- [com.apple.mobile.diagnostics_relay](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/DiagnosticsService.cs)
+  * Query MobileGestalt & IORegistry keys.
+  * Reboot, shutdown or put the device in sleep mode.
 - [com.apple.mobile.installation_proxy](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/OsTraceService.cs)
   * Browse installed applications
   * Manage applications (install/uninstall/update)
+- [com.apple.mobile.notification_proxy](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/NotificationProxyService.cs) & [com.apple.mobile.insecure_notification_proxy](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/NotificationProxyService.cs)
+  * API wrapper for NotifyPost() & NotifyRegisterCallback()
 - [com.apple.os_trace_relay](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/InstallationProxyService.cs)
   * Get pid list
 - [com.apple.springboardservices](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/SpringBoardServicesService.cs)

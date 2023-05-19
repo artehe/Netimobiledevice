@@ -2,7 +2,7 @@
 
 namespace Netimobiledevice.Lockdown
 {
-    internal static class DeviceClass
+    internal static class LockdownDeviceClass
     {
         public const string IPHONE = "iPhone";
         public const string IPAD = "iPad";
