@@ -81,11 +81,6 @@ namespace Netimobiledevice.Lockdown
             return await ReceiveAll(size);
         }
 
-        private void SendAll(byte[] data)
-        {
-            networkStream.Write(data);
-        }
-
         private bool UserCertificateValidationCallback(object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors)
         {
             return true;
@@ -131,6 +126,11 @@ namespace Netimobiledevice.Lockdown
             return await PropertyList.LoadFromByteArrayAsync(plistBytes);
         }
 
+        public void Send(byte[] data)
+        {
+            networkStream.Write(data);
+        }
+
         public void SendPlist(PropertyNode data)
         {
             byte[] plistBytes = PropertyList.SaveAsByteArray(data, PlistFormat.Xml);
@@ -139,7 +139,7 @@ namespace Netimobiledevice.Lockdown
             List<byte> payload = new List<byte>();
             payload.AddRange(lengthBytes);
             payload.AddRange(plistBytes);
-            SendAll(payload.ToArray());
+            Send(payload.ToArray());
         }
 
         public PropertyNode? SendReceivePlist(PropertyNode data)

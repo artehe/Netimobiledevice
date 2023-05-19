@@ -263,8 +263,6 @@ namespace Netimobiledevice.Plist
             if (text != "bplist") {
                 throw new PlistFormatException("Invalid plist file: must start with string \"bplist\".");
             }
-
-            // TODO: get version (ASCII numbers in bytes 7 and 8) and pass back to the parser			
         }
 
         /// <summary>
