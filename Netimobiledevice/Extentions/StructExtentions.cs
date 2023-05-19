@@ -25,7 +25,7 @@ namespace Netimobiledevice.Extentions
 
             IntPtr ptr = Marshal.AllocHGlobal(size);
             Marshal.Copy(bytearray, 0, ptr, size);
-            obj = Marshal.PtrToStructure<T>(ptr);
+            Marshal.PtrToStructure(ptr, obj);
             Marshal.FreeHGlobal(ptr);
 
             return obj;
