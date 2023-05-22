@@ -20,7 +20,6 @@ public class Program
         }
 
         Usbmux.Subscribe(SubscriptionCallback);
-        Usbmux.Unsubscribe();
 
         LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty);
 
@@ -38,12 +37,17 @@ public class Program
         DiagnosticsService diagnosticsService = new DiagnosticsService(lockdown);
         DictionaryNode info = diagnosticsService.GetBattery();
 
+        Mobilebackup2Service mobilebackup2Service = new Mobilebackup2Service(lockdown);
+        await mobilebackup2Service.Backup();
+
         /*
         SyslogService syslog = new SyslogService(lockdown);
         foreach (string line in syslog.Watch()) {
             Console.WriteLine(line);
         }
         */
+
+        Usbmux.Unsubscribe();
 
         Console.ReadLine();
     }
