@@ -11,10 +11,13 @@ namespace Netimobiledevice.Extentions
             byte[] arr = new byte[size];
 
             IntPtr ptr = Marshal.AllocHGlobal(size);
-            Marshal.StructureToPtr(obj, ptr, true);
-            Marshal.Copy(ptr, arr, 0, size);
-            Marshal.FreeHGlobal(ptr);
-
+            try {
+                Marshal.StructureToPtr(obj, ptr, true);
+                Marshal.Copy(ptr, arr, 0, size);
+            }
+            finally {
+                Marshal.FreeHGlobal(ptr);
+            }
             return arr;
         }
 
@@ -24,9 +27,13 @@ namespace Netimobiledevice.Extentions
             int size = Marshal.SizeOf(obj);
 
             IntPtr ptr = Marshal.AllocHGlobal(size);
-            Marshal.Copy(bytearray, 0, ptr, size);
-            Marshal.PtrToStructure(ptr, obj);
-            Marshal.FreeHGlobal(ptr);
+            try {
+                Marshal.Copy(bytearray, 0, ptr, size);
+                obj = Marshal.PtrToStructure<T>(ptr);
+            }
+            finally {
+                Marshal.FreeHGlobal(ptr);
+            }
 
             return obj;
         }
