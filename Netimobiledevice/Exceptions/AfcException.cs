@@ -14,6 +14,11 @@ namespace Netimobiledevice.Exceptions
             AfcError = afcError;
         }
 
+        public AfcException(AfcError afcError, string message) : base(message)
+        {
+            AfcError = afcError;
+        }
+
         public AfcException(string message) : base(message) { }
     }
 }

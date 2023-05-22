@@ -1,9 +1,11 @@
-﻿using Netimobiledevice.Extentions;
-using Netimobiledevice.Usbmuxd;
+﻿using Netimobiledevice.Exceptions;
+using Netimobiledevice.Extentions;
+using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
+using System.IO;
+using System.Text;
 
 namespace Netimobiledevice.Lockdown.Services
 {
@@ -95,10 +97,31 @@ namespace Netimobiledevice.Lockdown.Services
         public ulong Op;
     }
 
-    internal struct AfcFileOpenRequest
+    internal class AfcFileOpenRequest
     {
-        public AfcFileOpenMode Mode;
-        public string Filename;
+        public AfcFileOpenMode Mode { get; }
+        public CString Filename { get; }
+
+        public AfcFileOpenRequest(AfcFileOpenMode mode, CString filename)
+        {
+            Mode = mode;
+            Filename = filename;
+        }
+
+        public byte[] GetBytes()
+        {
+            List<byte> bytes = new List<byte>();
+            bytes.AddRange(BitConverter.GetBytes((ulong) Mode));
+            bytes.AddRange(Filename.Bytes);
+
+            return bytes.ToArray();
+        }
+    }
+
+    internal struct AfcFileReadRequest
+    {
+        public ulong Handle;
+        public ulong Size;
     }
 
     internal struct AfcFileCloseRequest
@@ -111,17 +134,78 @@ namespace Netimobiledevice.Lockdown.Services
         public ulong Handle;
     }
 
-    internal struct AfcHeader
+    internal class AfcFileInfoRequest
     {
-        public byte[] Magic;
+        public CString Filename { get; }
+
+        public AfcFileInfoRequest(CString filename)
+        {
+            Filename = filename;
+        }
+
+        public byte[] GetBytes()
+        {
+            return Filename.Bytes;
+        }
+    }
+
+    internal class AfcHeader
+    {
+        public const string Magic = "CFA6LPAA";
         public ulong EntireLength;
         public ulong Length;
         public ulong PacketNumber;
         public AfcOpCode Operation;
+
+        public static AfcHeader FromBytes(byte[] bytes)
+        {
+            using (MemoryStream ms = new MemoryStream(bytes)) {
+                byte[] magicBytes = Encoding.UTF8.GetBytes(Magic);
+                byte[] readMagicBytes = new byte[magicBytes.Length];
+                ms.Read(readMagicBytes, 0, readMagicBytes.Length);
+                for (int i = 0; i < magicBytes.Length; i++) {
+                    if (magicBytes[i] != readMagicBytes[i]) {
+                        throw new Exception("Missmatch in magic bytes for afc header");
+                    }
+                }
+            }
+
+            AfcHeader afcHeader = new AfcHeader() {
+                EntireLength = BitConverter.ToUInt64(bytes, 8),
+                Length = BitConverter.ToUInt64(bytes, 16),
+                PacketNumber = BitConverter.ToUInt64(bytes, 24),
+                Operation = (AfcOpCode) BitConverter.ToUInt64(bytes, 32),
+            };
+            return afcHeader;
+        }
+
+        public byte[] GetBytes()
+        {
+            List<byte> bytes = new List<byte>();
+            bytes.AddRange(Encoding.UTF8.GetBytes(Magic));
+            bytes.AddRange(BitConverter.GetBytes(EntireLength));
+            bytes.AddRange(BitConverter.GetBytes(Length));
+            bytes.AddRange(BitConverter.GetBytes(PacketNumber));
+            bytes.AddRange(BitConverter.GetBytes((ulong) Operation));
+
+            return bytes.ToArray();
+        }
+
+        public static int GetSize()
+        {
+            int size = Encoding.UTF8.GetBytes(Magic).Length;
+            size += sizeof(ulong);
+            size += sizeof(ulong);
+            size += sizeof(ulong);
+            size += sizeof(ulong);
+            return size;
+        }
     }
 
     public sealed class AfcService : BaseService
     {
+        private const int MAXIMUM_READ_SIZE = 1024 ^ 2; // 1 MB
+
         private static readonly Dictionary<string, AfcFileOpenMode> FileOpenModes = new Dictionary<string, AfcFileOpenMode>() {
             { "r", AfcFileOpenMode.ReadOnly },
             { "r+", AfcFileOpenMode.ReadWrite },
@@ -140,12 +224,13 @@ namespace Netimobiledevice.Lockdown.Services
         private void DispatchPacket(AfcOpCode opCode, byte[] data, ulong? thisLength = null)
         {
             AfcHeader header = new AfcHeader() {
-                Magic = new byte[] { 0x43, 0x46, 0x41, 0x36, 0x4C, 0x50, 0x41, 0x41 },
-                EntireLength = (ulong) (Marshal.SizeOf(typeof(UsbmuxdHeader)) + data.Length),
-                Length = (ulong) (Marshal.SizeOf(typeof(UsbmuxdHeader)) + data.Length),
+                EntireLength = (ulong) data.Length,
+                Length = (ulong) data.Length,
                 PacketNumber = packetNumber,
                 Operation = opCode
             };
+            header.EntireLength = (ulong) (header.GetBytes().Length + data.Length);
+            header.Length = (ulong) (header.GetBytes().Length + data.Length);
 
             if (thisLength != null) {
                 header.Length = (ulong) thisLength;
@@ -160,12 +245,65 @@ namespace Netimobiledevice.Lockdown.Services
             Service.Send(packet.ToArray());
         }
 
+        private byte[] FileRead(ulong handle, ulong size)
+        {
+            List<byte> data = new List<byte>();
+            while (size > 0) {
+                ulong toRead;
+                if (size > MAXIMUM_READ_SIZE) {
+                    toRead = MAXIMUM_READ_SIZE;
+                }
+                else {
+                    toRead = size;
+                }
+
+                AfcFileReadRequest readRequest = new AfcFileReadRequest() {
+                    Handle = handle,
+                    Size = size
+                };
+
+                DispatchPacket(AfcOpCode.Read, readRequest.GetBytes());
+                (AfcError status, byte[] chunk) = ReceiveData();
+                if (status != AfcError.Success) {
+                    throw new AfcException(status, "File Read Error");
+                }
+
+                size -= toRead;
+                data.AddRange(chunk);
+            }
+
+            return data.ToArray();
+        }
+
+        private DictionaryNode GetFileInfo(string filename)
+        {
+            DictionaryNode fileInfo = new DictionaryNode();
+            try {
+                AfcFileInfoRequest request = new AfcFileInfoRequest(new CString(filename, Encoding.UTF8));
+                byte[] response = RunOperation(AfcOpCode.GetFileInfo, request.GetBytes());
+                PropertyNode plist = PropertyList.LoadFromByteArray(response);
+                fileInfo = plist.AsDictionaryNode();
+            }
+            catch (AfcException ex) {
+                if (ex.AfcError != AfcError.ReadError) {
+                    throw;
+                }
+                throw new AfcFileNotFoundException(ex.AfcError, filename);
+            }
+
+            return fileInfo;
+        }
+
+
         private byte[] RunOperation(AfcOpCode opCode, byte[] data)
         {
             DispatchPacket(opCode, data);
             (AfcError status, byte[] recievedData) = ReceiveData();
 
             if (status != AfcError.Success) {
+                if (status == AfcError.ObjectNotFound) {
+                    throw new AfcFileNotFoundException(AfcError.ObjectNotFound);
+                }
                 throw new Exception($"Afc opcode {opCode} failed with status: {status}");
             }
 
@@ -174,17 +312,17 @@ namespace Netimobiledevice.Lockdown.Services
 
         private (AfcError, byte[]) ReceiveData()
         {
-            byte[] response = Service.Receive(Marshal.SizeOf(typeof(UsbmuxdHeader)));
+            byte[] response = Service.Receive(AfcHeader.GetSize());
 
             AfcError status = AfcError.Success;
             byte[] data = Array.Empty<byte>();
 
             if (response.Length > 0) {
-                AfcHeader header = StructExtentions.FromBytes<AfcHeader>(response);
-                if (header.EntireLength <= (ulong) Marshal.SizeOf(typeof(UsbmuxdHeader))) {
+                AfcHeader header = AfcHeader.FromBytes(response);
+                if (header.EntireLength <= (ulong) AfcHeader.GetSize()) {
                     throw new Exception("Expected more bytes in afc header than receieved");
                 }
-                int length = (int) header.EntireLength - Marshal.SizeOf(typeof(UsbmuxdHeader));
+                int length = (int) header.EntireLength - AfcHeader.GetSize();
                 data = Service.Receive(length);
                 if (header.Operation == AfcOpCode.Status) {
                     if (length != 8) {
@@ -196,6 +334,44 @@ namespace Netimobiledevice.Lockdown.Services
             }
 
             return (status, data);
+        }
+
+        private string ResolvePath(string filename)
+        {
+            DictionaryNode info = GetFileInfo(filename);
+
+            if (info.ContainsKey("st_ifmt")) {
+                if (info["st_ifmt"].AsStringNode().Value == "S_IFLNK") {
+                    string target = info["LinkTarget"].AsStringNode().Value;
+                    if (!target.StartsWith("/")) {
+                        // Relative path
+                        filename = Path.Combine(Path.GetDirectoryName(filename), target);
+                    }
+                    else {
+                        filename = target;
+                    }
+                }
+            }
+
+            return filename;
+        }
+
+        public byte[] GetFileContents(string filename)
+        {
+            filename = ResolvePath(filename);
+
+            DictionaryNode info = GetFileInfo(filename);
+            if (info["st_ifmt"].AsStringNode().Value != "S_IFREG") {
+                throw new AfcException(AfcError.InvalidArg, $"{filename} isn't a file");
+            }
+
+            ulong handle = FileOpen(filename);
+            if (handle == 0) {
+                return null;
+            }
+            byte[] details = FileRead(handle, (ulong) info["st_size"].AsIntegerNode().Value);
+
+            return details;
         }
 
         public byte[] Lock(ulong handle, AfcLockModes operation)
@@ -221,10 +397,7 @@ namespace Netimobiledevice.Lockdown.Services
                 throw new ArgumentException($"mode can oly be one of {FileOpenModes.Keys}", nameof(mode));
             }
 
-            AfcFileOpenRequest openRequest = new AfcFileOpenRequest() {
-                Mode = FileOpenModes[mode],
-                Filename = filename
-            };
+            AfcFileOpenRequest openRequest = new AfcFileOpenRequest(FileOpenModes[mode], new CString(filename, Encoding.UTF8));
             byte[] data = RunOperation(AfcOpCode.FileOpen, openRequest.GetBytes());
             return StructExtentions.FromBytes<AfcFileOpenResponse>(data).Handle;
         }
