@@ -89,7 +89,7 @@ The list of all the services from lockdownd which have been implemented and the 
 
 ## License
 
-This project is licensed under the [GNU GENERAL PUBLIC LICENSE](https://github.com/artehe/Netimobiledevice/blob/main/LICENSE).
+This project is licensed under the [MIT LICENSE](https://github.com/artehe/Netimobiledevice/blob/main/LICENSE).
 
 ## Contributing
 
