@@ -219,5 +219,14 @@ namespace Netimobiledevice.Plist
                 return ms.ToArray();
             }
         }
+
+        public static string SaveAsString(PropertyNode rootNode, PlistFormat format)
+        {
+            using (MemoryStream ms = new MemoryStream()) {
+                Save(rootNode, ms, format);
+                ms.Seek(0, SeekOrigin.Begin);
+                return Encoding.UTF8.GetString(ms.ToArray());
+            }
+        }
     }
 }

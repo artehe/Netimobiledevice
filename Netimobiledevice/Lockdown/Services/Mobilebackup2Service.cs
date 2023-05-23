@@ -38,7 +38,7 @@ namespace Netimobiledevice.Lockdown.Services
         {
             var deviceLink = new DeviceLink(Service, backupDirectory);
             await deviceLink.VersionExchange();
-            await Mobilebackup2Service.VersionExchange(deviceLink);
+            await VersionExchange(deviceLink);
             return deviceLink;
         }
 
@@ -165,12 +165,12 @@ namespace Netimobiledevice.Lockdown.Services
         /// <param name="fullBackup">Whether to do a full backup. If full is True, any previous backup attempts will be discarded.</param>
         /// <param name="backupDirectory">Directory to write backup to.</param>
         /// <param name="progressCallback">Function to be called as the backup progresses.</param>
-        public async Task Backup(bool fullBackup = true, string backupDirectory = ".", Action progressCallback = null)
+        public async Task Backup(bool fullBackup = true, string backupDirectory = ".", Action<PropertyNode>? progressCallback = null)
         {
             string deviceDirectory = Path.Combine(backupDirectory, Lockdown.UDID);
             Directory.CreateDirectory(deviceDirectory);
 
-            using (DeviceLink deviceLink = await GetDeviceLink()) {
+            using (DeviceLink deviceLink = await GetDeviceLink(backupDirectory)) {
                 NotificationProxyService notificationProxyService = new NotificationProxyService(Lockdown);
                 AfcService afcService = new AfcService(Lockdown);
 
@@ -180,24 +180,8 @@ namespace Netimobiledevice.Lockdown.Services
                     string infoPlistPath = Path.Combine(deviceDirectory, "Info.plist");
                     await File.WriteAllBytesAsync(infoPlistPath, PropertyList.SaveAsByteArray(infoPlist, PlistFormat.Xml));
 
-
-                    // Initialize Status.plist file if doesn't exist.
-                    string statusPath = Path.Combine(deviceDirectory, "Status.plist");
-                    if (fullBackup || !File.Exists(statusPath)) {
-                        DictionaryNode statusPlist = new DictionaryNode() {
-                            {"BackupState", new StringNode("New") },
-                            {"Date", new DateNode(DateTime.Now) },
-                            {"IsFullBackup", new BooleanNode(fullBackup) },
-                            {"Version", new StringNode("3.3") },
-                            {"SnapshotState", new StringNode("finished") },
-                            {"UUID", new StringNode(Guid.NewGuid().ToString().ToUpper()) }
-                        };
-                        byte[] statusPlistBytes = PropertyList.SaveAsByteArray(statusPlist, PlistFormat.Xml);
-                        await File.WriteAllBytesAsync(statusPath, statusPlistBytes);
-                    }
-
                     // Create Manifest.plist if doesn't exist.
-                    string manifestPlistPath = Path.Combine(backupDirectory, "Manifest.plist");
+                    string manifestPlistPath = Path.Combine(deviceDirectory, "Manifest.plist");
                     if (fullBackup) {
                         File.Delete(manifestPlistPath);
                     }
@@ -209,7 +193,7 @@ namespace Netimobiledevice.Lockdown.Services
                     };
                     deviceLink.SendProcessMessage(backupRequest);
 
-                    // TODO deviceLink.MessageLoop(progressCallback);
+                    await deviceLink.MessageLoop(progressCallback);
                 }
             }
         }
