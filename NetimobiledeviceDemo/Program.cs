@@ -19,7 +19,7 @@ public class Program
             }
         }
 
-        Usbmux.Subscribe(SubscriptionCallback);
+        Usbmux.Subscribe(SubscriptionCallback, SubscriptionErrorCallback);
 
         LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty);
 
@@ -57,5 +57,11 @@ public class Program
         Console.WriteLine("NewCallbackExecuted");
         Console.WriteLine($"Connection event: {connectionEvent}");
         Console.WriteLine($"Device: {device.DeviceId} - {device.Serial}");
+    }
+
+    private static void SubscriptionErrorCallback(Exception ex)
+    {
+        Console.WriteLine("NewErrorCallbackExecuted");
+        Console.WriteLine(ex.Message);
     }
 }

@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace Netimobiledevice.Usbmuxd
 {
@@ -13,10 +14,11 @@ namespace Netimobiledevice.Usbmuxd
     {
         private readonly BackgroundWorker bw;
         private readonly Action<UsbmuxdDevice, UsbmuxdConnectionEventType> callback;
+        private readonly Action<Exception>? errorCallback;
 
         private List<UsbmuxdDevice> Devices { get; set; } = new List<UsbmuxdDevice>();
 
-        public UsbmuxdConnectionMonitor(Action<UsbmuxdDevice, UsbmuxdConnectionEventType> callback)
+        public UsbmuxdConnectionMonitor(Action<UsbmuxdDevice, UsbmuxdConnectionEventType> callback, Action<Exception>? errorCallback = null)
         {
             bw = new BackgroundWorker {
                 WorkerSupportsCancellation = true
@@ -24,6 +26,7 @@ namespace Netimobiledevice.Usbmuxd
             bw.DoWork += BackgroundWorker_DoWork;
 
             this.callback = callback;
+            this.errorCallback = errorCallback;
         }
 
         private void AddDevice(UsbmuxdDevice usbmuxdDevice)
@@ -34,16 +37,26 @@ namespace Netimobiledevice.Usbmuxd
 
         private void BackgroundWorker_DoWork(object? sender, DoWorkEventArgs e)
         {
-            bool running = true;
             do {
-                var muxConnection = UsbmuxConnection.Create();
+                UsbmuxConnection muxConnection;
+                try {
+                    muxConnection = UsbmuxConnection.Create();
+                }
+                catch (UsbmuxConnectionException ex) {
+                    errorCallback?.Invoke(ex);
+                    Debug.WriteLine($"Issue trying to create UsbmuxConnection {ex.Message}");
+
+                    // Put a delay here so that it doesn't immedietly retry creating the UsbmuxConnection
+                    Thread.Sleep(500);
+                    continue;
+                }
 
                 UsbmuxdResult usbmuxError = muxConnection.Listen();
                 if (usbmuxError != UsbmuxdResult.Ok) {
                     continue;
                 }
 
-                while (running && !bw.CancellationPending) {
+                while (!bw.CancellationPending) {
                     UsbmuxdResult result = GetNextEvent(muxConnection);
                     if (result != UsbmuxdResult.Ok) {
                         break;
@@ -79,41 +92,50 @@ namespace Netimobiledevice.Usbmuxd
                 return UsbmuxdResult.UnknownError;
             }
 
-            if (header.Message == UsbmuxdMessageType.Add) {
-                AddResponse response = new AddResponse(header, payload);
-                UsbmuxdDevice usbmuxdDevice = new UsbmuxdDevice(response.DeviceRecord.DeviceId, response.DeviceRecord.SerialNumber, UsbmuxdConnectionType.Usb);
-                AddDevice(usbmuxdDevice);
-            }
-            else if (header.Message == UsbmuxdMessageType.Remove) {
-                RemoveResponse response = new RemoveResponse(header, payload);
-                RemoveDevice(response.DeviceId);
-            }
-            else if (header.Message == UsbmuxdMessageType.Paired) {
-                PairedResposne response = new PairedResposne(header, payload);
-                PairedDevice(response.DeviceId);
-            }
-            else if (header.Message == UsbmuxdMessageType.Plist) {
-                PlistResponse response = new PlistResponse(header, payload);
-                DictionaryNode responseDict = response.Plist.AsDictionaryNode();
-                string messageType = responseDict["MessageType"].AsStringNode().Value;
-                if (messageType == "Attached") {
-                    UsbmuxdDevice usbmuxdDevice = new UsbmuxdDevice(responseDict["DeviceID"].AsIntegerNode(), responseDict["Properties"].AsDictionaryNode());
+            switch (header.Message) {
+                case UsbmuxdMessageType.Add: {
+                    AddResponse response = new AddResponse(header, payload);
+                    UsbmuxdDevice usbmuxdDevice = new UsbmuxdDevice(response.DeviceRecord.DeviceId, response.DeviceRecord.SerialNumber, UsbmuxdConnectionType.Usb);
                     AddDevice(usbmuxdDevice);
+                    break;
                 }
-                else if (messageType == "Detached") {
-                    long deviceId = responseDict["DeviceID"].AsIntegerNode().Value;
-                    RemoveDevice(deviceId);
+                case UsbmuxdMessageType.Remove: {
+                    RemoveResponse response = new RemoveResponse(header, payload);
+                    RemoveDevice(response.DeviceId);
+                    break;
                 }
-                else if (messageType == "Paired") {
-                    long deviceId = responseDict["DeviceID"].AsIntegerNode().Value;
-                    PairedDevice(deviceId);
+                case UsbmuxdMessageType.Paired: {
+                    PairedResposne response = new PairedResposne(header, payload);
+                    PairedDevice(response.DeviceId);
+                    break;
                 }
-                else {
-                    throw new UsbmuxException($"Unexpected message type {header.Message} with length {header.Length}");
+                case UsbmuxdMessageType.Plist: {
+                    PlistResponse response = new PlistResponse(header, payload);
+                    DictionaryNode responseDict = response.Plist.AsDictionaryNode();
+                    string messageType = responseDict["MessageType"].AsStringNode().Value;
+                    if (messageType == "Attached") {
+                        UsbmuxdDevice usbmuxdDevice = new UsbmuxdDevice(responseDict["DeviceID"].AsIntegerNode(), responseDict["Properties"].AsDictionaryNode());
+                        AddDevice(usbmuxdDevice);
+                    }
+                    else if (messageType == "Detached") {
+                        long deviceId = responseDict["DeviceID"].AsIntegerNode().Value;
+                        RemoveDevice(deviceId);
+                    }
+                    else if (messageType == "Paired") {
+                        long deviceId = responseDict["DeviceID"].AsIntegerNode().Value;
+                        PairedDevice(deviceId);
+                    }
+                    else {
+                        throw new UsbmuxException($"Unexpected message type {header.Message} with length {header.Length}");
+                    }
+                    break;
                 }
-            }
-            else if (header.Length > 0) {
-                Debug.WriteLine($"Unexpected message type {header.Message} with length {header.Length}");
+                default: {
+                    if (header.Length > 0) {
+                        Debug.WriteLine($"Unexpected message type {header.Message} with length {header.Length}");
+                    }
+                    break;
+                }
             }
 
             return UsbmuxdResult.Ok;
@@ -122,8 +144,10 @@ namespace Netimobiledevice.Usbmuxd
         private void PairedDevice(long deviceId)
         {
             if (Devices.Exists(x => x.DeviceId == deviceId)) {
-                UsbmuxdDevice device = Devices.Find(x => x.DeviceId == deviceId);
-                callback(device, UsbmuxdConnectionEventType.DEVICE_PAIRED);
+                UsbmuxdDevice? device = Devices.Find(x => x.DeviceId == deviceId);
+                if (device != null) {
+                    callback(device, UsbmuxdConnectionEventType.DEVICE_PAIRED);
+                }
             }
             else {
                 Debug.WriteLine($"WARNING: got device paired message for id {deviceId}, but couldn't find the corresponding device in the list. This event will be ignored.");
@@ -133,9 +157,11 @@ namespace Netimobiledevice.Usbmuxd
         private void RemoveDevice(long deviceId)
         {
             if (Devices.Exists(x => x.DeviceId == deviceId)) {
-                UsbmuxdDevice device = Devices.Find(x => x.DeviceId == deviceId);
-                Devices.Remove(device);
-                callback(device, UsbmuxdConnectionEventType.DEVICE_REMOVE);
+                UsbmuxdDevice? device = Devices.Find(x => x.DeviceId == deviceId);
+                if (device != null) {
+                    Devices.Remove(device);
+                    callback(device, UsbmuxdConnectionEventType.DEVICE_REMOVE);
+                }
             }
             else {
                 Debug.WriteLine($"WARNING: got device remove message for id {deviceId}, but couldn't find the corresponding device in the list. This event will be ignored.");

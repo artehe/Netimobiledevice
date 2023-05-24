@@ -69,6 +69,19 @@ namespace Netimobiledevice.Usbmuxd
         }
 
         /// <summary>
+        /// Subscribes a callback function to be called upon device add/remove events from
+        /// usbmux.
+        /// </summary>
+        /// <param name="callback">A callback function that is executed when an event occurs.</param>
+        /// <param name="errorCallback">A callback function which is excecuted when an exception occurs</param>
+        public static void Subscribe(Action<UsbmuxdDevice, UsbmuxdConnectionEventType> callback, Action<Exception> errorCallback)
+        {
+            connectionMonitor = new UsbmuxdConnectionMonitor(callback, errorCallback);
+            connectionMonitor.Start();
+        }
+
+
+        /// <summary>
         /// Stops monitoring for connection events from usbmuxd and removes the callback function
         /// </summary>
         public static void Unsubscribe()
