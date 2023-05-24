@@ -2,6 +2,7 @@
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -27,10 +28,46 @@ namespace Netimobiledevice.Lockdown.Services
             _deviceLinkMessageHandlers.Add("DLMessageGetFreeDiskSpace", GetFreeDiskSpace);
             _deviceLinkMessageHandlers.Add("DLMessageCreateDirectory", CreateDirectory);
             _deviceLinkMessageHandlers.Add("DLMessageUploadFiles", UploadFiles);
-            // TODO deviceLinkMessageHandlers.Add("DLMessageMoveItems", self.move_items);
-            // TODO deviceLinkMessageHandlers.Add("DLMessageRemoveItems", self.remove_items);
-            // TODO deviceLinkMessageHandlers.Add("DLContentsOfDirectory", self.contents_of_directory);
-            // TODO deviceLinkMessageHandlers.Add("DLMessageCopyItem", self.copy_item);
+            _deviceLinkMessageHandlers.Add("DLMessageMoveItems", MoveItems);
+            _deviceLinkMessageHandlers.Add("DLMessageRemoveItems", RemoveItems);
+            _deviceLinkMessageHandlers.Add("DLContentsOfDirectory", ContentsOfDirectory);
+            _deviceLinkMessageHandlers.Add("DLMessageCopyItem", CopyItem);
+        }
+
+        private void ContentsOfDirectory(ArrayNode message)
+        {
+            string targetPath = Path.Combine(_rootPath ?? string.Empty, message[1].AsStringNode().Value);
+            DictionaryNode dirList = new DictionaryNode();
+
+            var dir = new DirectoryInfo(targetPath);
+            if (dir.Exists) {
+                foreach (FileSystemInfo entry in dir.GetFileSystemInfos()) {
+                    var entryDict = new DictionaryNode {
+                        { "DLFileModificationDate", new DateNode(entry.LastWriteTime) },
+                        { "DLFileSize", new IntegerNode(entry is FileInfo fileInfo ? fileInfo.Length : 0L) },
+                        { "DLFileType", new StringNode(entry.Attributes.HasFlag(FileAttributes.Directory) ? "DLFileTypeDirectory" : "DLFileTypeRegular") }
+                    };
+                    dirList.Add(entry.Name, entryDict);
+                }
+            }
+
+            StatusResponse(0, extraStatus: dirList);
+        }
+
+        private void CopyItem(ArrayNode message)
+        {
+            string sourcePath = Path.Combine(_rootPath ?? string.Empty, message[1].AsStringNode().Value);
+            string destinationPath = Path.Combine(_rootPath ?? string.Empty, message[2].AsStringNode().Value);
+
+            var source = new FileInfo(sourcePath);
+            if (source.Attributes.HasFlag(FileAttributes.Directory)) {
+                Debug.WriteLine($"Are you really asking me to copy a whole directory?");
+            }
+            else {
+                File.Copy(source.FullName, new FileInfo(destinationPath).FullName);
+            }
+
+            StatusResponse(0);
         }
 
         private void CreateDirectory(ArrayNode message)
@@ -75,7 +112,7 @@ namespace Netimobiledevice.Lockdown.Services
 
                     List<byte> buffer = new List<byte>();
                     byte[] errBytes = Encoding.UTF8.GetBytes(errorMessage);
-                    buffer.AddRange(EndianBitConversion.EndianBitConverter.BigEndian.GetBytes(errBytes.Length + 1));
+                    buffer.AddRange(EndianBitConverter.BigEndian.GetBytes(errBytes.Length + 1));
                     buffer.Add((byte) errCode);
                     buffer.AddRange(errBytes);
 
@@ -84,8 +121,8 @@ namespace Netimobiledevice.Lockdown.Services
                 else {
                     byte[] data = File.ReadAllBytes(filePath);
 
-                    _service.Send(EndianBitConversion.EndianBitConverter.BigEndian.GetBytes(data.Length + 1));
-                    _service.Send(EndianBitConversion.EndianBitConverter.BigEndian.GetBytes(FILE_DATA_CODE));
+                    _service.Send(EndianBitConverter.BigEndian.GetBytes(data.Length + 1));
+                    _service.Send(EndianBitConverter.BigEndian.GetBytes(FILE_DATA_CODE));
 
                     _service.Send(data);
 
@@ -121,11 +158,58 @@ namespace Netimobiledevice.Lockdown.Services
             StatusResponse(0, null, new IntegerNode(freeSpace));
         }
 
+        private void MoveItems(ArrayNode message)
+        {
+            foreach (KeyValuePair<string, PropertyNode> move in message[1].AsDictionaryNode()) {
+                string newPath = move.Value.AsStringNode().Value;
+                if (!string.IsNullOrEmpty(newPath)) {
+                    var newFile = new FileInfo(Path.Combine(_rootPath ?? string.Empty, newPath));
+                    var oldFile = new FileInfo(Path.Combine(_rootPath ?? string.Empty, move.Key));
+                    var fileInfo = new FileInfo(newPath);
+                    if (fileInfo.Exists) {
+                        if (fileInfo.Attributes.HasFlag(FileAttributes.Directory)) {
+                            new DirectoryInfo(newFile.FullName).Delete(true);
+                        }
+                        else {
+                            fileInfo.Delete();
+                        }
+                    }
+
+                    if (oldFile.Exists) {
+                        oldFile.MoveTo(newFile.FullName);
+                    }
+                }
+            }
+
+            StatusResponse(0);
+        }
+
         private byte[] PrefixedReceive()
         {
             byte[] data = _service.Receive(4);
             int size = EndianBitConverter.BigEndian.ToInt32(data, 0);
             return _service.Receive(size);
+        }
+
+        private void RemoveItems(ArrayNode message)
+        {
+            ArrayNode items = message[1].AsArrayNode();
+            foreach (StringNode filename in items.Cast<StringNode>()) {
+                if (string.IsNullOrEmpty(filename.Value)) {
+                    Debug.WriteLine("Empty file to remove.");
+                }
+                else {
+                    FileInfo file = new FileInfo(Path.Combine(_rootPath ?? string.Empty, filename.Value));
+                    if (file.Exists) {
+                        if (file.Attributes.HasFlag(FileAttributes.Directory)) {
+                            Directory.Delete(file.FullName, true);
+                        }
+                        else {
+                            file.Delete();
+                        }
+                    }
+                }
+            }
         }
 
         private void StatusResponse(int statusCode, string? statusString = null, PropertyNode? extraStatus = null)
