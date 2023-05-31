@@ -63,9 +63,10 @@ private static void SubscriptionCallback(UsbmuxdDevice device, UsbmuxdConnection
 Get the app icon displayed on the home screen as a PNG:
 
 ```csharp
-LockdownClient lockdown = LockdownClient.CreateLockdownClient("60653a518d33eb53b3ca2212cd1f44e162a42069");
-SpringBoardServicesService springBoard = new SpringBoardServicesService(lockdown);
-PropertyNode png = springBoard.GetIconPNGData("net.whatsapp.WhatsApp");
+using (LockdownClient lockdown = LockdownClient.CreateLockdownClient("60653a518d33eb53b3ca2212cd1f44e162a42069")) {
+    SpringBoardServicesService springBoard = new SpringBoardServicesService(lockdown);
+    PropertyNode png = springBoard.GetIconPNGData("net.whatsapp.WhatsApp");
+}
 ```
 
 ## Services

@@ -10,7 +10,7 @@ using System.Threading;
 
 namespace Netimobiledevice.Lockdown
 {
-    public class LockdownClient
+    public class LockdownClient : IDisposable
     {
         private const string DEFAULT_CLIENT_NAME = "Netimobiledevice";
         private const ushort SERVICE_PORT = 62078;
@@ -23,18 +23,17 @@ namespace Netimobiledevice.Lockdown
         private bool paired = false;
         private string hostId;
         private string identifier;
-        private ConnectionMedium medium;
-        private string pairingRecordsCacheDir;
+        private readonly ConnectionMedium medium;
+        private readonly string pairingRecordsCacheDir;
         /// <summary>
         /// The pairing record for the connected device
         /// </summary>
         private DictionaryNode? pairRecord;
         private Version productVersion;
         private ServiceConnection service;
-        private string sessionId;
         private string systemBUID;
         private DictionaryNode allValues;
-        private UsbmuxdConnectionType usbmuxdConnectionType;
+        private readonly UsbmuxdConnectionType usbmuxdConnectionType;
 
         private StringNode WifiMacAddress => allValues["WiFiAddress"].AsStringNode();
         public string DeviceName => GetValue("DeviceName").AsStringNode().Value;
@@ -341,8 +340,6 @@ namespace Netimobiledevice.Lockdown
                 }
             }
 
-            sessionId = startSession["SessionID"].AsStringNode().Value;
-
             if (startSession.ContainsKey("EnableSessionSSL") && startSession["EnableSessionSSL"].AsBooleanNode().Value) {
                 service.StartSSL(pairRecord["HostCertificate"].AsDataNode().Value, pairRecord["HostPrivateKey"].AsDataNode().Value);
             }
@@ -355,6 +352,12 @@ namespace Netimobiledevice.Lockdown
         {
             string file = Path.Combine(pairingRecordsCacheDir, filename);
             File.WriteAllBytes(file, data);
+        }
+
+        public void Dispose()
+        {
+            service.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         /// <summary>

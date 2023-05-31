@@ -21,31 +21,32 @@ public class Program
 
         Usbmux.Subscribe(SubscriptionCallback, SubscriptionErrorCallback);
 
-        LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty);
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
 
-        InstallationProxyService installationProxyService = new InstallationProxyService(lockdown);
-        ArrayNode apps = await installationProxyService.Browse();
+            InstallationProxyService installationProxyService = new InstallationProxyService(lockdown);
+            ArrayNode apps = await installationProxyService.Browse();
 
-        /*
-        SpringBoardServicesService springBoard = new SpringBoardServicesService(lockdown);
-        PropertyNode png = springBoard.GetIconPNGData("net.whatsapp.WhatsApp");
-        */
+            /*
+            SpringBoardServicesService springBoard = new SpringBoardServicesService(lockdown);
+            PropertyNode png = springBoard.GetIconPNGData("net.whatsapp.WhatsApp");
+            */
 
-        OsTraceService osTraceService = new OsTraceService(lockdown);
-        DictionaryNode pidList = await osTraceService.GetPidList();
+            OsTraceService osTraceService = new OsTraceService(lockdown);
+            DictionaryNode pidList = await osTraceService.GetPidList();
 
-        DiagnosticsService diagnosticsService = new DiagnosticsService(lockdown);
-        DictionaryNode info = diagnosticsService.GetBattery();
+            DiagnosticsService diagnosticsService = new DiagnosticsService(lockdown);
+            DictionaryNode info = diagnosticsService.GetBattery();
 
-        Mobilebackup2Service mobilebackup2Service = new Mobilebackup2Service(lockdown);
-        await mobilebackup2Service.Backup();
+            Mobilebackup2Service mobilebackup2Service = new Mobilebackup2Service(lockdown);
+            //await mobilebackup2Service.Backup();
 
-        /*
-        SyslogService syslog = new SyslogService(lockdown);
-        foreach (string line in syslog.Watch()) {
-            Console.WriteLine(line);
+            /*
+            SyslogService syslog = new SyslogService(lockdown);
+            foreach (string line in syslog.Watch()) {
+                Console.WriteLine(line);
+            }
+            */
         }
-        */
 
         Usbmux.Unsubscribe();
 

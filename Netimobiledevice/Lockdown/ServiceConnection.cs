@@ -18,7 +18,7 @@ namespace Netimobiledevice.Lockdown
     /// <summary>
     /// A wrapper for usbmux tcp-relay connections
     /// </summary>
-    public class ServiceConnection
+    public class ServiceConnection : IDisposable
     {
         private readonly UsbmuxdDevice? muxDevice;
         private Stream networkStream;
@@ -99,6 +99,13 @@ namespace Netimobiledevice.Lockdown
             else {
                 return CreateUsingUsbmux(identifier, port, usbmuxdConnectionType);
             }
+        }
+
+        public void Dispose()
+        {
+            Close();
+            networkStream.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         public UsbmuxdDevice? GetUsbmuxdDevice()
