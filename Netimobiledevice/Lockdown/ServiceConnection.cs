@@ -124,6 +124,18 @@ namespace Netimobiledevice.Lockdown
             return buffer;
         }
 
+        public async Task<byte[]> ReceiveAsync(int length = 4096)
+        {
+            byte[] buffer = new byte[length];
+            if (length <= 0) {
+                return Array.Empty<byte>();
+            }
+
+            await networkStream.ReadAsync(buffer);
+            return buffer;
+        }
+
+
         public async Task<PropertyNode?> ReceivePlist()
         {
             byte[] plistBytes = await ReceivePrefixed();
