@@ -115,24 +115,12 @@ namespace Netimobiledevice.Lockdown
 
         public byte[] Receive(int length = 4096)
         {
-            byte[] buffer = new byte[length];
-            if (length <= 0) {
-                return Array.Empty<byte>();
-            }
-
-            networkStream.Read(buffer);
-            return buffer;
+            return ReceiveAll(length).GetAwaiter().GetResult();
         }
 
         public async Task<byte[]> ReceiveAsync(int length = 4096)
         {
-            byte[] buffer = new byte[length];
-            if (length <= 0) {
-                return Array.Empty<byte>();
-            }
-
-            await networkStream.ReadAsync(buffer);
-            return buffer;
+            return await ReceiveAll(length);
         }
 
 
@@ -150,6 +138,11 @@ namespace Netimobiledevice.Lockdown
             networkStream.Write(data);
         }
 
+        public async Task SendAsync(byte[] data)
+        {
+            await networkStream.WriteAsync(data);
+        }
+
         public void SendPlist(PropertyNode data)
         {
             byte[] plistBytes = PropertyList.SaveAsByteArray(data, PlistFormat.Xml);
@@ -159,6 +152,17 @@ namespace Netimobiledevice.Lockdown
             payload.AddRange(lengthBytes);
             payload.AddRange(plistBytes);
             Send(payload.ToArray());
+        }
+
+        public async Task SendPlistAsync(PropertyNode data)
+        {
+            byte[] plistBytes = PropertyList.SaveAsByteArray(data, PlistFormat.Xml);
+            byte[] lengthBytes = BitConverter.GetBytes(EndianBitConverter.BigEndian.ToInt32(BitConverter.GetBytes(plistBytes.Length), 0));
+
+            List<byte> payload = new List<byte>();
+            payload.AddRange(lengthBytes);
+            payload.AddRange(plistBytes);
+            await SendAsync(payload.ToArray());
         }
 
         public PropertyNode? SendReceivePlist(PropertyNode data)
