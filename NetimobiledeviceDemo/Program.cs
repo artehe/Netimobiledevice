@@ -38,7 +38,7 @@ public class Program
             DictionaryNode info = diagnosticsService.GetBattery();
 
             Mobilebackup2Service mobilebackup2Service = new Mobilebackup2Service(lockdown);
-            //await mobilebackup2Service.Backup();
+            await mobilebackup2Service.Backup();
 
             /*
             SyslogService syslog = new SyslogService(lockdown);

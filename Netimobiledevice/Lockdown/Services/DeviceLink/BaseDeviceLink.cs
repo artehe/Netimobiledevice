@@ -2,36 +2,37 @@
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Netimobiledevice.Lockdown.Services
+namespace Netimobiledevice.Lockdown.Services.DeviceLink
 {
-    internal class DeviceLink : IDisposable
+    internal abstract class BaseDeviceLink : IDisposable
     {
-        private const int FILE_DATA_CODE = 0x0C;
-        private const int SUCCESS_CODE = 0x00;
-
         private readonly ServiceConnection _service;
         private readonly string? _rootPath;
-        private readonly Dictionary<string, Func<ArrayNode, Task>> _deviceLinkMessageHandlers = new Dictionary<string, Func<ArrayNode, Task>>();
+        private readonly ReadOnlyDictionary<string, Func<ArrayNode, Task>> _deviceLinkMessageHandlers;
 
-        public DeviceLink(ServiceConnection service, string? rootPath)
+        public BaseDeviceLink(ServiceConnection service, string? rootPath)
         {
             _service = service;
             _rootPath = rootPath;
 
-            _deviceLinkMessageHandlers.Add("DLMessageDownloadFiles", DownloadFiles);
-            _deviceLinkMessageHandlers.Add("DLMessageGetFreeDiskSpace", GetFreeDiskSpace);
-            _deviceLinkMessageHandlers.Add("DLMessageCreateDirectory", CreateDirectory);
-            _deviceLinkMessageHandlers.Add("DLMessageUploadFiles", UploadFiles);
-            _deviceLinkMessageHandlers.Add("DLMessageMoveItems", MoveItems);
-            _deviceLinkMessageHandlers.Add("DLMessageRemoveItems", RemoveItems);
-            _deviceLinkMessageHandlers.Add("DLContentsOfDirectory", ContentsOfDirectory);
-            _deviceLinkMessageHandlers.Add("DLMessageCopyItem", CopyItem);
+            Dictionary<string, Func<ArrayNode, Task>> messageHandlers = new Dictionary<string, Func<ArrayNode, Task>>() {
+                { "DLMessageDownloadFiles", DownloadFiles },
+                { "DLMessageGetFreeDiskSpace", GetFreeDiskSpace },
+                { "DLMessageCreateDirectory", CreateDirectory },
+                { "DLMessageUploadFiles", UploadFiles },
+                { "DLMessageMoveItems", MoveItems },
+                { "DLMessageRemoveItems", RemoveItems },
+                { "DLContentsOfDirectory", ContentsOfDirectory },
+                { "DLMessageCopyItem", CopyItem }
+            };
+            _deviceLinkMessageHandlers = new ReadOnlyDictionary<string, Func<ArrayNode, Task>>(messageHandlers);
         }
 
         private async Task ContentsOfDirectory(ArrayNode message)
@@ -51,7 +52,7 @@ namespace Netimobiledevice.Lockdown.Services
                 }
             }
 
-            StatusResponse(0, extraStatus: dirList);
+            await StatusResponse(0, extraStatus: dirList);
         }
 
         private async Task CopyItem(ArrayNode message)
@@ -67,7 +68,7 @@ namespace Netimobiledevice.Lockdown.Services
                 File.Copy(source.FullName, new FileInfo(destinationPath).FullName);
             }
 
-            StatusResponse(0);
+            await StatusResponse(0);
         }
 
         private async Task CreateDirectory(ArrayNode message)
@@ -77,7 +78,7 @@ namespace Netimobiledevice.Lockdown.Services
                 path = Path.Combine(_rootPath, path);
             }
             Directory.CreateDirectory(path);
-            StatusResponse(0);
+            await StatusResponse(0);
         }
 
         private void Disconnect()
@@ -95,8 +96,8 @@ namespace Netimobiledevice.Lockdown.Services
             foreach (StringNode file in message[1].AsArrayNode().Cast<StringNode>()) {
                 byte[] filePathBytes = Encoding.UTF8.GetBytes(file.Value);
                 byte[] pathLen = EndianBitConverter.BigEndian.GetBytes(filePathBytes.Length);
-                _service.Send(pathLen);
-                _service.Send(filePathBytes);
+                await _service.SendAsync(pathLen);
+                await _service.SendAsync(filePathBytes);
 
                 string filePath = Path.Combine(_rootPath ?? string.Empty, file.Value);
 
@@ -116,29 +117,29 @@ namespace Netimobiledevice.Lockdown.Services
                     buffer.Add((byte) errCode);
                     buffer.AddRange(errBytes);
 
-                    _service.Send(buffer.ToArray());
+                    await _service.SendAsync(buffer.ToArray());
                 }
                 else {
-                    byte[] data = File.ReadAllBytes(filePath);
+                    byte[] data = await File.ReadAllBytesAsync(filePath);
 
-                    _service.Send(EndianBitConverter.BigEndian.GetBytes(data.Length + 1));
-                    _service.Send(EndianBitConverter.BigEndian.GetBytes(FILE_DATA_CODE));
+                    await _service.SendAsync(EndianBitConverter.BigEndian.GetBytes(data.Length + 1));
+                    await _service.SendAsync(EndianBitConverter.BigEndian.GetBytes((byte) DeviceLinkResultCode.FileData));
 
-                    _service.Send(data);
+                    await _service.SendAsync(data);
 
                     // Send success code
                     byte[] buffer = new byte[] { 0, 0, 0, 1, 0 };
-                    _service.Send(buffer);
+                    await _service.SendAsync(buffer);
                 }
             }
 
             // Send the file transfer terminator
-            _service.Send(new byte[] { 0x00, 0x00, 0x00, 0x00 });
+            await _service.SendAsync(new byte[] { 0x00, 0x00, 0x00, 0x00 });
             if (status.Count > 0) {
-                StatusResponse(-13, "Multi status", status);
+                await StatusResponse(-13, "Multi status", status);
             }
             else {
-                StatusResponse(0);
+                await StatusResponse(0);
             }
         }
 
@@ -155,7 +156,7 @@ namespace Netimobiledevice.Lockdown.Services
                 }
             }
 
-            StatusResponse(0, null, new IntegerNode(freeSpace));
+            await StatusResponse(0, null, new IntegerNode(freeSpace));
         }
 
         private async Task MoveItems(ArrayNode message)
@@ -181,7 +182,7 @@ namespace Netimobiledevice.Lockdown.Services
                 }
             }
 
-            StatusResponse(0);
+            await StatusResponse(0);
         }
 
         private async Task<byte[]> PrefixedReceiveAsync()
@@ -210,9 +211,10 @@ namespace Netimobiledevice.Lockdown.Services
                     }
                 }
             }
+            await StatusResponse(0);
         }
 
-        private void StatusResponse(int statusCode, string? statusString = null, PropertyNode? extraStatus = null)
+        private async Task StatusResponse(int statusCode, string? statusString = null, PropertyNode? extraStatus = null)
         {
             ArrayNode responseMessage = new ArrayNode {
                 new StringNode("DLMessageStatusResponse"),
@@ -233,7 +235,7 @@ namespace Netimobiledevice.Lockdown.Services
                 responseMessage.Add(extraStatus);
             }
 
-            _service.SendPlist(responseMessage);
+            await _service.SendPlistAsync(responseMessage);
         }
 
         private async Task UploadFiles(ArrayNode message)
@@ -250,14 +252,14 @@ namespace Netimobiledevice.Lockdown.Services
 
                 byte[] sizeBytes = await _service.ReceiveAsync(4);
                 int size = EndianBitConverter.BigEndian.ToInt32(sizeBytes, 0);
-                byte code = (await _service.ReceiveAsync(1))[0];
+                DeviceLinkResultCode code = (DeviceLinkResultCode) (await _service.ReceiveAsync(1))[0];
 
                 string filePath = Path.Combine(_rootPath ?? string.Empty, filename);
                 using (FileStream fs = new FileStream(filePath, FileMode.Create)) {
                     int blockSize = size;
                     int done = 0;
 
-                    while (size > 0 && code == FILE_DATA_CODE) {
+                    while (size > 0 && code == DeviceLinkResultCode.FileData) {
                         while (done < blockSize) {
                             int toRead = Math.Min(blockSize - done, 4096);
                             byte[] buffer = await _service.ReceiveAsync(toRead);
@@ -268,18 +270,17 @@ namespace Netimobiledevice.Lockdown.Services
 
                         sizeBytes = await _service.ReceiveAsync(4);
                         size = EndianBitConverter.BigEndian.ToInt32(sizeBytes, 0);
-                        code = (await _service.ReceiveAsync(1))[0];
+                        code = (DeviceLinkResultCode) (await _service.ReceiveAsync(1))[0];
                     }
                 }
 
-                if (code != SUCCESS_CODE) {
+                if (code != DeviceLinkResultCode.Success) {
                     throw new Exception($"Issue receiving files from device error code: {code}");
                 }
             } while (true);
 
-            StatusResponse(0);
+            await StatusResponse(0);
         }
-
 
         public void Dispose()
         {

@@ -1,4 +1,5 @@
 ﻿using Netimobiledevice.Exceptions;
+using Netimobiledevice.Lockdown.Services.DeviceLink;
 using Netimobiledevice.Plist;
 using System;
 using System.IO;
@@ -34,9 +35,9 @@ namespace Netimobiledevice.Lockdown.Services
             return deviceBackupLock;
         }
 
-        private async Task<DeviceLink> GetDeviceLink(string? backupDirectory = null)
+        private async Task<StandardDeviceLink> GetStandardDeviceLink(string? backupDirectory = null)
         {
-            var deviceLink = new DeviceLink(Service, backupDirectory);
+            var deviceLink = new StandardDeviceLink(Service, backupDirectory);
             await deviceLink.VersionExchange();
             await VersionExchange(deviceLink);
             return deviceLink;
@@ -139,7 +140,7 @@ namespace Netimobiledevice.Lockdown.Services
         /// Exchange versions with the device and assert that the device supports our version of the protocol.
         /// </summary>
         /// <param name="deviceLink">Initialized device link.</param>
-        private static async Task VersionExchange(DeviceLink deviceLink)
+        private static async Task VersionExchange(StandardDeviceLink deviceLink)
         {
             ArrayNode supportedVersions = new ArrayNode {
                 new RealNode(2.0),
@@ -170,7 +171,7 @@ namespace Netimobiledevice.Lockdown.Services
             string deviceDirectory = Path.Combine(backupDirectory, Lockdown.UDID);
             Directory.CreateDirectory(deviceDirectory);
 
-            using (DeviceLink deviceLink = await GetDeviceLink(backupDirectory)) {
+            using (StandardDeviceLink deviceLink = await GetStandardDeviceLink(backupDirectory)) {
                 NotificationProxyService notificationProxyService = new NotificationProxyService(Lockdown);
                 AfcService afcService = new AfcService(Lockdown);
 
