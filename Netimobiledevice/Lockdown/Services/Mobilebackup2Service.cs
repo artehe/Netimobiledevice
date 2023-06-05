@@ -28,6 +28,25 @@ namespace Netimobiledevice.Lockdown.Services
 
         public Mobilebackup2Service(LockdownClient client) : base(client) { }
 
+        private DictionaryNode CreateBackupRequest(bool fullBackup, string udid)
+        {
+            DictionaryNode backupRequest = new DictionaryNode() {
+                        { "MessageName", new StringNode("Backup") },
+                        { "TargetIdentifier", new StringNode(udid) }
+                    };
+
+            DictionaryNode options = new DictionaryNode();
+            if (fullBackup) {
+                options.Add("ForceFullBackup", new BooleanNode(true));
+            }
+
+            if (options.Count > 0) {
+                backupRequest.Add("Options", options);
+            }
+
+            return backupRequest;
+        }
+
         private DeviceBackupLock GetDeviceBackupLock(AfcService afcService, NotificationProxyService notificationProxyService)
         {
             DeviceBackupLock deviceBackupLock = new DeviceBackupLock(afcService, notificationProxyService);
@@ -188,10 +207,7 @@ namespace Netimobiledevice.Lockdown.Services
                     }
                     File.Create(manifestPlistPath);
 
-                    DictionaryNode backupRequest = new DictionaryNode() {
-                        { "MessageName", new StringNode("Backup") },
-                        { "TargetIdentifier", new StringNode(Lockdown.UDID) }
-                    };
+                    DictionaryNode backupRequest = CreateBackupRequest(fullBackup, Lockdown.UDID);
                     deviceLink.SendProcessMessage(backupRequest);
 
                     await deviceLink.MessageLoop(progressCallback);
