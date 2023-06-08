@@ -70,10 +70,15 @@ namespace Netimobiledevice.Lockdown
                 filePath = Path.Combine("C:\\ProgramData\\Apple\\Lockdown", filePath);
             }
 
-            if (File.Exists(filePath)) {
-                using (FileStream fs = File.OpenRead(filePath)) {
-                    return PropertyList.Load(fs).AsDictionaryNode();
+            try {
+                if (File.Exists(filePath)) {
+                    using (FileStream fs = File.OpenRead(filePath)) {
+                        return PropertyList.Load(fs).AsDictionaryNode();
+                    }
                 }
+            }
+            catch (UnauthorizedAccessException ex) {
+                Debug.WriteLine($"Warning unauthorised access excpetion when trying to access itunes plist: {ex}");
             }
             return null;
         }
