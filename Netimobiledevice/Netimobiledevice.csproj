@@ -6,7 +6,7 @@
 		<ImplicitUsings>disable</ImplicitUsings>
 		<IsTrimmable>true</IsTrimmable>
 		<Nullable>enable</Nullable>
-		<TargetFrameworks>net6.0</TargetFrameworks>
+		<TargetFrameworks>net5.0;net6.0</TargetFrameworks>
 	</PropertyGroup>
 
 	<PropertyGroup>
@@ -20,7 +20,7 @@
 		<RepositoryUrl>https://github.com/artehe/Netimobiledevice</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<Title>$(AssemblyName)</Title>
-		<Version>0.5.1</Version>
+		<Version>0.5.2</Version>
 	</PropertyGroup>
 
 	<ItemGroup>
