@@ -36,9 +36,9 @@ namespace Netimobiledevice.Lockdown
         private readonly UsbmuxdConnectionType usbmuxdConnectionType;
 
         private StringNode WifiMacAddress => allValues["WiFiAddress"].AsStringNode();
-        public string DeviceName => GetValue("DeviceName").AsStringNode().Value;
+        public string DeviceName => GetValue("DeviceName")?.AsStringNode().Value ?? string.Empty;
         public bool EnableWifiConnections {
-            get => GetValue("com.apple.mobile.wireless_lockdown", "EnableWifiConnections").AsBooleanNode().Value;
+            get => GetValue("com.apple.mobile.wireless_lockdown", "EnableWifiConnections")?.AsBooleanNode().Value ?? false;
             set => SetValue("com.apple.mobile.wireless_lockdown", "EnableWifiConnections", new BooleanNode(value));
         }
         public string DeviceClass { get; private set; } = LockdownDeviceClass.UNKNOWN;
@@ -240,7 +240,7 @@ namespace Netimobiledevice.Lockdown
 
         private void Pair(int timeout = -1)
         {
-            devicePublicKey = GetValue(null, "DevicePublicKey").AsDataNode().Value;
+            devicePublicKey = GetValue(null, "DevicePublicKey")?.AsDataNode().Value ?? Array.Empty<byte>();
             if (devicePublicKey == null || devicePublicKey.Length == 0) {
                 Debug.WriteLine("Unable to retrieve DevicePublicKey");
                 service.Close();
@@ -371,7 +371,7 @@ namespace Netimobiledevice.Lockdown
         /// <param name="domain">The domain to obtain the value from.</param>
         /// <param name="key">The key of the property to obtain.</param>
         /// <returns>The value obtained.</returns>
-        public PropertyNode GetValue(string? domain, string? key)
+        public PropertyNode? GetValue(string? domain, string? key)
         {
             DictionaryNode options = new DictionaryNode();
             if (!string.IsNullOrEmpty(domain)) {
@@ -381,12 +381,19 @@ namespace Netimobiledevice.Lockdown
                 options.Add("Key", new StringNode(key));
             }
 
-            DictionaryNode result = Request("GetValue", options).AsDictionaryNode();
-
-            if (result.ContainsKey("Data")) {
-                return result["Data"];
+            try {
+                DictionaryNode result = Request("GetValue", options).AsDictionaryNode();
+                if (result.ContainsKey("Data")) {
+                    return result["Data"];
+                }
+                return result["Value"];
             }
-            return result["Value"];
+            catch (LockdownException ex) {
+                if (ex.LockdownError == LockdownError.MissingValue) {
+                    return null;
+                }
+                throw;
+            }
         }
 
         /// <summary>
@@ -394,7 +401,7 @@ namespace Netimobiledevice.Lockdown
         /// </summary>
         /// <param name="key">The key of the property to obtain.</param>
         /// <returns>The string value obtained.</returns>
-        public PropertyNode GetValue(string? key)
+        public PropertyNode? GetValue(string? key)
         {
             return GetValue(null, key);
         }
@@ -403,7 +410,7 @@ namespace Netimobiledevice.Lockdown
         /// Get every value for the specified in the root domain.
         /// </summary>
         /// <returns>The values obtained.</returns>
-        public PropertyNode GetValue()
+        public PropertyNode? GetValue()
         {
             return GetValue(null, null);
         }
@@ -456,7 +463,7 @@ namespace Netimobiledevice.Lockdown
                 throw new IncorrectModeException();
             }
 
-            client.allValues = client.GetValue().AsDictionaryNode();
+            client.allValues = client.GetValue()?.AsDictionaryNode() ?? new DictionaryNode();
             client.UDID = client.allValues["UniqueDeviceID"].AsStringNode().Value;
             client.productVersion = new Version(client.allValues["ProductVersion"].AsStringNode().Value);
 
@@ -492,7 +499,7 @@ namespace Netimobiledevice.Lockdown
             }
 
             // Reload data after pairing
-            client.allValues = client.GetValue().AsDictionaryNode();
+            client.allValues = client.GetValue()?.AsDictionaryNode() ?? new DictionaryNode();
             client.UDID = client.allValues["UniqueDeviceID"].AsStringNode().Value;
 
             return client;
