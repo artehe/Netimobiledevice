@@ -1,6 +1,8 @@
-﻿namespace Netimobiledevice.Lockdown.Services
+﻿using System;
+
+namespace Netimobiledevice.Lockdown.Services
 {
-    public abstract class BaseService
+    public abstract class BaseService : IDisposable
     {
         /// <summary>
         /// Name of the service to use
@@ -29,6 +31,12 @@
         public void Close()
         {
             Service.Close();
+        }
+
+        public void Dispose()
+        {
+            Close();
+            GC.SuppressFinalize(this);
         }
     }
 }
