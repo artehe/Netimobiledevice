@@ -57,6 +57,15 @@ namespace Netimobiledevice.Usbmuxd
             return devices;
         }
 
+        public static bool IsDeviceConnected(string udid, UsbmuxdConnectionType? connectionType = null)
+        {
+            UsbmuxdDevice? device = GetDevice(udid, connectionType);
+            if (device != null) {
+                return true;
+            }
+            return false;
+        }
+
         /// <summary>
         /// Subscribes a callback function to be called upon device add/remove events from
         /// usbmux.
