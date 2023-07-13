@@ -29,7 +29,6 @@ namespace Netimobiledevice.Lockdown
         /// The pairing record for the connected device
         /// </summary>
         private DictionaryNode? pairRecord;
-        private Version productVersion;
         private ServiceConnection service;
         private string systemBUID;
         private DictionaryNode allValues;
@@ -42,6 +41,7 @@ namespace Netimobiledevice.Lockdown
             set => SetValue("com.apple.mobile.wireless_lockdown", "EnableWifiConnections", new BooleanNode(value));
         }
         public string DeviceClass { get; private set; } = LockdownDeviceClass.UNKNOWN;
+        public Version IOSVersion { get; private set; } = new Version();
         public string UDID { get; private set; } = string.Empty;
         public string SerialNumber { get; private set; } = string.Empty;
 
@@ -312,7 +312,7 @@ namespace Netimobiledevice.Lockdown
                 return false;
             }
 
-            if (productVersion < new Version("7.0") && DeviceClass != LockdownDeviceClass.WATCH) {
+            if (IOSVersion < new Version("7.0") && DeviceClass != LockdownDeviceClass.WATCH) {
                 try {
                     DictionaryNode options = new DictionaryNode {
                         { "PairRecord", pairRecord }
@@ -465,7 +465,7 @@ namespace Netimobiledevice.Lockdown
 
             client.allValues = client.GetValue()?.AsDictionaryNode() ?? new DictionaryNode();
             client.UDID = client.allValues["UniqueDeviceID"].AsStringNode().Value;
-            client.productVersion = new Version(client.allValues["ProductVersion"].AsStringNode().Value);
+            client.IOSVersion = new Version(client.allValues["ProductVersion"].AsStringNode().Value);
 
             try {
                 client.DeviceClass = LockdownDeviceClass.GetDeviceClass(client.allValues["DeviceClass"]);
