@@ -11,6 +11,7 @@ using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown
@@ -25,7 +26,7 @@ namespace Netimobiledevice.Lockdown
 
         private ServiceConnection(Socket sock, UsbmuxdDevice? muxDevice = null)
         {
-            networkStream = new NetworkStream(sock);
+            networkStream = new NetworkStream(sock, true);
             // Usbmux connections contain additional information associated with the current connection
             this.muxDevice = muxDevice;
         }
@@ -50,7 +51,7 @@ namespace Netimobiledevice.Lockdown
             return new ServiceConnection(sock, targetDevice);
         }
 
-        private async Task<byte[]> ReceiveAll(int size)
+        private async Task<byte[]> ReceiveWithTimeout(int size)
         {
             if (size <= 0) {
                 return Array.Empty<byte>();
@@ -59,7 +60,30 @@ namespace Netimobiledevice.Lockdown
 
             int totalBytesRead = 0;
             while (totalBytesRead < size) {
-                int bytesRead = await networkStream.ReadAsync(buffer, totalBytesRead, size - totalBytesRead);
+                int bytesRead = 0;
+                if (networkStream.ReadTimeout != -1) {
+                    CancellationTokenSource cTokenSource = new CancellationTokenSource();
+                    CancellationToken cToken = cTokenSource.Token;
+
+                    Task<int> readTask = networkStream.ReadAsync(buffer, totalBytesRead, size - totalBytesRead, cToken);
+                    Task timeoutTask = Task.Delay(networkStream.ReadTimeout);
+
+                    await Task.Factory.ContinueWhenAny(new Task[] { readTask, timeoutTask }, (completedTask) => {
+                        // The timeout task was the first to complete
+                        if (completedTask == timeoutTask) {
+                            cTokenSource.Cancel();
+                            throw new TimeoutException("Timedout waiting for message from service");
+                        }
+                        // The readTask completed
+                        else {
+                            bytesRead = readTask.Result;
+                        }
+                    });
+                }
+                else {
+                    bytesRead = await networkStream.ReadAsync(buffer, totalBytesRead, size - totalBytesRead);
+                }
+
                 totalBytesRead += bytesRead;
             }
 
@@ -72,13 +96,13 @@ namespace Netimobiledevice.Lockdown
         /// <returns>The data without the u32 field length as a byte array</returns>
         private async Task<byte[]> ReceivePrefixed()
         {
-            byte[] sizeBytes = await ReceiveAll(4);
+            byte[] sizeBytes = await ReceiveWithTimeout(4);
             if (sizeBytes.Length != 4) {
                 return Array.Empty<byte>();
             }
 
             int size = EndianBitConverter.BigEndian.ToInt32(sizeBytes, 0);
-            return await ReceiveAll(size);
+            return await ReceiveWithTimeout(size);
         }
 
         private bool UserCertificateValidationCallback(object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors)
@@ -115,12 +139,12 @@ namespace Netimobiledevice.Lockdown
 
         public byte[] Receive(int length = 4096)
         {
-            return ReceiveAll(length).GetAwaiter().GetResult();
+            return ReceiveWithTimeout(length).GetAwaiter().GetResult();
         }
 
         public async Task<byte[]> ReceiveAsync(int length = 4096)
         {
-            return await ReceiveAll(length);
+            return await ReceiveWithTimeout(length);
         }
 
 
@@ -143,9 +167,9 @@ namespace Netimobiledevice.Lockdown
             await networkStream.WriteAsync(data);
         }
 
-        public void SendPlist(PropertyNode data)
+        public void SendPlist(PropertyNode data, PlistFormat format = PlistFormat.Xml)
         {
-            byte[] plistBytes = PropertyList.SaveAsByteArray(data, PlistFormat.Xml);
+            byte[] plistBytes = PropertyList.SaveAsByteArray(data, format);
             byte[] lengthBytes = BitConverter.GetBytes(EndianBitConverter.BigEndian.ToInt32(BitConverter.GetBytes(plistBytes.Length), 0));
 
             List<byte> payload = new List<byte>();
@@ -169,6 +193,16 @@ namespace Netimobiledevice.Lockdown
         {
             SendPlist(data);
             return ReceivePlist().GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// Set a value in milliseconds, that determines how long the service connection will attempt to read/write for before timing out
+        /// </summary>
+        /// <param name="timeout">A value in milliseconds that detemines how long the service connection will wait before timing out</param>
+        public void SetTimeout(int timeout = -1)
+        {
+            networkStream.ReadTimeout = timeout;
+            networkStream.WriteTimeout = timeout;
         }
 
         public void StartSSL(byte[] certData, byte[] privateKeyData)
