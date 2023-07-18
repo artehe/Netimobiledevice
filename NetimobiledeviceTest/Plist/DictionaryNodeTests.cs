@@ -40,7 +40,7 @@ public class DictionaryNodeTests
         DictionaryNode dict = new DictionaryNode {
             { "Test", new IntegerNode(12) }
         };
-        Assert.AreEqual(12, ((IntegerNode) dict["Test"]).Value);
+        Assert.AreEqual<ulong>(12, ((IntegerNode) dict["Test"]).Value);
     }
 
     [TestMethod]
@@ -52,7 +52,7 @@ public class DictionaryNodeTests
             { "Two", new IntegerNode(2) }
         };
 
-        int index = 0;
+        ulong index = 0;
         foreach (KeyValuePair<string, PropertyNode> item in dict) {
             IntegerNode node = (IntegerNode) item.Value;
             Assert.AreEqual(index, node.Value);

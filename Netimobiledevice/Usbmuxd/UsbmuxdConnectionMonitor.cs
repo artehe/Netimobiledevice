@@ -118,11 +118,11 @@ namespace Netimobiledevice.Usbmuxd
                         AddDevice(usbmuxdDevice);
                     }
                     else if (messageType == "Detached") {
-                        long deviceId = responseDict["DeviceID"].AsIntegerNode().Value;
+                        ulong deviceId = responseDict["DeviceID"].AsIntegerNode().Value;
                         RemoveDevice(deviceId);
                     }
                     else if (messageType == "Paired") {
-                        long deviceId = responseDict["DeviceID"].AsIntegerNode().Value;
+                        ulong deviceId = responseDict["DeviceID"].AsIntegerNode().Value;
                         PairedDevice(deviceId);
                     }
                     else {
@@ -141,7 +141,7 @@ namespace Netimobiledevice.Usbmuxd
             return UsbmuxdResult.Ok;
         }
 
-        private void PairedDevice(long deviceId)
+        private void PairedDevice(ulong deviceId)
         {
             if (Devices.Exists(x => x.DeviceId == deviceId)) {
                 UsbmuxdDevice? device = Devices.Find(x => x.DeviceId == deviceId);
@@ -154,7 +154,7 @@ namespace Netimobiledevice.Usbmuxd
             }
         }
 
-        private void RemoveDevice(long deviceId)
+        private void RemoveDevice(ulong deviceId)
         {
             if (Devices.Exists(x => x.DeviceId == deviceId)) {
                 UsbmuxdDevice? device = Devices.Find(x => x.DeviceId == deviceId);

@@ -8,13 +8,13 @@ public class IntegerNodeTests
     [TestMethod]
     public void CreatesLongCorrectly()
     {
-        IntegerNode node = new IntegerNode(long.MaxValue);
-        long returnedValue = node.Value;
-        Assert.AreEqual(long.MaxValue, returnedValue);
+        IntegerNode node = new IntegerNode(ulong.MaxValue);
+        ulong returnedValue = node.Value;
+        Assert.AreEqual(ulong.MaxValue, returnedValue);
 
-        node = new IntegerNode(long.MinValue);
+        node = new IntegerNode(ulong.MinValue);
         returnedValue = node.Value;
-        Assert.AreEqual(long.MinValue, returnedValue);
+        Assert.AreEqual(ulong.MinValue, returnedValue);
     }
 
     [TestMethod]

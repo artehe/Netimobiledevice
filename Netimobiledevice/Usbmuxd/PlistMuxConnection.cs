@@ -77,7 +77,7 @@ namespace Netimobiledevice.Usbmuxd
             return result;
         }
 
-        protected override void RequestConnect(long deviceId, ushort port)
+        protected override void RequestConnect(ulong deviceId, ushort port)
         {
             DictionaryNode dict = new DictionaryNode {
                 { "MessageType", new StringNode("Connect") },

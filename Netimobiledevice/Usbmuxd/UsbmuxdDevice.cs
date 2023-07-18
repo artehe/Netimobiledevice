@@ -10,7 +10,7 @@ namespace Netimobiledevice.Usbmuxd
     public class UsbmuxdDevice
     {
         public UsbmuxdConnectionType ConnectionType { get; private set; }
-        public long DeviceId { get; private set; }
+        public ulong DeviceId { get; private set; }
         public string Serial { get; private set; }
 
         public UsbmuxdDevice(IntegerNode deviceId, DictionaryNode propertiesDict)
@@ -30,7 +30,7 @@ namespace Netimobiledevice.Usbmuxd
             }
         }
 
-        public UsbmuxdDevice(int deviceId, string serialNumber, UsbmuxdConnectionType connectionType)
+        public UsbmuxdDevice(uint deviceId, string serialNumber, UsbmuxdConnectionType connectionType)
         {
             DeviceId = deviceId;
             Serial = serialNumber;

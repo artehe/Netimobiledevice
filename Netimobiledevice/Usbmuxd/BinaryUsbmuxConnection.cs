@@ -44,7 +44,7 @@ namespace Netimobiledevice.Usbmuxd
             }
         }
 
-        protected override void RequestConnect(long deviceId, ushort port)
+        protected override void RequestConnect(ulong deviceId, ushort port)
         {
             List<byte> message = new List<byte>();
             message.AddRange(BitConverter.GetBytes((int) deviceId));

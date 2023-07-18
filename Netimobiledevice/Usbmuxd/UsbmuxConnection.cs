@@ -102,7 +102,7 @@ namespace Netimobiledevice.Usbmuxd
             Devices.Add(device);
         }
 
-        protected void RemoveDevice(long deviceId)
+        protected void RemoveDevice(ulong deviceId)
         {
             Devices.RemoveAll(x => x.DeviceId == deviceId);
         }
@@ -110,7 +110,7 @@ namespace Netimobiledevice.Usbmuxd
         /// <summary>
         /// Initiate a "Connect" request to target port
         /// </summary>
-        protected abstract void RequestConnect(long deviceId, ushort port);
+        protected abstract void RequestConnect(ulong deviceId, ushort port);
 
         protected int SendPacket(UsbmuxdMessageType message, int tag, byte[] payload)
         {

@@ -9,7 +9,7 @@ namespace Netimobiledevice.Plist
     /// <summary>
     /// Represents an integer value from a plist
     /// </summary>
-    public sealed class IntegerNode : PropertyNode<long>
+    public sealed class IntegerNode : PropertyNode<ulong>
     {
         /// <summary>
         /// Gets the length of this PList element.
@@ -21,13 +21,13 @@ namespace Netimobiledevice.Plist
                 if (Value >= byte.MinValue && Value <= byte.MaxValue) {
                     return 0;
                 }
-                if (Value >= short.MinValue && Value <= short.MaxValue) {
+                if (Value >= ushort.MinValue && Value <= ushort.MaxValue) {
                     return 1;
                 }
-                if (Value >= int.MinValue && Value <= int.MaxValue) {
+                if (Value >= uint.MinValue && Value <= uint.MaxValue) {
                     return 2;
                 }
-                if (Value >= long.MinValue && Value <= long.MaxValue) {
+                if (Value >= ulong.MinValue && Value <= ulong.MaxValue) {
                     return 3;
                 }
                 return -1;
@@ -39,7 +39,9 @@ namespace Netimobiledevice.Plist
         /// Gets or sets the value of this element.
         /// </summary>
         /// <value>The value of this element.</value>
-        public override long Value { get; set; }
+        public override ulong Value { get; set; }
+
+        public bool Unsigned { get; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="IntegerNode"/> class.
@@ -50,9 +52,60 @@ namespace Netimobiledevice.Plist
         /// Initializes a new instance of the <see cref="IntegerNode"/> class.
         /// </summary>
         /// <param name="value">The value of this element.</param>
+        public IntegerNode(int value)
+        {
+            Value = (ulong) value;
+            Unsigned = false;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="IntegerNode"/> class.
+        /// </summary>
+        /// <param name="value">The value of this element.</param>
         public IntegerNode(long value)
         {
+            Value = (ulong) value;
+            Unsigned = false;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="IntegerNode"/> class.
+        /// </summary>
+        /// <param name="value">The value of this element.</param>
+        public IntegerNode(short value)
+        {
+            Value = (ulong) value;
+            Unsigned = false;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="IntegerNode"/> class.
+        /// </summary>
+        /// <param name="value">The value of this element.</param>
+        public IntegerNode(ulong value)
+        {
             Value = value;
+            Unsigned = true;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="IntegerNode"/> class.
+        /// </summary>
+        /// <param name="value">The value of this element.</param>
+        public IntegerNode(uint value)
+        {
+            Value = value;
+            Unsigned = true;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="IntegerNode"/> class.
+        /// </summary>
+        /// <param name="value">The value of this element.</param>
+        public IntegerNode(ushort value)
+        {
+            Value = value;
+            Unsigned = true;
         }
 
         /// <summary>
@@ -61,7 +114,7 @@ namespace Netimobiledevice.Plist
         /// <param name="data">The string whis is parsed.</param>
         internal override void Parse(string data)
         {
-            Value = long.Parse(data, CultureInfo.InvariantCulture);
+            Value = ulong.Parse(data, CultureInfo.InvariantCulture);
         }
 
         /// <summary>
@@ -82,19 +135,19 @@ namespace Netimobiledevice.Plist
                     break;
                 }
                 case 1: {
-                    Value = EndianBitConverter.BigEndian.ToInt16(buf, 0);
+                    Value = EndianBitConverter.BigEndian.ToUInt16(buf, 0);
                     break;
                 }
                 case 2: {
-                    Value = EndianBitConverter.BigEndian.ToInt32(buf, 0);
+                    Value = EndianBitConverter.BigEndian.ToUInt32(buf, 0);
                     break;
                 }
                 case 3: {
-                    Value = EndianBitConverter.BigEndian.ToInt64(buf, 0);
+                    Value = EndianBitConverter.BigEndian.ToUInt64(buf, 0);
                     break;
                 }
                 default: {
-                    throw new PlistFormatException("Int > 64Bit");
+                    throw new PlistFormatException("UInt > 64Bit");
                 }
             }
         }
@@ -122,11 +175,11 @@ namespace Netimobiledevice.Plist
                     break;
                 }
                 case 1: {
-                    buf = EndianBitConverter.BigEndian.GetBytes((short) Value);
+                    buf = EndianBitConverter.BigEndian.GetBytes((ushort) Value);
                     break;
                 }
                 case 2: {
-                    buf = EndianBitConverter.BigEndian.GetBytes((int) Value);
+                    buf = EndianBitConverter.BigEndian.GetBytes((uint) Value);
                     break;
                 }
                 case 3: {
@@ -139,6 +192,20 @@ namespace Netimobiledevice.Plist
             }
 
             stream.Write(buf, 0, buf.Length);
+        }
+
+        /// <summary>
+        /// Returns a <see cref="string"/> that represents the current PropertyNode
+        /// </summary>
+        /// <returns>A <see cref="string"/> that represents the current PropertyNode</returns>
+        public override string ToString()
+        {
+            if (Unsigned) {
+                return $"<{XmlTag}>: {Value}";
+            }
+            else {
+                return $"<{XmlTag}>: {(long) Value}";
+            }
         }
     }
 }
