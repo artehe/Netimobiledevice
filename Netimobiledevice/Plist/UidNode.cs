@@ -32,18 +32,13 @@ namespace Netimobiledevice.Plist
         /// <summary>
         /// Create a new UID node.
         /// </summary>
-        public UidNode()
-        {
-        }
+        public UidNode() : base(0) { }
 
         /// <summary>
 		///	Create a new UID node.
 		/// </summary>
 		/// <param name="value"></param>
-		public UidNode(ulong value)
-        {
-            Value = value;
-        }
+		public UidNode(ulong value) : base(value) { }
 
         internal override void Parse(string data)
         {

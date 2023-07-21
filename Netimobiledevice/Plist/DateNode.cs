@@ -19,18 +19,13 @@ namespace Netimobiledevice.Plist
         /// <summary>
         /// Initializes a new instance of the <see cref="DateNode"/> class.
         /// </summary>
-        public DateNode()
-        {
-        }
+        public DateNode() : base(MacEpoch) { }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DateNode"/> class.
         /// </summary>
         /// <param name="value">The value of this element.</param>
-        public DateNode(DateTime value)
-        {
-            Value = value;
-        }
+        public DateNode(DateTime value) : base(value) { }
 
         /// <summary>
         /// Parses the specified value from a given string, read from Xml.

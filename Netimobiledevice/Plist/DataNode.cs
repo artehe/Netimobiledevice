@@ -18,18 +18,13 @@ namespace Netimobiledevice.Plist
         /// <summary>
         /// Initializes a new instance of the <see cref="DataNode"/> class.
         /// </summary>
-        public DataNode()
-        {
-        }
+        public DataNode() : base(Array.Empty<byte>()) { }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DataNode"/> class.
         /// </summary>
         /// <param name="value">The value of this element.</param>
-        public DataNode(byte[] value)
-        {
-            Value = value;
-        }
+        public DataNode(byte[] value) : base(value) { }
 
         /// <summary>
         /// Parses the specified value from a given string (encoded as Base64), read from Xml.

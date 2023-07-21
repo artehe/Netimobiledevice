@@ -23,7 +23,7 @@ namespace Netimobiledevice.Plist
         /// <summary>
         /// Initializes a new instance of the <see cref="BooleanNode"/> class.
         /// </summary>
-        public BooleanNode()
+        public BooleanNode() : base(false)
         {
         }
 
@@ -31,10 +31,7 @@ namespace Netimobiledevice.Plist
 		/// Initializes a new instance of the <see cref="BooleanNode"/> class.
 		/// </summary>
 		/// <param name="value">The Value of this element</param>
-		public BooleanNode(bool value)
-        {
-            Value = value;
-        }
+		public BooleanNode(bool value) : base(value) { }
 
         /// <summary>
 		/// Parses the specified value from a given string, read from Xml.

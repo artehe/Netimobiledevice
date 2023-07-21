@@ -16,18 +16,13 @@ namespace Netimobiledevice.Plist
         /// <summary>
         /// Initializes a new instance of the <see cref="RealNode"/> class.
         /// </summary>
-        public RealNode()
-        {
-        }
+        public RealNode() : base(0) { }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RealNode"/> class.
         /// </summary>
         /// <param name="value">The value of this element.</param>
-        public RealNode(double value)
-        {
-            Value = value;
-        }
+        public RealNode(double value) : base(value) { }
 
         /// <summary>
         /// Parses the specified value from a given string, read from Xml.

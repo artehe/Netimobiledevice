@@ -67,16 +67,13 @@ namespace Netimobiledevice.Plist
         /// <summary>
         /// Initializes a new instance of the <see cref="StringNode"/> class.
         /// </summary>
-        public StringNode() { }
+        public StringNode() : base(string.Empty) { }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="StringNode"/> class.
         /// </summary>
         /// <param name="value">The value</param>
-        public StringNode(string value)
-        {
-            Value = value;
-        }
+        public StringNode(string value) : base(value) { }
 
         /// <summary>
         /// Parses the specified value from a given string, read from Xml.

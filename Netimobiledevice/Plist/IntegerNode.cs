@@ -46,15 +46,14 @@ namespace Netimobiledevice.Plist
         /// <summary>
         /// Initializes a new instance of the <see cref="IntegerNode"/> class.
         /// </summary>
-        public IntegerNode() { }
+        public IntegerNode() : base(0) { }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="IntegerNode"/> class.
         /// </summary>
         /// <param name="value">The value of this element.</param>
-        public IntegerNode(int value)
+        public IntegerNode(int value) : base((ulong) value)
         {
-            Value = (ulong) value;
             Unsigned = false;
         }
 
@@ -62,9 +61,8 @@ namespace Netimobiledevice.Plist
         /// Initializes a new instance of the <see cref="IntegerNode"/> class.
         /// </summary>
         /// <param name="value">The value of this element.</param>
-        public IntegerNode(long value)
+        public IntegerNode(long value) : base((ulong) value)
         {
-            Value = (ulong) value;
             Unsigned = false;
         }
 
@@ -72,9 +70,8 @@ namespace Netimobiledevice.Plist
         /// Initializes a new instance of the <see cref="IntegerNode"/> class.
         /// </summary>
         /// <param name="value">The value of this element.</param>
-        public IntegerNode(short value)
+        public IntegerNode(short value) : base((ulong) value)
         {
-            Value = (ulong) value;
             Unsigned = false;
         }
 
@@ -82,9 +79,8 @@ namespace Netimobiledevice.Plist
         /// Initializes a new instance of the <see cref="IntegerNode"/> class.
         /// </summary>
         /// <param name="value">The value of this element.</param>
-        public IntegerNode(ulong value)
+        public IntegerNode(ulong value) : base(value)
         {
-            Value = value;
             Unsigned = true;
         }
 
@@ -92,9 +88,8 @@ namespace Netimobiledevice.Plist
         /// Initializes a new instance of the <see cref="IntegerNode"/> class.
         /// </summary>
         /// <param name="value">The value of this element.</param>
-        public IntegerNode(uint value)
+        public IntegerNode(uint value) : base(value)
         {
-            Value = value;
             Unsigned = true;
         }
 
@@ -102,9 +97,8 @@ namespace Netimobiledevice.Plist
         /// Initializes a new instance of the <see cref="IntegerNode"/> class.
         /// </summary>
         /// <param name="value">The value of this element.</param>
-        public IntegerNode(ushort value)
+        public IntegerNode(ushort value) : base(value)
         {
-            Value = value;
             Unsigned = true;
         }
 

@@ -137,6 +137,11 @@ namespace Netimobiledevice.Plist
         /// <value>The value</value>
         public virtual T Value { get; set; }
 
+        protected PropertyNode(T value)
+        {
+            Value = value;
+        }
+
         internal abstract void Parse(string data);
 
         /// <summary>
@@ -183,7 +188,10 @@ namespace Netimobiledevice.Plist
         /// </returns>
         public bool Equals(PropertyNode? other)
         {
-            return (other is PropertyNode<T> node) && Value.Equals(node.Value);
+            if (other is PropertyNode<T> node && Value != null) {
+                return Value.Equals(node.Value);
+            }
+            return false;
         }
 
         /// <summary>
@@ -203,13 +211,13 @@ namespace Netimobiledevice.Plist
         /// <returns>A hash code for this instance that is suitable for use in hashing algorithms and data structures such as a hash table.</returns>
         public override int GetHashCode()
         {
-            return Value.GetHashCode();
+            return Value?.GetHashCode() ?? -1;
         }
 
         /// <summary>
-        /// Returns a <see cref="System.String"/> that represents the current PropertyNode
+        /// Returns a <see cref="string"/> that represents the current PropertyNode
         /// </summary>
-        /// <returns>A <see cref="System.String"/> that represents the current PropertyNode</returns>
+        /// <returns>A <see cref="string"/> that represents the current PropertyNode</returns>
         public override string ToString()
         {
             return $"<{XmlTag}>: {Value}";
