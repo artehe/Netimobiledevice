@@ -1,165 +1,61 @@
-﻿using Netimobiledevice.Exceptions;
-using Netimobiledevice.Lockdown.Services.DeviceLink;
+﻿using Netimobiledevice.Backup;
+using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Plist;
 using System;
-using System.IO;
-using System.Linq;
+using System.Collections.Generic;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown.Services
 {
     public sealed class Mobilebackup2Service : BaseService
     {
-        private static readonly string[] itunesFiles = new string[] {
-            "ApertureAlbumPrefs",
-            "IC-Info.sidb",
-            "IC-Info.sidv",
-            "PhotosFolderAlbums",
-            "PhotosFolderName",
-            "PhotosFolderPrefs",
-            "VoiceMemos.plist",
-            "iPhotoAlbumPrefs",
-            "iTunesApplicationIDs",
-            "iTunesPrefs",
-            "iTunesPrefs.plist"
-        };
+        private DeviceLink? DeviceLink { get; set; }
 
         protected override string ServiceName => "com.apple.mobilebackup2";
 
         public Mobilebackup2Service(LockdownClient client) : base(client) { }
 
-        private DictionaryNode CreateBackupRequest(bool fullBackup, string udid)
+        private async Task<DeviceLink> GetDeviceLink()
         {
-            DictionaryNode backupRequest = new DictionaryNode() {
-                        { "MessageName", new StringNode("Backup") },
-                        { "TargetIdentifier", new StringNode(udid) }
-                    };
-
-            DictionaryNode options = new DictionaryNode();
-            if (fullBackup) {
-                options.Add("ForceFullBackup", new BooleanNode(true));
-            }
-
-            if (options.Count > 0) {
-                backupRequest.Add("Options", options);
-            }
-
-            return backupRequest;
-        }
-
-        private DeviceBackupLock GetDeviceBackupLock(AfcService afcService, NotificationProxyService notificationProxyService)
-        {
-            DeviceBackupLock deviceBackupLock = new DeviceBackupLock(afcService, notificationProxyService);
-            deviceBackupLock.AquireLock();
-            return deviceBackupLock;
-        }
-
-        private async Task<StandardDeviceLink> GetStandardDeviceLink(string? backupDirectory = null)
-        {
-            var deviceLink = new StandardDeviceLink(Service, backupDirectory);
+            var deviceLink = new DeviceLink(Service);
             await deviceLink.VersionExchange();
             await VersionExchange(deviceLink);
             return deviceLink;
         }
 
-        private async Task<PropertyNode> GenerateInfoPlist(AfcService afcService)
+        private void SendMessage(string message, DictionaryNode options)
         {
-            InstallationProxyService installationProxyService = new InstallationProxyService(Lockdown);
-            SpringBoardServicesService springBoardServicesService = new SpringBoardServicesService(Lockdown);
+            if (string.IsNullOrEmpty(message) && options == null) {
+                throw new ArgumentException("Argument(s) can't be null or empty");
+            }
 
-            DictionaryNode rootNode = Lockdown.GetValue().AsDictionaryNode();
-            PropertyNode itunesSettings = Lockdown.GetValue("com.apple.iTunes", null);
-            PropertyNode minItunesVersion = Lockdown.GetValue("com.apple.mobile.iTunes", "MinITunesVersion");
-
-            DictionaryNode appDict = new DictionaryNode();
-            ArrayNode installedApps = new ArrayNode();
-
-            ArrayNode apps = await installationProxyService.Browse(
-                new DictionaryNode() { { "ApplicationType", new StringNode("User") } },
-                new ArrayNode() { new StringNode("CFBundleIdentifier"), new StringNode("ApplicationSINF"), new StringNode("iTunesMetadata") });
-            foreach (DictionaryNode app in apps.Cast<DictionaryNode>()) {
-                if (app.ContainsKey("CFBundleIdentifier")) {
-                    StringNode bundleId = app["CFBundleIdentifier"].AsStringNode();
-                    installedApps.Add(bundleId);
-                    if (app.ContainsKey("iTunesMetadata") && app.ContainsKey("ApplicationSINF")) {
-                        appDict.Add(bundleId.Value, new DictionaryNode() {
-                            { "ApplicationSINF", app["ApplicationSINF"] },
-                            { "iTunesMetadata", app["iTunesMetadata"] },
-                            { "PlaceholderIcon", springBoardServicesService.GetIconPNGData(bundleId.Value) },
-                        });
-                    }
+            if (!string.IsNullOrEmpty(message)) {
+                DictionaryNode dict = new DictionaryNode();
+                if (options != null) {
+                    dict = options;
                 }
-            }
+                dict.Add("MessageName", new StringNode(message));
 
-            DictionaryNode files = new DictionaryNode();
-            foreach (string file in itunesFiles) {
-                try {
-                    string filePath = Path.Combine("/iTunes_Control/iTunes", file);
-                    byte[] dataBuffer = afcService.GetFileContents(filePath);
-                    files.Add(file, new DataNode(dataBuffer));
-                }
-                catch (AfcException ex) {
-                    if (ex.AfcError == AfcError.ObjectNotFound) {
-                        continue;
-                    }
-                    else {
-                        throw;
-                    }
-                }
+                // Send it as DLMessageProcessMessage 
+                DeviceLink?.SendProcessMessage(dict);
             }
+            else {
+                DeviceLink?.SendProcessMessage(options);
+            }
+        }
 
-            DictionaryNode infoPlist = new DictionaryNode {
-                { "iTunes Version", minItunesVersion ?? new StringNode("10.0.1") },
-                { "iTunes Files", files },
-                { "Unique Identifier", new StringNode(Lockdown.UDID.ToUpper()) },
-                { "Target Type", new StringNode("Device") },
-                { "Target Identifier", rootNode["UniqueDeviceID"] },
-                { "Serial Number", rootNode["SerialNumber"] },
-                { "Product Version", rootNode["ProductVersion"] },
-                { "Product Type", rootNode["ProductType"] },
-                { "Installed Applications", installedApps },
-                { "GUID", new StringNode(Guid.NewGuid().ToString()) },
-                { "Display Name", rootNode["DeviceName"] },
-                { "Device Name", rootNode["DeviceName"] },
-                { "Build Version", rootNode["BuildVersion"] },
-                { "Applications", appDict }
-            };
-
-            if (rootNode.ContainsKey("IntegratedCircuitCardIdentity")) {
-                infoPlist.Add("ICCID", rootNode["IntegratedCircuitCardIdentity"]);
-            }
-            if (rootNode.ContainsKey("InternationalMobileEquipmentIdentity")) {
-                infoPlist.Add("IMEI", rootNode["InternationalMobileEquipmentIdentity"]);
-            }
-            if (rootNode.ContainsKey("MobileEquipmentIdentifier")) {
-                infoPlist.Add("MEID", rootNode["MobileEquipmentIdentifier"]);
-            }
-            if (rootNode.ContainsKey("PhoneNumber")) {
-                infoPlist.Add("Phone Number", rootNode["PhoneNumber"]);
-            }
-
-            try {
-                byte[] dataBuffer = afcService.GetFileContents("/Books/iBooksData2.plist");
-                infoPlist.Add("iBooks Data 2", new DataNode(dataBuffer));
-            }
-            catch (AfcException ex) {
-                if (ex.AfcError != AfcError.ObjectNotFound) {
-                    throw;
-                }
-            }
-
-            if (itunesSettings != null) {
-                infoPlist.Add("iTunes Settings", itunesSettings);
-            }
-
-            return infoPlist;
+        private void SendPrefixed(byte[] data, int length)
+        {
+            Service.Send(EndianBitConverter.BigEndian.GetBytes(length));
+            Service.Send(data);
         }
 
         /// <summary>
         /// Exchange versions with the device and assert that the device supports our version of the protocol.
         /// </summary>
         /// <param name="deviceLink">Initialized device link.</param>
-        private static async Task VersionExchange(StandardDeviceLink deviceLink)
+        private static async Task VersionExchange(DeviceLink deviceLink)
         {
             ArrayNode supportedVersions = new ArrayNode {
                 new RealNode(2.0),
@@ -179,40 +75,121 @@ namespace Netimobiledevice.Lockdown.Services
             }
         }
 
-        /// <summary>
-        /// Backup a device.
-        /// </summary>
-        /// <param name="fullBackup">Whether to do a full backup. If full is True, any previous backup attempts will be discarded.</param>
-        /// <param name="backupDirectory">Directory to write backup to.</param>
-        /// <param name="progressCallback">Function to be called as the backup progresses.</param>
-        public async Task Backup(bool fullBackup = true, string backupDirectory = ".", Action<PropertyNode>? progressCallback = null)
+        public async Task LoadDeviceLink()
         {
-            string deviceDirectory = Path.Combine(backupDirectory, Lockdown.UDID);
-            Directory.CreateDirectory(deviceDirectory);
+            DeviceLink = await GetDeviceLink();
+        }
 
-            using (StandardDeviceLink deviceLink = await GetStandardDeviceLink(backupDirectory)) {
-                NotificationProxyService notificationProxyService = new NotificationProxyService(Lockdown);
-                AfcService afcService = new AfcService(Lockdown);
+        public async Task<ArrayNode> ReceiveMessage()
+        {
+            if (DeviceLink != null) {
+                return await DeviceLink.ReceiveMessage();
+            }
+            throw new NullReferenceException("DeviceLink null, please run LoadDeviceLink function before calling");
+        }
 
-                using (DeviceBackupLock backupLock = GetDeviceBackupLock(afcService, notificationProxyService)) {
-                    // Initialize Info.plist
-                    PropertyNode infoPlist = await GenerateInfoPlist(afcService);
-                    string infoPlistPath = Path.Combine(deviceDirectory, "Info.plist");
-                    await File.WriteAllBytesAsync(infoPlistPath, PropertyList.SaveAsByteArray(infoPlist, PlistFormat.Xml));
+        public byte[] ReceiveRaw(int length)
+        {
+            return Service.Receive(length);
+        }
 
-                    // Create Manifest.plist if doesn't exist.
-                    string manifestPlistPath = Path.Combine(deviceDirectory, "Manifest.plist");
-                    if (fullBackup) {
-                        File.Delete(manifestPlistPath);
-                    }
-                    File.Create(manifestPlistPath);
+        /// <summary>
+        /// Sends the specified error report to the backup service.
+        /// </summary>
+        /// <param name="error">The error report to send.</param>
+        public void SendError(DictionaryNode errorReport)
+        {
+            byte[] errBytes = Encoding.UTF8.GetBytes(errorReport["DLFileErrorString"].AsStringNode().Value);
+            var buffer = new List<byte> {
+                (byte) ResultCode.LocalError
+            };
+            buffer.AddRange(errBytes);
+            SendPrefixed(buffer.ToArray(), buffer.Count);
+        }
 
-                    DictionaryNode backupRequest = CreateBackupRequest(fullBackup, Lockdown.UDID);
-                    deviceLink.SendProcessMessage(backupRequest);
+        public void SendRaw(byte[] data)
+        {
+            Service.Send(data);
+        }
 
-                    await deviceLink.MessageLoop(progressCallback);
+        /// <summary>
+        /// Sends a filename to the backup service stream.
+        /// </summary>
+        /// <param name="filename">The filename to send.</param>
+        public void SendPath(string filename)
+        {
+            byte[] path = Encoding.UTF8.GetBytes(filename);
+            SendPrefixed(path, path.Length);
+        }
+
+        public void SendRequest(string request, string targetIdentifier, string sourceIdentifier, DictionaryNode options)
+        {
+            DictionaryNode dict = new DictionaryNode() {
+                { "TargetIdentifier", new StringNode(targetIdentifier) }
+            };
+
+            if (!string.IsNullOrEmpty(sourceIdentifier)) {
+                dict.Add("SourceIdentifier", new StringNode(sourceIdentifier));
+            }
+
+            if (options != null) {
+                dict.Add("Options", options);
+            }
+
+            if (request == "Unback" && options != null) {
+                PropertyNode node = options["Password"];
+                if (node != null) {
+                    dict.Add("Password", node);
                 }
             }
+            if (request == "EnableCloudBackup" && options != null) {
+                PropertyNode node = options["CloudBackupState"];
+                if (node != null) {
+                    dict.Add("CloudBackupState", node);
+                }
+            }
+
+            SendMessage(request, dict);
+        }
+
+        /// <summary>
+        /// Sends a status report to the backup service.
+        /// </summary>
+        /// <param name="errorCode">The error code to send (as errno value).</param>
+        /// <param name="errorMessage">The error message to send.</param>
+        /// <param name="errorList">A PropertyNode with additional value(s).</param>
+        public void SendStatusReport(int errorCode, string? errorMessage, PropertyNode? errorList)
+        {
+            ArrayNode array = new ArrayNode {
+                new StringNode("DLMessageStatusResponse"),
+                new IntegerNode(errorCode)
+            };
+
+            if (errorMessage != null) {
+                array.Add(new StringNode(errorMessage));
+            }
+            else {
+                array.Add(new StringNode("___EmptyParameterString___"));
+            }
+
+            if (errorList != null) {
+                array.Add(errorList);
+            }
+            else {
+                array.Add(new DictionaryNode());
+            }
+
+            DeviceLink?.Send(array);
+        }
+
+        /// <summary>
+        /// Sends a status report to the backup service.
+        /// </summary>
+        /// <param name="errorCode">The error code to send (as errno value).</param>
+        /// <param name="errorMessage">The error message to send.</param>
+        public void SendStatusReport(int errorCode, string errorMessage)
+        {
+            SendStatusReport(errorCode, errorMessage, null);
         }
     }
 }
