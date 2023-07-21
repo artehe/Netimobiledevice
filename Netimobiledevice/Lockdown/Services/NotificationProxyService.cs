@@ -1,9 +1,43 @@
 ﻿using Netimobiledevice.Plist;
+using System.Collections.Generic;
 
 namespace Netimobiledevice.Lockdown.Services
 {
+    /// <summary>
+    /// Host-To-Device notifications.
+    /// </summary>
+    public enum Notification
+    {
+        /// <summary>
+        /// The host notifies the device that it's about to start the backup.
+        /// </summary>
+        SyncWillStart = 0,
+        /// <summary>
+        /// The host notifies the device that the backup has started.
+        /// </summary>
+        SyncDidStart,
+        /// <summary>
+        /// The host notifies the device that the backup has finished.
+        /// </summary>
+        SyncDidFinish,
+        /// <summary>
+        /// The host notifies the device about the lock request.
+        /// </summary>
+        SyncLockRequest
+    }
+
     public sealed class NotificationProxyService : BaseService
     {
+        /// <summary>
+        /// Host-To-Device notifications.
+        /// </summary>
+        private static readonly Dictionary<Notification, string> clientNotifications = new Dictionary<Notification, string>() {
+            { Notification.SyncWillStart,  "com.apple.itunes-mobdev.syncWillStart" },
+            { Notification.SyncDidStart, "com.apple.itunes-mobdev.syncDidStart" },
+            { Notification.SyncDidFinish, "com.apple.itunes-mobdev.syncDidFinish" },
+            { Notification.SyncLockRequest, "com.apple.itunes-mobdev.syncLockRequest" }
+        };
+
         private const string SERVICE_NAME = "com.apple.mobile.notification_proxy";
         private const string SERVICE_NAME_INSECURE = "com.apple.mobile.insecure_notification_proxy";
 
@@ -24,25 +58,15 @@ namespace Netimobiledevice.Lockdown.Services
         }
 
         /// <summary>
-        /// Send notification to the device's notification_proxy.
+        /// Posts the specified notification.
         /// </summary>
-        public void NotifyPost(string name)
+        /// <param name="notification">The notification to post.</param>
+        public void Post(Notification notification)
         {
+            string notificationToSend = clientNotifications[notification];
             DictionaryNode msg = new DictionaryNode() {
                 { "Command", new StringNode("PostNotification") },
-                { "Name", new StringNode(name) }
-            };
-            Service.SendPlist(msg);
-        }
-
-        /// <summary>
-        /// Tells the device to send a notification on the specified event.
-        /// </summary>
-        public void NotifyRegisterDispatch(string name)
-        {
-            DictionaryNode msg = new DictionaryNode() {
-                { "Command", new StringNode("ObserveNotification") },
-                { "Name", new StringNode(name) }
+                { "Name", new StringNode(notificationToSend) }
             };
             Service.SendPlist(msg);
         }
