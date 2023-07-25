@@ -64,9 +64,30 @@ private static void SubscriptionCallback(UsbmuxdDevice device, UsbmuxdConnection
 Get the app icon displayed on the home screen as a PNG:
 
 ```csharp
-using (LockdownClient lockdown = LockdownClient.CreateLockdownClient("60653a518d33eb53b3ca2212cd1f44e162a42069")) {
+using (LockdownClient lockdown = LockdownClient.CreateLockdownClient("60653a518d33eb53b3ca2322de3f44e162a42069")) {
     SpringBoardServicesService springBoard = new SpringBoardServicesService(lockdown);
     PropertyNode png = springBoard.GetIconPNGData("net.whatsapp.WhatsApp");
+}
+```
+
+Create an iTunes backup:
+
+```csharp
+using (LockdownClient lockdown = LockdownClient.CreateLockdownClient("60653a518d33eb53b3ca2322de3f44e162a42069")) {
+    using (DeviceBackup backupJob = new DeviceBackup(lockdown, @"C:\Users\User\Downloads")) {
+        backupJob.BeforeReceivingFile += BackupJob_BeforeReceivingFile;
+        backupJob.Completed += BackupJob_Completed;
+        backupJob.Error += BackupJob_Error;
+        backupJob.FileReceived += BackupJob_FileReceived;
+        backupJob.FileReceiving += BackupJob_FileReceiving;
+        backupJob.FileTransferError += BackupJob_FileTransferError;
+        backupJob.PasscodeRequiredForBackup += BackupJob_PasscodeRequiredForBackup;
+        backupJob.Progress += BackupJob_Progress;
+        backupJob.Status += BackupJob_Status;
+        backupJob.Started += BackupJob_Started;
+
+        await backupJob.Start();
+    }
 }
 ```
 
