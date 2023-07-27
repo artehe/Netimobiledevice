@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace Netimobiledevice.Lockdown.Services
@@ -277,12 +278,11 @@ namespace Netimobiledevice.Lockdown.Services
 
         private DictionaryNode GetFileInfo(string filename)
         {
-            DictionaryNode fileInfo = new DictionaryNode();
+            Dictionary<string, string> stat;
             try {
                 AfcFileInfoRequest request = new AfcFileInfoRequest(new CString(filename, Encoding.UTF8));
                 byte[] response = RunOperation(AfcOpCode.GetFileInfo, request.GetBytes());
-                PropertyNode plist = PropertyList.LoadFromByteArray(response);
-                fileInfo = plist.AsDictionaryNode();
+                stat = ParseFileInfoResponseToDict(response);
             }
             catch (AfcException ex) {
                 if (ex.AfcError != AfcError.ReadError) {
@@ -291,9 +291,43 @@ namespace Netimobiledevice.Lockdown.Services
                 throw new AfcFileNotFoundException(ex.AfcError, filename);
             }
 
+            // Convert timestamps from unix epoch ticks (nanoseconds) to DateTime
+            long divisor = (long) Math.Pow(10, 6);
+            long mTimeMilliseconds = long.Parse(stat["st_mtime"]) / divisor;
+            long birthTimeMilliseconds = long.Parse(stat["st_birthtime"]) / divisor;
+
+            DateTime mTime = DateTimeOffset.FromUnixTimeMilliseconds(mTimeMilliseconds).LocalDateTime;
+            DateTime birthTime = DateTimeOffset.FromUnixTimeMilliseconds(birthTimeMilliseconds).LocalDateTime;
+
+            DictionaryNode fileInfo = new DictionaryNode {
+                { "st_ifmt", new StringNode(stat["st_ifmt"]) },
+                { "st_size", new IntegerNode(ulong.Parse(stat["st_size"])) },
+                { "st_blocks", new IntegerNode(ulong.Parse(stat["st_blocks"])) },
+                { "st_nlink", new IntegerNode(ulong.Parse(stat["st_nlink"])) },
+                { "st_mtime", new DateNode(mTime) },
+                { "st_birthtime", new DateNode(birthTime) }
+            };
+
             return fileInfo;
         }
 
+        private static Dictionary<string, string> ParseFileInfoResponseToDict(byte[] data)
+        {
+            Dictionary<string, string> result = new Dictionary<string, string>();
+
+            string decodedData = Encoding.UTF8.GetString(data);
+            List<string> seperatedData = decodedData.Split('\0').ToList();
+
+            seperatedData.RemoveAt(seperatedData.Count - 1);
+            if (seperatedData.Count % 2 != 0) {
+                throw new Exception("Received data not balanced, unable to parse to dictionary");
+            }
+
+            for (int i = 0; i < seperatedData.Count; i += 2) {
+                result[seperatedData[i]] = seperatedData[i + 1];
+            }
+            return result;
+        }
 
         private byte[] RunOperation(AfcOpCode opCode, byte[] data)
         {
@@ -319,7 +353,7 @@ namespace Netimobiledevice.Lockdown.Services
 
             if (response.Length > 0) {
                 AfcHeader header = AfcHeader.FromBytes(response);
-                if (header.EntireLength <= (ulong) AfcHeader.GetSize()) {
+                if (header.EntireLength < (ulong) AfcHeader.GetSize()) {
                     throw new Exception("Expected more bytes in afc header than receieved");
                 }
                 int length = (int) header.EntireLength - AfcHeader.GetSize();
@@ -339,24 +373,20 @@ namespace Netimobiledevice.Lockdown.Services
         private string ResolvePath(string filename)
         {
             DictionaryNode info = GetFileInfo(filename);
-
-            if (info.ContainsKey("st_ifmt")) {
-                if (info["st_ifmt"].AsStringNode().Value == "S_IFLNK") {
-                    string target = info["LinkTarget"].AsStringNode().Value;
-                    if (!target.StartsWith("/")) {
-                        // Relative path
-                        filename = Path.Combine(Path.GetDirectoryName(filename), target);
-                    }
-                    else {
-                        filename = target;
-                    }
+            if (info.ContainsKey("st_ifmt") && info["st_ifmt"].AsStringNode().Value == "S_IFLNK") {
+                string target = info["LinkTarget"].AsStringNode().Value;
+                if (!target.StartsWith("/")) {
+                    // Relative path
+                    filename = Path.Combine(Path.GetDirectoryName(filename), target);
+                }
+                else {
+                    filename = target;
                 }
             }
-
             return filename;
         }
 
-        public byte[] GetFileContents(string filename)
+        public byte[]? GetFileContents(string filename)
         {
             filename = ResolvePath(filename);
 
@@ -369,8 +399,9 @@ namespace Netimobiledevice.Lockdown.Services
             if (handle == 0) {
                 return null;
             }
-            byte[] details = FileRead(handle, (ulong) info["st_size"].AsIntegerNode().Value);
+            byte[] details = FileRead(handle, info["st_size"].AsIntegerNode().Value);
 
+            FileClose(handle);
             return details;
         }
 
