@@ -1012,6 +1012,15 @@ namespace Netimobiledevice.Backup
         }
 
         /// <summary>
+        /// Invoke the FileReceiving event
+        /// </summary>
+        /// <param name="eventArgs">The BackupFileEventArgs for the file receiving event</param>
+        protected void InvokeOnFileReceiving(BackupFileEventArgs eventArgs)
+        {
+            FileReceiving?.Invoke(this, eventArgs);
+        }
+
+        /// <summary>
         /// Event handler called when the backup is completed.
         /// </summary>
         protected virtual void OnBackupCompleted()
@@ -1083,7 +1092,7 @@ namespace Netimobiledevice.Backup
         /// <param name="fileData">The file contents received</param>
         protected virtual void OnFileReceiving(BackupFile file, byte[] fileData)
         {
-            FileReceiving?.Invoke(this, new BackupFileEventArgs(file, fileData));
+            InvokeOnFileReceiving(new BackupFileEventArgs(file, fileData));
             using (FileStream stream = File.OpenWrite(file.LocalPath)) {
                 stream.Write(fileData, 0, fileData.Length);
             }
