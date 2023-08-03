@@ -3,11 +3,19 @@ using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown.Services
 {
+    public enum BackupEncryptionFlags
+    {
+        Enable,
+        Disable,
+        ChangePassword
+    }
+
     public sealed class Mobilebackup2Service : BaseService
     {
         private DeviceLink? DeviceLink { get; set; }
@@ -15,6 +23,32 @@ namespace Netimobiledevice.Lockdown.Services
         protected override string ServiceName => "com.apple.mobilebackup2";
 
         public Mobilebackup2Service(LockdownClient client) : base(client) { }
+
+        private void ChangeBackupEncryptionPassword(string? oldPassword, string? newPassword, BackupEncryptionFlags flag)
+        {
+            if (newPassword == null && oldPassword == null) {
+                throw new Exception("Both newPassword and oldPassword can't be null");
+            }
+
+            DictionaryNode opts = new DictionaryNode {
+                { "TargetIdentifier", new StringNode(Lockdown.UDID) }
+            };
+
+            DictionaryNode backupDomain = Lockdown.GetValue("com.apple.mobile.backup", null)?.AsDictionaryNode() ?? new DictionaryNode();
+            if (flag == BackupEncryptionFlags.ChangePassword && backupDomain.ContainsKey("WillEncrypt") && !backupDomain["WillEncrypt"].AsBooleanNode().Value) {
+                Debug.WriteLine("Error Backup encryption is not enabled so can't change password. Aborting");
+                throw new InvalidOperationException("Backup encryption isn't enabled so can't change password");
+            }
+
+            if (newPassword != null) {
+                opts.Add("NewPassword", new StringNode(newPassword));
+            }
+            if (oldPassword != null) {
+                opts.Add("OldPassword", new StringNode(oldPassword));
+            }
+
+            SendMessage("ChangePassword", opts);
+        }
 
         private async Task<DeviceLink> GetDeviceLink()
         {
@@ -73,6 +107,16 @@ namespace Netimobiledevice.Lockdown.Services
             if (!supportedVersions.Contains(reply[1].AsDictionaryNode()["ProtocolVersion"])) {
                 throw new Exception("Unsuppored protocol version found");
             }
+        }
+
+        /// <summary>
+        /// Change the backup password on the current device.
+        /// </summary>
+        /// <param name="oldPassword">The current password</param>
+        /// <param name="newPassword">The password to set the backup to</param>
+        public void ChangeBackupEncryptionPassword(string oldPassword, string newPassword)
+        {
+            ChangeBackupEncryptionPassword(oldPassword, newPassword, BackupEncryptionFlags.ChangePassword);
         }
 
         public async Task LoadDeviceLink()
@@ -190,6 +234,27 @@ namespace Netimobiledevice.Lockdown.Services
         public void SendStatusReport(int errorCode, string errorMessage)
         {
             SendStatusReport(errorCode, errorMessage, null);
+        }
+
+        /// <summary>
+        /// Enables encrypted backups by setting a password for backups to use provided
+        /// the phone currently has encrypted backups disabled. 
+        /// </summary>
+        /// <param name="password"></param>
+        public void SetBackupPassword(string password)
+        {
+            DictionaryNode backupDomain = Lockdown.GetValue("com.apple.mobile.backup", null)?.AsDictionaryNode() ?? new DictionaryNode();
+            if (backupDomain.ContainsKey("WillEncrypt") && backupDomain["WillEncrypt"].AsBooleanNode().Value) {
+                Debug.WriteLine("ERROR Backup encryption is already enabled. Aborting.");
+                throw new InvalidOperationException("Can't set backup password as one already exists");
+            }
+
+            if (password == null || password == string.Empty) {
+                Debug.WriteLine("No backup password given. Aborting.");
+                throw new ArgumentException("password can't be null or empty");
+            }
+
+            ChangeBackupEncryptionPassword(null, password, BackupEncryptionFlags.Enable);
         }
     }
 }
