@@ -418,6 +418,33 @@ namespace Netimobiledevice.Lockdown
             return GetValue(null, null);
         }
 
+        /// <summary>
+        /// Attempts to pair with the currently connected iOS device, or returns true if the device is already paired.
+        /// </summary>
+        /// <param name="timeout">How long to wait when pairing the iOS device</param>
+        /// <returns>If the device is currently paired or if the pairing was successful or not</returns>
+        /// <exception cref="FatalPairingException">Exception thrown when pairing should have succeeded but failed for some reason.</exception>
+        public bool PairDevice(int timeout = -1)
+        {
+            bool currentlyPaird = ValidatePairing();
+            if (currentlyPaird) {
+                return true;
+            }
+
+            // The device is not paired so we attempt to pair it.
+            Pair(timeout);
+
+            // Get sessionId
+            if (ValidatePairing()) {
+                throw new FatalPairingException();
+            }
+
+            // Now we are paied, reload data
+            allValues = GetValue()?.AsDictionaryNode() ?? new DictionaryNode();
+            UDID = allValues["UniqueDeviceID"].AsStringNode().Value;
+            return Paired;
+        }
+
         public PropertyNode SetValue(string? domain, string? key, PropertyNode value)
         {
             DictionaryNode options = new DictionaryNode();
@@ -452,9 +479,7 @@ namespace Netimobiledevice.Lockdown
         /// Create the LockdownClient
         /// </summary>
         /// <param name="udid">UDID of the device to connect to (over usbmux)</param>
-        /// <param name="connectionType">Specify what connection type to use</param>
         /// <param name="autoPair">Should pairing with the device be automatically attempted</param>
-        /// <param name="pairTimeout">if using autoPair, this timeout is for the user's Trust dialog. If not set will wait forever</param>
         public static LockdownClient CreateLockdownClient(string udid, bool autoPair = false)
         {
             LockdownClient client = new LockdownClient {
@@ -486,24 +511,13 @@ namespace Netimobiledevice.Lockdown
                 client.identifier = udid;
             }
 
-            if (!client.ValidatePairing()) {
-                // Device is not paired
-                if (!autoPair) {
-                    // Pairing by default was not requested
-                    return client;
-                }
-
-                client.Pair(-1);
-
-                // Get sessionId
-                if (!client.ValidatePairing()) {
-                    throw new FatalPairingException();
-                }
+            // If autoPair is true then attempt to pair with the device otherwise just check the status of pairing.
+            if (autoPair) {
+                client.PairDevice(-1);
             }
-
-            // Reload data after pairing
-            client.allValues = client.GetValue()?.AsDictionaryNode() ?? new DictionaryNode();
-            client.UDID = client.allValues["UniqueDeviceID"].AsStringNode().Value;
+            else {
+                client.ValidatePairing();
+            }
 
             return client;
         }
