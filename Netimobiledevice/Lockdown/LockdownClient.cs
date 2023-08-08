@@ -20,7 +20,6 @@ namespace Netimobiledevice.Lockdown
         /// User agent to use when identifying for lockdownd
         /// </summary>
         private readonly string label = DEFAULT_CLIENT_NAME;
-        private bool paired = false;
         private string hostId;
         private string identifier;
         private readonly ConnectionMedium medium;
@@ -42,8 +41,12 @@ namespace Netimobiledevice.Lockdown
         }
         public string DeviceClass { get; private set; } = LockdownDeviceClass.UNKNOWN;
         public Version IOSVersion { get; private set; } = new Version();
-        public string UDID { get; private set; } = string.Empty;
+        /// <summary>
+        /// Is the connected iOS trusted/paired with this device.
+        /// </summary>
+        public bool Paired { get; private set; } = false;
         public string SerialNumber { get; private set; } = string.Empty;
+        public string UDID { get; private set; } = string.Empty;
 
         private LockdownClient()
         {
@@ -104,7 +107,7 @@ namespace Netimobiledevice.Lockdown
 
         private PropertyNode GetServiceConnectionAttributes(string name)
         {
-            if (!paired) {
+            if (!Paired) {
                 throw new NotPairedException();
             }
 
@@ -291,7 +294,7 @@ namespace Netimobiledevice.Lockdown
                 mux.Close();
             }
 
-            paired = true;
+            Paired = true;
         }
 
         private string QueryType()
@@ -349,7 +352,7 @@ namespace Netimobiledevice.Lockdown
                 service.StartSSL(pairRecord["HostCertificate"].AsDataNode().Value, pairRecord["HostPrivateKey"].AsDataNode().Value);
             }
 
-            paired = true;
+            Paired = true;
             return true;
         }
 
