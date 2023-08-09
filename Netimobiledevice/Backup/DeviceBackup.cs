@@ -270,7 +270,8 @@ namespace Netimobiledevice.Backup
 
                 // iOS versions 15.7.1 and anything 16.1 or newer will require you to input a passcode before
                 // it can start a backup so we make sure to notify the user about this.
-                if (LockdownClient.IOSVersion >= new Version(15, 7, 1)) {
+                if ((LockdownClient.IOSVersion >= new Version(15, 7, 1) && LockdownClient.IOSVersion < new Version(16, 0)) ||
+                    LockdownClient.IOSVersion >= new Version(16, 1)) {
                     PasscodeRequiredForBackup?.Invoke(this, EventArgs.Empty);
                 }
 
@@ -437,7 +438,7 @@ namespace Netimobiledevice.Backup
         /// <returns>The number of bytes of free space in the disk specified by path.</returns>
         private static long GetFreeSpace(string path)
         {
-            var dir = new DirectoryInfo(path);
+            DirectoryInfo dir = new DirectoryInfo(path);
             foreach (DriveInfo drive in DriveInfo.GetDrives()) {
                 try {
                     if (drive.IsReady && drive.Name == dir.Root.FullName) {
@@ -521,7 +522,7 @@ namespace Netimobiledevice.Backup
             string srcPath = Path.Combine(BackupDirectory, msg[1].AsStringNode().Value);
             string dstPath = Path.Combine(BackupDirectory, msg[2].AsStringNode().Value);
 
-            var source = new FileInfo(srcPath);
+            FileInfo source = new FileInfo(srcPath);
             if (source.Attributes.HasFlag(FileAttributes.Directory)) {
                 Debug.WriteLine($"ERROR: Are you really asking me to copy a whole directory?");
             }
@@ -541,7 +542,7 @@ namespace Netimobiledevice.Backup
             int errorCode = 0;
             string errorMessage = "";
             UpdateProgressForMessage(msg, 3);
-            var newDir = new DirectoryInfo(Path.Combine(BackupDirectory, msg[1].AsStringNode().Value));
+            DirectoryInfo newDir = new DirectoryInfo(Path.Combine(BackupDirectory, msg[1].AsStringNode().Value));
             if (!newDir.Exists) {
                 newDir.Create();
             }
@@ -588,13 +589,13 @@ namespace Netimobiledevice.Backup
         {
             string path = Path.Combine(BackupDirectory, msg[1].AsStringNode().Value);
             DictionaryNode dirList = new DictionaryNode();
-            var dir = new DirectoryInfo(path);
+            DirectoryInfo dir = new DirectoryInfo(path);
             if (dir.Exists) {
                 foreach (FileSystemInfo entry in dir.GetFileSystemInfos()) {
                     if (IsStopping) {
                         break;
                     }
-                    var entryDict = new DictionaryNode {
+                    DictionaryNode entryDict = new DictionaryNode {
                         { "DLFileModificationDate", new DateNode(entry.LastWriteTime) },
                         { "DLFileSize", new IntegerNode(entry is FileInfo fileInfo ? fileInfo.Length : 0L) },
                         { "DLFileType", new StringNode(entry.Attributes.HasFlag(FileAttributes.Directory) ? "DLFileTypeDirectory" : "DLFileTypeRegular") }
@@ -687,9 +688,9 @@ namespace Netimobiledevice.Backup
                 string newPath = move.Value.AsStringNode().Value;
                 if (!string.IsNullOrEmpty(newPath)) {
                     res++;
-                    var newFile = new FileInfo(Path.Combine(BackupDirectory, newPath));
-                    var oldFile = new FileInfo(Path.Combine(BackupDirectory, move.Key));
-                    var fileInfo = new FileInfo(newPath);
+                    FileInfo newFile = new FileInfo(Path.Combine(BackupDirectory, newPath));
+                    FileInfo oldFile = new FileInfo(Path.Combine(BackupDirectory, move.Key));
+                    FileInfo fileInfo = new FileInfo(newPath);
                     if (fileInfo.Exists) {
                         if (fileInfo.Attributes.HasFlag(FileAttributes.Directory)) {
                             new DirectoryInfo(newFile.FullName).Delete(true);
@@ -764,7 +765,7 @@ namespace Netimobiledevice.Backup
                     Debug.WriteLine("WARNING: Empty file to remove.");
                 }
                 else {
-                    var file = new FileInfo(Path.Combine(BackupDirectory, filename.Value));
+                    FileInfo file = new FileInfo(Path.Combine(BackupDirectory, filename.Value));
                     if (file.Exists) {
                         if (file.Attributes.HasFlag(FileAttributes.Directory)) {
                             Directory.Delete(file.FullName, true);
@@ -935,7 +936,7 @@ namespace Netimobiledevice.Backup
             }
 
             if (errorCode == 0) {
-                var bytes = new List<byte>(EndianBitConverter.BigEndian.GetBytes(1)) {
+                List<byte> bytes = new List<byte>(EndianBitConverter.BigEndian.GetBytes(1)) {
                     (byte) ResultCode.Success
                 };
                 mobilebackup2Service?.SendRaw(bytes.ToArray());
@@ -960,7 +961,7 @@ namespace Netimobiledevice.Backup
             using (FileStream stream = File.OpenRead(fileInfo.FullName)) {
                 while (remaining > 0) {
                     int toSend = (int) Math.Min(maxBufferSize, remaining);
-                    var bytes = new List<byte>(EndianBitConverter.BigEndian.GetBytes(toSend)) {
+                    List<byte> bytes = new List<byte>(EndianBitConverter.BigEndian.GetBytes(toSend)) {
                         (byte) ResultCode.FileData
                     };
                     mobilebackup2Service?.SendRaw(bytes.ToArray());
@@ -1106,7 +1107,7 @@ namespace Netimobiledevice.Backup
         {
             failedFiles.Add(file);
             if (FileTransferError != null) {
-                var e = new BackupFileErrorEventArgs(file);
+                BackupFileErrorEventArgs e = new BackupFileErrorEventArgs(file);
                 FileTransferError.Invoke(this, e);
                 IsCancelling = e.Cancel;
             }
