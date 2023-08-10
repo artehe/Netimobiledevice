@@ -432,27 +432,6 @@ namespace Netimobiledevice.Backup
         }
 
         /// <summary>
-        /// Gets the free space on the disk containing the specified path.
-        /// </summary>
-        /// <param name="path">The path that specifies the disk to retrieve its free space.</param>
-        /// <returns>The number of bytes of free space in the disk specified by path.</returns>
-        private static long GetFreeSpace(string path)
-        {
-            DirectoryInfo dir = new DirectoryInfo(path);
-            foreach (DriveInfo drive in DriveInfo.GetDrives()) {
-                try {
-                    if (drive.IsReady && drive.Name == dir.Root.FullName) {
-                        return drive.AvailableFreeSpace;
-                    }
-                }
-                catch (Exception ex) {
-                    Debug.WriteLine($"Error: {ex}");
-                }
-            }
-            return 0;
-        }
-
-        /// <summary>
         /// The main loop for processing messages from the device.
         /// </summary>
         private async Task MessageLoop()
@@ -511,45 +490,6 @@ namespace Netimobiledevice.Backup
         }
 
         /// <summary>
-        /// Manages the CopyItem device message.
-        /// </summary>
-        /// <param name="msg">The message received from the device.</param>
-        /// <returns>The errno result of the operation.</returns>
-        private void OnCopyItem(ArrayNode msg)
-        {
-            int errorCode = 0;
-            string errorDesc = string.Empty;
-            string srcPath = Path.Combine(BackupDirectory, msg[1].AsStringNode().Value);
-            string dstPath = Path.Combine(BackupDirectory, msg[2].AsStringNode().Value);
-
-            FileInfo source = new FileInfo(srcPath);
-            if (source.Attributes.HasFlag(FileAttributes.Directory)) {
-                Debug.WriteLine($"ERROR: Are you really asking me to copy a whole directory?");
-            }
-            else {
-                File.Copy(source.FullName, new FileInfo(dstPath).FullName);
-            }
-            mobilebackup2Service?.SendStatusReport(errorCode, errorDesc);
-        }
-
-        /// <summary>
-        /// Manages the CreateDirectory device message.
-        /// </summary>
-        /// <param name="msg">The message received from the device.</param>
-        /// <returns>The errno result of the operation.</returns>
-        private void OnCreateDirectory(ArrayNode msg)
-        {
-            int errorCode = 0;
-            string errorMessage = "";
-            UpdateProgressForMessage(msg, 3);
-            DirectoryInfo newDir = new DirectoryInfo(Path.Combine(BackupDirectory, msg[1].AsStringNode().Value));
-            if (!newDir.Exists) {
-                newDir.Create();
-            }
-            mobilebackup2Service?.SendStatusReport(errorCode, errorMessage);
-        }
-
-        /// <summary>
         /// Manages the DownloadFiles device message.
         /// </summary>
         /// <param name="msg">The message received from the device.</param>
@@ -577,35 +517,6 @@ namespace Netimobiledevice.Backup
                 else {
                     mobilebackup2Service?.SendStatusReport(-13, "Multi status", errList);
                 }
-            }
-        }
-
-        /// <summary>
-        /// Manages the ListDirectory device message.
-        /// </summary>
-        /// <param name="msg">The message received from the device.</param>
-        /// <returns>Always 0.</returns>
-        private void OnListDirectory(ArrayNode msg)
-        {
-            string path = Path.Combine(BackupDirectory, msg[1].AsStringNode().Value);
-            DictionaryNode dirList = new DictionaryNode();
-            DirectoryInfo dir = new DirectoryInfo(path);
-            if (dir.Exists) {
-                foreach (FileSystemInfo entry in dir.GetFileSystemInfos()) {
-                    if (IsStopping) {
-                        break;
-                    }
-                    DictionaryNode entryDict = new DictionaryNode {
-                        { "DLFileModificationDate", new DateNode(entry.LastWriteTime) },
-                        { "DLFileSize", new IntegerNode(entry is FileInfo fileInfo ? fileInfo.Length : 0L) },
-                        { "DLFileType", new StringNode(entry.Attributes.HasFlag(FileAttributes.Directory) ? "DLFileTypeDirectory" : "DLFileTypeRegular") }
-                    };
-                    dirList.Add(entry.Name, entryDict);
-                }
-            }
-
-            if (!IsStopping) {
-                mobilebackup2Service?.SendStatusReport(0, null, dirList);
             }
         }
 
@@ -669,46 +580,6 @@ namespace Netimobiledevice.Backup
             }
         }
 
-        /// <summary>
-        /// Manages the MoveItems device message.
-        /// </summary>
-        /// <param name="msg">The message received from the device.</param>
-        /// <returns>The number of items moved.</returns>
-        private void OnMoveItems(ArrayNode msg)
-        {
-            int res = 0;
-            int errorCode = 0;
-            string errorDesc = string.Empty;
-            UpdateProgressForMessage(msg, 3);
-            foreach (KeyValuePair<string, PropertyNode> move in msg[1].AsDictionaryNode()) {
-                if (IsStopping) {
-                    break;
-                }
-
-                string newPath = move.Value.AsStringNode().Value;
-                if (!string.IsNullOrEmpty(newPath)) {
-                    res++;
-                    FileInfo newFile = new FileInfo(Path.Combine(BackupDirectory, newPath));
-                    FileInfo oldFile = new FileInfo(Path.Combine(BackupDirectory, move.Key));
-                    FileInfo fileInfo = new FileInfo(newPath);
-                    if (fileInfo.Exists) {
-                        if (fileInfo.Attributes.HasFlag(FileAttributes.Directory)) {
-                            new DirectoryInfo(newFile.FullName).Delete(true);
-                        }
-                        else {
-                            fileInfo.Delete();
-                        }
-                    }
-
-                    if (oldFile.Exists) {
-                        oldFile.MoveTo(newFile.FullName);
-                    }
-                }
-            }
-
-            mobilebackup2Service?.SendStatusReport(errorCode, errorDesc);
-        }
-
         private void OnProcessMessage(ArrayNode msg)
         {
             int resultCode = ProcessMessage(msg);
@@ -741,44 +612,6 @@ namespace Netimobiledevice.Backup
                         throw new Exception($"Error {resultCode}");
                     }
                 }
-            }
-        }
-
-        /// <summary>
-        /// Manages the RemoveItems device message.
-        /// </summary>
-        /// <param name="msg">The message received from the device.</param>
-        /// <returns>The number of items removed.</returns>
-        private void OnRemoveItems(ArrayNode msg)
-        {
-            UpdateProgressForMessage(msg, 3);
-
-            int errorCode = 0;
-            string errorDesc = "";
-            ArrayNode removes = msg[1].AsArrayNode();
-            foreach (StringNode filename in removes.Cast<StringNode>()) {
-                if (IsStopping) {
-                    break;
-                }
-
-                if (string.IsNullOrEmpty(filename.Value)) {
-                    Debug.WriteLine("WARNING: Empty file to remove.");
-                }
-                else {
-                    FileInfo file = new FileInfo(Path.Combine(BackupDirectory, filename.Value));
-                    if (file.Exists) {
-                        if (file.Attributes.HasFlag(FileAttributes.Directory)) {
-                            Directory.Delete(file.FullName, true);
-                        }
-                        else {
-                            file.Delete();
-                        }
-                    }
-                }
-            }
-
-            if (!IsStopping) {
-                mobilebackup2Service?.SendStatusReport(errorCode, errorDesc);
             }
         }
 
@@ -1013,6 +846,27 @@ namespace Netimobiledevice.Backup
         }
 
         /// <summary>
+        /// Gets the free space on the disk containing the specified path.
+        /// </summary>
+        /// <param name="path">The path that specifies the disk to retrieve its free space.</param>
+        /// <returns>The number of bytes of free space in the disk specified by path.</returns>
+        protected virtual long GetFreeSpace(string path)
+        {
+            DirectoryInfo dir = new DirectoryInfo(path);
+            foreach (DriveInfo drive in DriveInfo.GetDrives()) {
+                try {
+                    if (drive.IsReady && drive.Name == dir.Root.FullName) {
+                        return drive.AvailableFreeSpace;
+                    }
+                }
+                catch (Exception ex) {
+                    Debug.WriteLine($"Error: {ex}");
+                }
+            }
+            return 0;
+        }
+
+        /// <summary>
         /// Invoke the FileReceiving event
         /// </summary>
         /// <param name="eventArgs">The BackupFileEventArgs for the file receiving event</param>
@@ -1056,6 +910,45 @@ namespace Netimobiledevice.Backup
         protected virtual void OnBeforeReceivingFile(BackupFile file)
         {
             BeforeReceivingFile?.Invoke(this, new BackupFileEventArgs(file));
+        }
+
+        /// <summary>
+        /// Manages the CopyItem device message.
+        /// </summary>
+        /// <param name="msg">The message received from the device.</param>
+        /// <returns>The errno result of the operation.</returns>
+        protected virtual void OnCopyItem(ArrayNode msg)
+        {
+            int errorCode = 0;
+            string errorDesc = string.Empty;
+            string srcPath = Path.Combine(BackupDirectory, msg[1].AsStringNode().Value);
+            string dstPath = Path.Combine(BackupDirectory, msg[2].AsStringNode().Value);
+
+            FileInfo source = new FileInfo(srcPath);
+            if (source.Attributes.HasFlag(FileAttributes.Directory)) {
+                Debug.WriteLine($"ERROR: Are you really asking me to copy a whole directory?");
+            }
+            else {
+                File.Copy(source.FullName, new FileInfo(dstPath).FullName);
+            }
+            mobilebackup2Service?.SendStatusReport(errorCode, errorDesc);
+        }
+
+        /// <summary>
+        /// Manages the CreateDirectory device message.
+        /// </summary>
+        /// <param name="msg">The message received from the device.</param>
+        /// <returns>The errno result of the operation.</returns>
+        protected virtual void OnCreateDirectory(ArrayNode msg)
+        {
+            int errorCode = 0;
+            string errorMessage = "";
+            UpdateProgressForMessage(msg, 3);
+            DirectoryInfo newDir = new DirectoryInfo(Path.Combine(BackupDirectory, msg[1].AsStringNode().Value));
+            if (!newDir.Exists) {
+                newDir.Create();
+            }
+            mobilebackup2Service?.SendStatusReport(errorCode, errorMessage);
         }
 
         /// <summary>
@@ -1128,6 +1021,113 @@ namespace Netimobiledevice.Backup
             }
             else {
                 mobilebackup2Service?.SendStatusReport(-1, null, spaceItem);
+            }
+        }
+
+        /// <summary>
+        /// Manages the ListDirectory device message.
+        /// </summary>
+        /// <param name="msg">The message received from the device.</param>
+        /// <returns>Always 0.</returns>
+        protected virtual void OnListDirectory(ArrayNode msg)
+        {
+            string path = Path.Combine(BackupDirectory, msg[1].AsStringNode().Value);
+            DictionaryNode dirList = new DictionaryNode();
+            DirectoryInfo dir = new DirectoryInfo(path);
+            if (dir.Exists) {
+                foreach (FileSystemInfo entry in dir.GetFileSystemInfos()) {
+                    if (IsStopping) {
+                        break;
+                    }
+                    DictionaryNode entryDict = new DictionaryNode {
+                        { "DLFileModificationDate", new DateNode(entry.LastWriteTime) },
+                        { "DLFileSize", new IntegerNode(entry is FileInfo fileInfo ? fileInfo.Length : 0L) },
+                        { "DLFileType", new StringNode(entry.Attributes.HasFlag(FileAttributes.Directory) ? "DLFileTypeDirectory" : "DLFileTypeRegular") }
+                    };
+                    dirList.Add(entry.Name, entryDict);
+                }
+            }
+
+            if (!IsStopping) {
+                mobilebackup2Service?.SendStatusReport(0, null, dirList);
+            }
+        }
+
+        /// <summary>
+        /// Manages the MoveItems device message.
+        /// </summary>
+        /// <param name="msg">The message received from the device.</param>
+        /// <returns>The number of items moved.</returns>
+        protected virtual void OnMoveItems(ArrayNode msg)
+        {
+            int res = 0;
+            int errorCode = 0;
+            string errorDesc = string.Empty;
+            UpdateProgressForMessage(msg, 3);
+            foreach (KeyValuePair<string, PropertyNode> move in msg[1].AsDictionaryNode()) {
+                if (IsStopping) {
+                    break;
+                }
+
+                string newPath = move.Value.AsStringNode().Value;
+                if (!string.IsNullOrEmpty(newPath)) {
+                    res++;
+                    FileInfo newFile = new FileInfo(Path.Combine(BackupDirectory, newPath));
+                    FileInfo oldFile = new FileInfo(Path.Combine(BackupDirectory, move.Key));
+                    FileInfo fileInfo = new FileInfo(newPath);
+                    if (fileInfo.Exists) {
+                        if (fileInfo.Attributes.HasFlag(FileAttributes.Directory)) {
+                            new DirectoryInfo(newFile.FullName).Delete(true);
+                        }
+                        else {
+                            fileInfo.Delete();
+                        }
+                    }
+
+                    if (oldFile.Exists) {
+                        oldFile.MoveTo(newFile.FullName);
+                    }
+                }
+            }
+
+            mobilebackup2Service?.SendStatusReport(errorCode, errorDesc);
+        }
+
+        /// <summary>
+        /// Manages the RemoveItems device message.
+        /// </summary>
+        /// <param name="msg">The message received from the device.</param>
+        /// <returns>The number of items removed.</returns>
+        protected virtual void OnRemoveItems(ArrayNode msg)
+        {
+            UpdateProgressForMessage(msg, 3);
+
+            int errorCode = 0;
+            string errorDesc = "";
+            ArrayNode removes = msg[1].AsArrayNode();
+            foreach (StringNode filename in removes.Cast<StringNode>()) {
+                if (IsStopping) {
+                    break;
+                }
+
+                if (string.IsNullOrEmpty(filename.Value)) {
+                    Debug.WriteLine("WARNING: Empty file to remove.");
+                }
+                else {
+                    FileInfo file = new FileInfo(Path.Combine(BackupDirectory, filename.Value));
+                    if (file.Exists) {
+                        if (file.Attributes.HasFlag(FileAttributes.Directory)) {
+                            Directory.Delete(file.FullName, true);
+                        }
+                        else {
+                            file.Delete();
+                        }
+                    }
+                }
+            }
+
+            if (!IsStopping) {
+                mobilebackup2Service?.SendStatusReport(errorCode, errorDesc);
             }
         }
 
