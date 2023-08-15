@@ -1,16 +1,10 @@
-﻿using Netimobiledevice.Plist;
+﻿using Netimobiledevice.Lockdown;
+using Netimobiledevice.Lockdown.Services;
+using Netimobiledevice.Plist;
 using System;
 
-namespace Netimobiledevice.Lockdown.Services
+namespace Netimobiledevice.SpringBoardServices
 {
-    public enum ScreenOrientation
-    {
-        Portrait = 1,
-        PortraitUpsideDown = 2,
-        Landscape = 3,
-        LandscapeHomeToLeft = 4
-    }
-
     public sealed class SpringBoardServicesService : BaseService
     {
         protected override string ServiceName => "com.apple.springboardservices";
@@ -34,6 +28,11 @@ namespace Netimobiledevice.Lockdown.Services
             throw new Exception($"Node {responseNode} doesn't exist in response");
         }
 
+        /// <summary>
+        /// Get the icon of the application with the specified <paramref name="bundleId"/>.
+        /// </summary>
+        /// <param name="bundleId">The bundle identifier of the applicaition.</param>
+        /// <returns>The byte array containing the PNG icon.</returns>
         public DataNode GetIconPNGData(string bundleId)
         {
             DictionaryNode command = CreateCommand("getIconPNGData");
@@ -41,27 +40,29 @@ namespace Netimobiledevice.Lockdown.Services
             return ExecuteCommand(command, "pngData").AsDataNode();
         }
 
-        public DictionaryNode GetIconState(string formatVersion = "2")
-        {
-            DictionaryNode command = CreateCommand("getIconState");
-            if (!string.IsNullOrWhiteSpace(formatVersion)) {
-                command.Add("formatVersion", new StringNode(formatVersion));
-            }
-            return Service.SendReceivePlist(command)?.AsDictionaryNode() ?? new DictionaryNode();
-        }
-
+        /// <summary>
+        /// Get the orientation of the device's screen.
+        /// </summary>
         public ScreenOrientation GetScreenOrientation()
         {
             DictionaryNode command = CreateCommand("getInterfaceOrientation");
             return (ScreenOrientation) ExecuteCommand(command, "interfaceOrientation").AsIntegerNode().Value;
         }
 
+        /// <summary>
+        /// Get the wallpaper image of the device.
+        /// </summary>
+        /// <returns>The byte array containing the PNG wallpaper.</returns>
         public DataNode GetWallpaperPNGData()
         {
             DictionaryNode command = CreateCommand("getHomeScreenWallpaperPNGData");
             return ExecuteCommand(command, "pngData").AsDataNode();
         }
 
+        /// <summary>
+        /// Sets the icon state of the connected device.
+        /// </summary>
+        /// <param name="newState">A plist containing the new iconstate.</param>
         public DictionaryNode SetIconState(DictionaryNode? newState = null)
         {
             DictionaryNode command = CreateCommand("setIconState");
