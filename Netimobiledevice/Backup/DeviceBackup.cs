@@ -821,20 +821,6 @@ namespace Netimobiledevice.Backup
         }
 
         /// <summary>
-        /// Updates the backup progress as signaled by the backup service.
-        /// </summary>
-        /// <param name="msg">The message received containing the progress information.</param>
-        /// <param name="index">The index of the element in the array that contains the progress value.</param>
-        private void UpdateProgressForMessage(ArrayNode msg, int index)
-        {
-            double progress = msg[index].AsRealNode().Value;
-            if (progress > 0.0) {
-                ProgressPercentage = progress;
-                OnBackupProgress();
-            }
-        }
-
-        /// <summary>
         /// Creates a dictionary with the options for the backup.
         /// </summary>
         /// <returns>A PropertyDict containing the backup options.</returns>
@@ -865,6 +851,15 @@ namespace Netimobiledevice.Backup
                 }
             }
             return 0;
+        }
+
+        /// <summary>
+        /// Invoke the FileReceived event
+        /// </summary>
+        /// <param name="eventArgs">The BackupFileEventArgs for the file receiving event</param>
+        protected void InvokeOnFileReceived(BackupFileEventArgs eventArgs)
+        {
+            FileReceived?.Invoke(this, eventArgs);
         }
 
         /// <summary>
@@ -1242,6 +1237,20 @@ namespace Netimobiledevice.Backup
             Debug.WriteLine($"Creating Info.plist took {elapsed}");
 
             OnFileReceived(backupFile);
+        }
+
+        /// <summary>
+        /// Updates the backup progress as signaled by the backup service.
+        /// </summary>
+        /// <param name="msg">The message received containing the progress information.</param>
+        /// <param name="index">The index of the element in the array that contains the progress value.</param>
+        protected void UpdateProgressForMessage(ArrayNode msg, int index)
+        {
+            double progress = msg[index].AsRealNode().Value;
+            if (progress > 0.0) {
+                ProgressPercentage = progress;
+                OnBackupProgress();
+            }
         }
 
         /// <summary>
