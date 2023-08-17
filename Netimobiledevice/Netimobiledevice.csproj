@@ -20,7 +20,7 @@
 		<RepositoryUrl>https://github.com/artehe/Netimobiledevice</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<Title>$(AssemblyName)</Title>
-		<Version>0.7.0</Version>
+		<Version>0.7.1</Version>
 	</PropertyGroup>
 
 	<ItemGroup>
