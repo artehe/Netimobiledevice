@@ -600,7 +600,7 @@ namespace Netimobiledevice.Backup
                 case -208: {
                     // Device locked which most commonly happens when requesting a backup but the user either
                     // hit cancel or the screen turned off again locking the phone and cancelling the backup.
-                    OnError(new Exception("Device locked (MBErrorDomain/208)"));
+                    OnError(new Exception($"Device locked - {msg[1].AsDictionaryNode()["ErrorDescription"].AsStringNode().Value}"));
                     break;
                 }
                 default: {
@@ -938,7 +938,7 @@ namespace Netimobiledevice.Backup
         protected virtual void OnCreateDirectory(ArrayNode msg)
         {
             int errorCode = 0;
-            string errorMessage = "";
+            string errorMessage = string.Empty;
             UpdateProgressForMessage(msg, 3);
             DirectoryInfo newDir = new DirectoryInfo(Path.Combine(BackupDirectory, msg[1].AsStringNode().Value));
             if (!newDir.Exists) {
@@ -956,7 +956,7 @@ namespace Netimobiledevice.Backup
             IsCancelling = true;
             deviceDisconnected = Usbmux.IsDeviceConnected(LockdownClient.UDID);
             Debug.WriteLine($"BackupJob.OnError: {ex.Message}");
-            terminatingException = deviceDisconnected ? new DeviceDisconnectedException() : ex;
+            terminatingException = deviceDisconnected ? ex : new DeviceDisconnectedException();
             Error?.Invoke(this, new ErrorEventArgs(terminatingException));
         }
 
@@ -1099,7 +1099,7 @@ namespace Netimobiledevice.Backup
             UpdateProgressForMessage(msg, 3);
 
             int errorCode = 0;
-            string errorDesc = "";
+            string errorDesc = string.Empty;
             ArrayNode removes = msg[1].AsArrayNode();
             foreach (StringNode filename in removes.Cast<StringNode>()) {
                 if (IsStopping) {
