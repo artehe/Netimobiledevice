@@ -33,7 +33,7 @@ namespace Netimobiledevice.Lockdown.Services
             Service.Close();
         }
 
-        public void Dispose()
+        public virtual void Dispose()
         {
             Close();
             GC.SuppressFinalize(this);

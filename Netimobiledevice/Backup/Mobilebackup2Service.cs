@@ -1,5 +1,6 @@
-﻿using Netimobiledevice.Backup;
-using Netimobiledevice.EndianBitConversion;
+﻿using Netimobiledevice.EndianBitConversion;
+using Netimobiledevice.Lockdown;
+using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
@@ -7,22 +8,15 @@ using System.Diagnostics;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Netimobiledevice.Lockdown.Services
+namespace Netimobiledevice.Backup
 {
-    public enum BackupEncryptionFlags
-    {
-        Enable,
-        Disable,
-        ChangePassword
-    }
-
     public sealed class Mobilebackup2Service : BaseService
     {
-        private DeviceLink? DeviceLink { get; set; }
+        private DeviceLink? deviceLink;
 
         protected override string ServiceName => "com.apple.mobilebackup2";
 
-        public Mobilebackup2Service(LockdownClient client) : base(client) { }
+        private Mobilebackup2Service(LockdownClient client) : base(client) { }
 
         private void ChangeBackupEncryptionPassword(string? oldPassword, string? newPassword, BackupEncryptionFlags flag)
         {
@@ -52,10 +46,16 @@ namespace Netimobiledevice.Lockdown.Services
 
         private async Task<DeviceLink> GetDeviceLink()
         {
-            var deviceLink = new DeviceLink(Service);
+            DeviceLink deviceLink = new DeviceLink(Service);
             await deviceLink.VersionExchange();
             await VersionExchange(deviceLink);
             return deviceLink;
+        }
+
+        private async Task<Mobilebackup2Service> InitializeAsync()
+        {
+            deviceLink = await GetDeviceLink();
+            return this;
         }
 
         private void SendMessage(string message, DictionaryNode options)
@@ -72,10 +72,10 @@ namespace Netimobiledevice.Lockdown.Services
                 dict.Add("MessageName", new StringNode(message));
 
                 // Send it as DLMessageProcessMessage 
-                DeviceLink?.SendProcessMessage(dict);
+                deviceLink?.SendProcessMessage(dict);
             }
             else {
-                DeviceLink?.SendProcessMessage(options);
+                deviceLink?.SendProcessMessage(options);
             }
         }
 
@@ -119,15 +119,22 @@ namespace Netimobiledevice.Lockdown.Services
             ChangeBackupEncryptionPassword(oldPassword, newPassword, BackupEncryptionFlags.ChangePassword);
         }
 
-        public async Task LoadDeviceLink()
+        public static Task<Mobilebackup2Service> CreateAsync(LockdownClient client)
         {
-            DeviceLink = await GetDeviceLink();
+            Mobilebackup2Service ret = new Mobilebackup2Service(client);
+            return ret.InitializeAsync();
+        }
+
+        public override void Dispose()
+        {
+            deviceLink?.Dispose();
+            base.Dispose();
         }
 
         public async Task<ArrayNode> ReceiveMessage()
         {
-            if (DeviceLink != null) {
-                return await DeviceLink.ReceiveMessage();
+            if (deviceLink != null) {
+                return await deviceLink.ReceiveMessage();
             }
             throw new NullReferenceException("DeviceLink null, please run LoadDeviceLink function before calling");
         }
@@ -144,7 +151,7 @@ namespace Netimobiledevice.Lockdown.Services
         public void SendError(DictionaryNode errorReport)
         {
             byte[] errBytes = Encoding.UTF8.GetBytes(errorReport["DLFileErrorString"].AsStringNode().Value);
-            var buffer = new List<byte> {
+            List<byte> buffer = new List<byte> {
                 (byte) ResultCode.LocalError
             };
             buffer.AddRange(errBytes);
@@ -223,7 +230,7 @@ namespace Netimobiledevice.Lockdown.Services
                 array.Add(new DictionaryNode());
             }
 
-            DeviceLink?.Send(array);
+            deviceLink?.Send(array);
         }
 
         /// <summary>

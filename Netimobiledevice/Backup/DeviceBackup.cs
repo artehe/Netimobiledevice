@@ -258,10 +258,8 @@ namespace Netimobiledevice.Backup
                 Debug.WriteLine($"The backup will{(IsEncrypted ? null : " not")} be encrypted.");
 
                 afcService = new AfcService(LockdownClient);
-                mobilebackup2Service = new Mobilebackup2Service(LockdownClient);
+                mobilebackup2Service = await Mobilebackup2Service.CreateAsync(LockdownClient);
                 notificationProxyService = new NotificationProxyService(LockdownClient);
-
-                await mobilebackup2Service.LoadDeviceLink();
 
                 await AquireBackupLock();
 

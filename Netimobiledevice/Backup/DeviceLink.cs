@@ -1,10 +1,11 @@
-﻿using Netimobiledevice.Plist;
+﻿using Netimobiledevice.Lockdown;
+using Netimobiledevice.Plist;
 using System;
 using System.Threading.Tasks;
 
-namespace Netimobiledevice.Lockdown.Services
+namespace Netimobiledevice.Backup
 {
-    internal class DeviceLink : IDisposable
+    internal sealed class DeviceLink : IDisposable
     {
         private const int SERVICE_TIMEOUT = 60 * 1000;
 
