@@ -127,7 +127,6 @@ namespace Netimobiledevice.Backup
 
         public override void Dispose()
         {
-            deviceLink?.Dispose();
             base.Dispose();
         }
 
