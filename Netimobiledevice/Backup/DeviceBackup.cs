@@ -484,6 +484,7 @@ namespace Netimobiledevice.Backup
                 throw new DeviceDisconnectedException();
             }
 
+            Debug.WriteLine($"Has error: {terminatingException != null}");
             Debug.WriteLine($"Finished message loop. Cancelling = {IsCancelling}, Finished = {IsFinished}");
             OnBackupCompleted();
         }
