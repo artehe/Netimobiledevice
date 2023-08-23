@@ -1,7 +1,7 @@
 ﻿using Netimobiledevice.Exceptions;
+using System;
 using System.Net;
 using System.Net.Sockets;
-using System.Runtime.InteropServices;
 
 namespace Netimobiledevice.Usbmuxd
 {
@@ -20,7 +20,7 @@ namespace Netimobiledevice.Usbmuxd
         public UsbmuxdSocket()
         {
             try {
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+                if (OperatingSystem.IsWindows()) {
                     EndPoint windowsSocketAddress = new IPEndPoint(IPAddress.Parse(USBMUXD_SOCKET_IP), USBMUXD_SOCKET_PORT);
                     socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.IP);
                     socket.Connect(windowsSocketAddress);

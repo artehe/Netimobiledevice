@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace Netimobiledevice.Lockdown
@@ -63,13 +62,13 @@ namespace Netimobiledevice.Lockdown
         private DictionaryNode? GetItunesPairingRecord()
         {
             string filePath = $"{UDID}.plist";
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
+            if (OperatingSystem.IsMacOS()) {
                 filePath = Path.Combine("/var/db/lockdown/", filePath);
             }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) {
+            else if (OperatingSystem.IsLinux()) {
                 filePath = Path.Combine("/var/lib/lockdown/", filePath);
             }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+            else if (OperatingSystem.IsWindows()) {
                 filePath = Path.Combine("C:\\ProgramData\\Apple\\Lockdown", filePath);
             }
 

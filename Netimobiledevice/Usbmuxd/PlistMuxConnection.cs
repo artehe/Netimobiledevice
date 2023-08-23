@@ -2,10 +2,10 @@
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd.Responses;
+using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.InteropServices;
 
 namespace Netimobiledevice.Usbmuxd
 {
@@ -42,7 +42,7 @@ namespace Netimobiledevice.Usbmuxd
 
         private static string GetBundleId()
         {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
+            if (OperatingSystem.IsMacOS()) {
                 string executeablePath = Assembly.GetExecutingAssembly().Location;
                 string executeableDir = Path.GetDirectoryName(executeablePath) ?? string.Empty;
                 string infoPlistPath = Path.Combine(executeableDir, "..", "Info.plist");
