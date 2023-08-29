@@ -983,6 +983,7 @@ namespace Netimobiledevice.Backup
         {
             InvokeOnFileReceiving(new BackupFileEventArgs(file, fileData));
             using (FileStream stream = File.OpenWrite(file.LocalPath)) {
+                stream.Seek(0, SeekOrigin.End);
                 stream.Write(fileData, 0, fileData.Length);
             }
         }
