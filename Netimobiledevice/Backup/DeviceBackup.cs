@@ -234,6 +234,9 @@ namespace Netimobiledevice.Backup
         /// </summary>
         private async Task CreateBackup()
         {
+            Debug.WriteLine($"Starting backup of device {LockdownClient.GetValue("ProductType")?.AsStringNode().Value} v{LockdownClient.IOSVersion}");
+
+            // Reset everything in case we have called this more than once.
             lastStatus = null;
             InProgress = true;
             IsCancelling = false;
@@ -245,18 +248,12 @@ namespace Netimobiledevice.Backup
             terminatingException = null;
             snapshotState = SnapshotState.Uninitialized;
 
-            Debug.WriteLine($"Starting backup of device {LockdownClient.GetValue("ProductType")?.AsStringNode().Value} v{LockdownClient.IOSVersion}");
-
-            if (Directory.Exists(DeviceBackupPath)) {
-                Directory.Delete(DeviceBackupPath, true);
-            }
-            Directory.CreateDirectory(DeviceBackupPath);
-
             Debug.WriteLine($"Saving at {DeviceBackupPath}");
-            try {
-                IsEncrypted = LockdownClient.GetValue("com.apple.mobile.backup", "WillEncrypt")?.AsBooleanNode().Value ?? false;
-                Debug.WriteLine($"The backup will{(IsEncrypted ? null : " not")} be encrypted.");
 
+            IsEncrypted = LockdownClient.GetValue("com.apple.mobile.backup", "WillEncrypt")?.AsBooleanNode().Value ?? false;
+            Debug.WriteLine($"The backup will{(IsEncrypted ? null : " not")} be encrypted.");
+
+            try {
                 afcService = new AfcService(LockdownClient);
                 mobilebackup2Service = await Mobilebackup2Service.CreateAsync(LockdownClient);
                 notificationProxyService = new NotificationProxyService(LockdownClient);
@@ -939,6 +936,11 @@ namespace Netimobiledevice.Backup
             int errorCode = 0;
             string errorMessage = string.Empty;
             UpdateProgressForMessage(msg, 3);
+
+            if (!Directory.Exists(DeviceBackupPath)) {
+                Directory.CreateDirectory(DeviceBackupPath);
+            }
+
             DirectoryInfo newDir = new DirectoryInfo(Path.Combine(BackupDirectory, msg[1].AsStringNode().Value));
             if (!newDir.Exists) {
                 newDir.Create();
@@ -982,6 +984,13 @@ namespace Netimobiledevice.Backup
         protected virtual void OnFileReceiving(BackupFile file, byte[] fileData)
         {
             InvokeOnFileReceiving(new BackupFileEventArgs(file, fileData));
+
+            // Ensure the directory requested exists before writing to it.
+            string? pathDir = Path.GetDirectoryName(file.LocalPath);
+            if (!string.IsNullOrWhiteSpace(pathDir) && !Directory.Exists(file.LocalPath)) {
+                Directory.CreateDirectory(pathDir);
+            }
+
             using (FileStream stream = File.OpenWrite(file.LocalPath)) {
                 stream.Seek(0, SeekOrigin.End);
                 stream.Write(fileData, 0, fileData.Length);
