@@ -97,6 +97,8 @@ The list of all the services from lockdownd which have been implemented and the 
 
 - [com.apple.afc](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/AfcService.cs)
   * Interact with the publicly available directories and files
+- [com.apple.misagent](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Misagent/MisagentService.cs)
+  * Management for provisioning profiles 
 - [com.apple.mobile.diagnostics_relay](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/DiagnosticsService.cs)
   * Query MobileGestalt & IORegistry keys.
   * Reboot, shutdown or put the device in sleep mode.
@@ -105,12 +107,12 @@ The list of all the services from lockdownd which have been implemented and the 
   * Manage applications (install/uninstall/update)
 - [com.apple.mobile.notification_proxy](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/NotificationProxyService.cs) & [com.apple.mobile.insecure_notification_proxy](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/NotificationProxyService.cs)
   * Send and receive notifications from the device for example informing a backup sync is about to occur.
-- [com.apple.mobilebackup2](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/Mobilebackup2Service.cs)
+- [com.apple.mobilebackup2](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Backup/Mobilebackup2Service.cs)
   * Backup Creation
   * Communication with the Backup service
 - [com.apple.os_trace_relay](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/InstallationProxyService.cs)
   * Get pid list
-- [com.apple.springboardservices](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/SpringBoardServicesService.cs)
+- [com.apple.springboardservices](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/SpringBoardServices/SpringBoardServicesService.cs)
   * Get icons from the installed apps on the device.
 - [com.apple.syslog_relay](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/SyslogService.cs)
   * Stream raw syslog lines from the device.
