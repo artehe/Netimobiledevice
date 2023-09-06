@@ -31,20 +31,27 @@ namespace Netimobiledevice.Lockdown
         private DictionaryNode allValues = new DictionaryNode();
         private readonly UsbmuxdConnectionType usbmuxdConnectionType;
 
-        private StringNode WifiMacAddress => allValues["WiFiAddress"].AsStringNode();
+        public string DeviceClass { get; private set; } = LockdownDeviceClass.UNKNOWN;
+
         public string DeviceName => GetValue("DeviceName")?.AsStringNode().Value ?? string.Empty;
+
         public bool EnableWifiConnections {
             get => GetValue("com.apple.mobile.wireless_lockdown", "EnableWifiConnections")?.AsBooleanNode().Value ?? false;
             set => SetValue("com.apple.mobile.wireless_lockdown", "EnableWifiConnections", new BooleanNode(value));
         }
-        public string DeviceClass { get; private set; } = LockdownDeviceClass.UNKNOWN;
+
         public Version IOSVersion { get; private set; } = new Version();
+
         /// <summary>
         /// Is the connected iOS trusted/paired with this device.
         /// </summary>
         public bool Paired { get; private set; } = false;
+
         public string SerialNumber { get; private set; } = string.Empty;
+
         public string UDID { get; private set; } = string.Empty;
+
+        public string WifiMacAddress => GetValue("WiFiAddress")?.AsStringNode().Value ?? string.Empty;
 
         private LockdownClient(string udid, ConnectionMedium connectionMedium)
         {
@@ -186,11 +193,11 @@ namespace Netimobiledevice.Lockdown
             if (response.ContainsKey("Error")) {
                 string error = response["Error"].AsStringNode().Value;
                 throw error switch {
-                    "InvalidHostID" => new LockdownException(LockdownError.InvalidHostID),
+                    "InvalidHostID" => new LockdownException(LockdownError.InvalidHostId),
                     "InvalidService" => new LockdownException(LockdownError.InvalidService),
                     "MissingValue" => new LockdownException(LockdownError.MissingValue),
                     "PairingDialogResponsePending" => new LockdownException(LockdownError.PairingDialogResponsePending),
-                    "PasswordProtected" => new LockdownException(LockdownError.PasswordRequired),
+                    "PasswordProtected" => new LockdownException(LockdownError.PasswordProtected),
                     "SetProhibited" => new LockdownException(LockdownError.SetProhibited),
                     "UserDeniedPairing" => new LockdownException(LockdownError.UserDeniedPairing),
                     _ => new LockdownException(error),
@@ -259,7 +266,7 @@ namespace Netimobiledevice.Lockdown
                 { "HostID", new StringNode(hostId) },
                 { "RootCertificate", new DataNode(rootCertPem) },
                 { "RootPrivateKey", new DataNode(privateKeyPem) },
-                { "WiFiMACAddress", WifiMacAddress },
+                { "WiFiMACAddress", new StringNode(WifiMacAddress) },
                 { "SystemBUID", new StringNode(systemBUID) }
             };
 
@@ -338,7 +345,7 @@ namespace Netimobiledevice.Lockdown
                 startSession = Request("StartSession", options).AsDictionaryNode();
             }
             catch (LockdownException ex) {
-                if (ex.LockdownError == LockdownError.InvalidHostID) {
+                if (ex.LockdownError == LockdownError.InvalidHostId) {
                     // No HostID means there is no such pairing record
                     return false;
                 }
