@@ -104,9 +104,9 @@ namespace Netimobiledevice.Lockdown
             }
         }
 
-        private PropertyNode GetServiceConnectionAttributes(string name)
+        private PropertyNode GetServiceConnectionAttributes(string name, bool useTrustedConnection = true)
         {
-            if (!Paired) {
+            if (!Paired && useTrustedConnection) {
                 throw new NotPairedException();
             }
 
@@ -460,9 +460,9 @@ namespace Netimobiledevice.Lockdown
             return Request("SetValue", options);
         }
 
-        public ServiceConnection StartService(string serviceName)
+        public ServiceConnection StartService(string serviceName, bool usingNonTrustedConnection = false)
         {
-            DictionaryNode attr = GetServiceConnectionAttributes(serviceName).AsDictionaryNode();
+            DictionaryNode attr = GetServiceConnectionAttributes(serviceName, usingNonTrustedConnection).AsDictionaryNode();
             ServiceConnection serviceConnection = CreateServiceConnection((ushort) attr["Port"].AsIntegerNode().Value);
 
             if (attr.ContainsKey("EnableServiceSSL") && attr["EnableServiceSSL"].AsBooleanNode().Value) {
