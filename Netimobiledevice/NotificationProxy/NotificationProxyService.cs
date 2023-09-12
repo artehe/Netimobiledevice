@@ -2,11 +2,10 @@
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Threading.Tasks;
+using System.Threading;
 
 namespace Netimobiledevice.NotificationProxy
 {
@@ -52,13 +51,50 @@ namespace Netimobiledevice.NotificationProxy
             { SendableNotificaton.SyncLockRequest, "com.apple.itunes-mobdev.syncLockRequest" }
         };
 
-        private const string SERVICE_NAME = "com.apple.mobile.notification_proxy";
-        private const string SERVICE_NAME_INSECURE = "com.apple.mobile.insecure_notification_proxy";
+        private readonly BackgroundWorker notificationListener;
 
         protected override string ServiceName => SERVICE_NAME;
 
-        public NotificationProxyService(LockdownClient client, bool useInsecureService = false) : base(client, GetServiceConnection(client, useInsecureService)) { }
+        public NotificationProxyService(LockdownClient client, bool useInsecureService = false) : base(client, GetServiceConnection(client, useInsecureService))
+        {
+            notificationListener = new BackgroundWorker {
+                WorkerSupportsCancellation = true
+            };
+            notificationListener.DoWork += NotificationListener_DoWork;
+        }
 
+        public override void Dispose()
+        {
+            if (notificationListener.IsBusy) {
+                notificationListener.CancelAsync();
+            }
+            notificationListener.Dispose();
+            base.Dispose();
+        }
+
+        private void GetNotification()
+        {
+            lock (Service) {
+                PropertyNode? plist = Service.ReceivePlist().GetAwaiter().GetResult();
+                if (plist != null) {
+                    DictionaryNode dict = plist.AsDictionaryNode();
+                    if (dict.ContainsKey("Command") && dict["Command"].AsStringNode().Value == "RelayNotification") {
+                        if (dict.ContainsKey("Name")) {
+                            string notificationName = dict["Name"].AsStringNode().Value;
+                            Debug.WriteLine($"Got notification {notificationName}");
+                            // TODO NotificationProxyCallback(notificationName);
+                        }
+                    }
+                    else if (dict.ContainsKey("Command") && dict["Command"].AsStringNode().Value == "ProxyDeath") {
+                        Debug.WriteLine("NotificationProxy died");
+                        throw new Exception("Notification proxy died, can't listen to notifications anymore");
+                    }
+                    else if (dict.ContainsKey("Command")) {
+                        Debug.WriteLine($"Unknown NotificationProxy command {dict["Command"]}");
+                    }
+                }
+            }
+        }
         private static ServiceConnection GetServiceConnection(LockdownClient client, bool useInsecureService)
         {
             ServiceConnection service;
@@ -69,6 +105,46 @@ namespace Netimobiledevice.NotificationProxy
                 service = client.StartService(SERVICE_NAME);
             }
             return service;
+        }
+
+        private void NotificationListener_DoWork(object? sender, DoWorkEventArgs e)
+        {
+            Service.SetTimeout(500);
+            do {
+                try {
+                    GetNotification();
+                }
+                catch (TimeoutException) {
+                    Debug.WriteLine("No notifications received yet, trying again");
+                }
+                catch (Exception ex) {
+                    Debug.WriteLine("======================== EXCEPTION ==============");
+                    Debug.WriteLine($"Notification proxy listener has an error: {ex}");
+                    throw;
+                }
+
+                Thread.Sleep(1);
+            } while (!notificationListener.CancellationPending);
+        }
+
+        /// <summary>
+        /// Inform the iOS device to send a notification on the specified event
+        /// </summary>
+        /// <param name="name"></param>
+        private void RegisterNotification(ReceivableNotification notification)
+        {
+            string notificationToObserve = receivableNotifications[notification];
+            DictionaryNode request = new DictionaryNode() {
+                { "Command", new StringNode("ObserveNotification") },
+                { "Name", new StringNode(notificationToObserve) }
+            };
+            lock (Service) {
+                Service.SendPlist(request);
+            }
+
+            if (!notificationListener.IsBusy) {
+                notificationListener.RunWorkerAsync();
+            }
         }
 
         /// <summary>
@@ -82,7 +158,18 @@ namespace Netimobiledevice.NotificationProxy
                 { "Command", new StringNode("PostNotification") },
                 { "Name", new StringNode(notificationToSend) }
             };
-            Service.SendPlist(msg);
+            lock (Service) {
+                Service.SendPlist(msg);
+            }
+        }
+
+        /// <summary>
+        /// Inform the device of the notification we want to observe./>
+        /// </summary>
+        /// <param name="notification"></param>
+        public void ObserveNotification(ReceivableNotification notification)
+        {
+            RegisterNotification(notification);
         }
     }
 }
