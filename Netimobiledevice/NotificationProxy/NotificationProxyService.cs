@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 
 namespace Netimobiledevice.NotificationProxy
@@ -55,6 +56,8 @@ namespace Netimobiledevice.NotificationProxy
 
         protected override string ServiceName => SERVICE_NAME;
 
+        public event EventHandler<ReceivedNotificationEventArgs>? ReceivedNotification;
+
         public NotificationProxyService(LockdownClient client, bool useInsecureService = false) : base(client, GetServiceConnection(client, useInsecureService))
         {
             notificationListener = new BackgroundWorker {
@@ -72,7 +75,7 @@ namespace Netimobiledevice.NotificationProxy
             base.Dispose();
         }
 
-        private void GetNotification()
+        private string? GetNotification()
         {
             lock (Service) {
                 PropertyNode? plist = Service.ReceivePlist().GetAwaiter().GetResult();
@@ -82,7 +85,7 @@ namespace Netimobiledevice.NotificationProxy
                         if (dict.ContainsKey("Name")) {
                             string notificationName = dict["Name"].AsStringNode().Value;
                             Debug.WriteLine($"Got notification {notificationName}");
-                            // TODO NotificationProxyCallback(notificationName);
+                            return notificationName;
                         }
                     }
                     else if (dict.ContainsKey("Command") && dict["Command"].AsStringNode().Value == "ProxyDeath") {
@@ -94,6 +97,7 @@ namespace Netimobiledevice.NotificationProxy
                     }
                 }
             }
+            return null;
         }
         private static ServiceConnection GetServiceConnection(LockdownClient client, bool useInsecureService)
         {
@@ -112,7 +116,12 @@ namespace Netimobiledevice.NotificationProxy
             Service.SetTimeout(500);
             do {
                 try {
-                    GetNotification();
+                    string? notification = GetNotification();
+                    if (!string.IsNullOrEmpty(notification)) {
+                        KeyValuePair<ReceivableNotification, string> receivableNotificationKeyPair = receivableNotifications.AsEnumerable().First(x => x.Value.Equals(notification));
+                        ReceivableNotification receivedNotification = receivableNotificationKeyPair.Key;
+                        ReceivedNotification?.Invoke(this, new ReceivedNotificationEventArgs(receivedNotification, notification));
+                    }
                 }
                 catch (TimeoutException) {
                     Debug.WriteLine("No notifications received yet, trying again");
