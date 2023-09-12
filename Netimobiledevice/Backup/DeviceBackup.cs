@@ -2,6 +2,7 @@
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
+using Netimobiledevice.NotificationProxy;
 using Netimobiledevice.Plist;
 using Netimobiledevice.SpringBoardServices;
 using Netimobiledevice.Usbmuxd;

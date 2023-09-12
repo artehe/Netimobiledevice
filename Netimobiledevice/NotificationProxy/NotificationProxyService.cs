@@ -1,7 +1,9 @@
-﻿using Netimobiledevice.Plist;
+﻿using Netimobiledevice.Lockdown;
+using Netimobiledevice.Lockdown.Services;
+using Netimobiledevice.Plist;
 using System.Collections.Generic;
 
-namespace Netimobiledevice.Lockdown.Services
+namespace Netimobiledevice.NotificationProxy
 {
     /// <summary>
     /// Host-To-Device notifications.
