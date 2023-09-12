@@ -482,6 +482,22 @@ namespace Netimobiledevice.Lockdown
         }
 
         /// <summary>
+        /// Try to unpair the device.
+        /// </summary>
+        public void Unpair()
+        {
+            if (pairRecord != null) {
+                DictionaryNode options = new DictionaryNode() {
+                    { "PairRecord", pairRecord },
+                    { "ProtocolVersion", new StringNode("2")}
+                };
+                Request("Unpair", options, true);
+                Paired = false;
+                pairRecord = null;
+            }
+        }
+
+        /// <summary>
         /// Create the LockdownClient
         /// </summary>
         /// <param name="udid">UDID of the device to connect to (over usbmux)</param>
