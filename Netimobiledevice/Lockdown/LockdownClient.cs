@@ -1,4 +1,5 @@
 ﻿using Netimobiledevice.Exceptions;
+using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd;
 using System;
@@ -6,6 +7,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown
 {
@@ -45,7 +47,7 @@ namespace Netimobiledevice.Lockdown
         /// <summary>
         /// Is the connected iOS trusted/paired with this device.
         /// </summary>
-        public bool Paired { get; private set; } = false;
+        public bool IsPaired { get; private set; } = false;
 
         public string SerialNumber { get; private set; } = string.Empty;
 
@@ -113,7 +115,7 @@ namespace Netimobiledevice.Lockdown
 
         private PropertyNode GetServiceConnectionAttributes(string name)
         {
-            if (!Paired) {
+            if (!IsPaired) {
                 throw new NotPairedException();
             }
 
@@ -300,7 +302,7 @@ namespace Netimobiledevice.Lockdown
                 mux.Close();
             }
 
-            Paired = true;
+            IsPaired = true;
         }
 
         private string QueryType()
@@ -358,8 +360,8 @@ namespace Netimobiledevice.Lockdown
                 service?.StartSSL(pairRecord["HostCertificate"].AsDataNode().Value, pairRecord["HostPrivateKey"].AsDataNode().Value);
             }
 
-            Paired = true;
-            return true;
+            IsPaired = true;
+            return IsPaired;
         }
 
         private void WriteStorageFile(string filename, byte[] data)
@@ -448,7 +450,7 @@ namespace Netimobiledevice.Lockdown
             // Now we are paied, reload data
             allValues = GetValue()?.AsDictionaryNode() ?? new DictionaryNode();
             UDID = allValues["UniqueDeviceID"].AsStringNode().Value;
-            return Paired;
+            return IsPaired;
         }
 
         public PropertyNode SetValue(string? domain, string? key, PropertyNode value)
@@ -492,7 +494,7 @@ namespace Netimobiledevice.Lockdown
                     { "ProtocolVersion", new StringNode("2")}
                 };
                 Request("Unpair", options, true);
-                Paired = false;
+                IsPaired = false;
                 pairRecord = null;
             }
         }
