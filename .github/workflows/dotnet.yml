@@ -10,10 +10,8 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
-
+  test:
     runs-on: windows-latest
-
     steps:
     - uses: actions/checkout@v3
     - name: Setup .NET
@@ -28,5 +26,10 @@ jobs:
       run: dotnet build --configuration Release --no-restore
     - name: Test
       run: dotnet test --no-restore --verbosity normal
-    - name: PublishNuget
-      run: dotnet nuget push "**/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.PUBLISH_TO_NUGET }} --skip-duplicate
+  deploy:
+    runs-on: windows-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: PublishNuget
+        run: dotnet nuget push "**/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.PUBLISH_TO_NUGET }} --skip-duplicate
