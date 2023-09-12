@@ -1,4 +1,6 @@
-﻿namespace Netimobiledevice.Lockdown
+﻿using Netimobiledevice.Exceptions;
+
+namespace Netimobiledevice.Lockdown
 {
     public enum LockdownError
     {
@@ -43,5 +45,21 @@
         McProtected = -38,
         McChallengeRequired = -39,
         UnknownError = -256
+    }
+
+    internal static class LockdownErrorMethods
+    {
+        public static bool IsError(this LockdownError err)
+        {
+            return err != LockdownError.Success;
+        }
+
+        public static LockdownException? GetException(this LockdownError err)
+        {
+            if (err.IsError()) {
+                return new LockdownException(err);
+            }
+            return null;
+        }
     }
 }
