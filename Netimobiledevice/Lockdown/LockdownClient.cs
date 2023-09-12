@@ -249,7 +249,7 @@ namespace Netimobiledevice.Lockdown
             throw new LockdownException(LockdownError.PairingDialogResponsePending);
         }
 
-        private void Pair(int timeout = -1)
+        private LockdownError Pair(int timeout = -1)
         {
             devicePublicKey = GetValue(null, "DevicePublicKey")?.AsDataNode().Value ?? Array.Empty<byte>();
             if (devicePublicKey == null || devicePublicKey.Length == 0) {
@@ -303,6 +303,47 @@ namespace Netimobiledevice.Lockdown
             }
 
             IsPaired = true;
+        }
+
+        private async Task<bool> PairCoreAsync(IProgress<PairingState> progress, CancellationToken cancellationToken)
+        {
+            using (NotificationProxyService np = new NotificationProxyService(this, true)) {
+                var requestPairTask = np.ObserveNotificationAsync("com.apple.mobile.lockdown.request_pair", cancellationToken);
+                LockdownError? err = null;
+                PairingState? lastPairingReport = null;
+                while (true) {
+                    err = Pair();
+                    switch (err) {
+                        case LockdownError.Success: {
+                            progress.Report(PairingState.Paired);
+                            return IsPaired = true;
+                        }
+                        case LockdownError.UserDeniedPairing: {
+                            progress.Report(PairingState.UserDeniedPairing);
+                            return IsPaired = false;
+                        }
+                        case LockdownError.PasswordProtected: {
+                            if (lastPairingReport != PairingState.PasswordProtected) {
+                                progress.Report(PairingState.PasswordProtected);
+                                lastPairingReport = PairingState.PasswordProtected;
+                            }
+                            break;
+                        }
+                        case LockdownError.PairingDialogResponsePending: {
+                            if (lastPairingReport != PairingState.PairingDialogResponsePending) {
+                                progress.Report(PairingState.PairingDialogResponsePending);
+                                lastPairingReport = PairingState.PairingDialogResponsePending;
+                            }
+                            break;
+                        }
+                        default: {
+                            IsPaired = false;
+                            throw ((LockdownError) err).GetException() ?? new LockdownException(LockdownError.UnknownError);
+                        }
+                    }
+                    await Task.WhenAny(Task.Delay(200, cancellationToken), requestPairTask).ConfigureAwait(false);
+                }
+            }
         }
 
         private string QueryType()
@@ -424,6 +465,50 @@ namespace Netimobiledevice.Lockdown
         public PropertyNode? GetValue()
         {
             return GetValue(null, null);
+        }
+
+        /// <summary>
+        /// Start a pairing operation.
+        /// </summary>
+        /// <returns>Return <see langword="true"/> if the user accept pairng else <see langword="false"/>.</returns>
+        public Task<bool> PairAsync()
+        {
+            return PairAsync(new Progress<PairingState>(), CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Start a pairing operation.
+        /// </summary>
+        /// <param name="cancellationToken">A cancelation token used to cancel stop the operation</param>
+        /// <returns>Return <see langword="true"/> if the user accept pairng else <see langword="false"/>.</returns>
+        public Task<bool> PairAsync(CancellationToken cancellationToken)
+        {
+            return PairAsync(new Progress<PairingState>(), cancellationToken);
+        }
+
+        /// <summary>
+        /// Start a pairing operation.
+        /// </summary>
+        /// <param name="progress">Used to report the progress</param>
+        /// <returns>Return <see langword="true"/> if the user accept pairng else <see langword="false"/>.</returns>
+        public Task<bool> PairAsync(IProgress<PairingState> progress)
+        {
+            return PairAsync(progress, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Start a pairing operation.
+        /// </summary>
+        /// <param name="progress">Used to report the progress</param>
+        /// <param name="cancellationToken">A cancelation token used to cancel stop the operation</param>
+        /// <returns>Return <see langword="true"/> if the user accept pairng else <see langword="false"/>.</returns>
+        public async Task<bool> PairAsync(IProgress<PairingState> progress, CancellationToken cancellationToken)
+        {
+            bool result = await PairCoreAsync(progress, cancellationToken).ConfigureAwait(false);
+            if (result) {
+                PerformHandshake(pairRecordHandle);
+            }
+            return result;
         }
 
         /// <summary>
