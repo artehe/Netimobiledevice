@@ -91,6 +91,21 @@ using (LockdownClient lockdown = LockdownClient.CreateLockdownClient("60653a518d
 }
 ```
 
+Pair an iOS device asyncronously:
+
+```csharp
+using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+    Progress<PairingState> progress = new();
+    progress.ProgressChanged += Progress_ProgressChanged;
+    await lockdown.PairAsync(progress);
+}
+
+private void Progress_ProgressChanged(object? sender, PairingState e)
+{
+    Console.WriteLine($"Pair Progress Changed: {e}");
+}
+```
+
 ## Services
 
 The list of all the services from lockdownd which have been implemented and the functions available for each one. Clicking on the service name will take you to it's implementation, to learn more about it.
@@ -132,5 +147,6 @@ This library was based on the following repositories with either some refactorin
 - **[BitConverter](https://github.com/davidrea-MS/BitConverter):** Provides a big-endian and little-endian BitConverter that convert base data types to an array of bytes, and an array of bytes to base data types, regardless of machine architecture.
 - **[libimobiledevice](https://github.com/libimobiledevice/libimobiledevice):** A cross-platform protocol library to communicate with iOS devices
 - **[libusbmuxd](https://github.com/libimobiledevice/libusbmuxd):** A client library for applications to handle usbmux protocol connections with iOS devices.
+- **[MobileDeviceSharp](https://github.com/mveril/MobileDeviceSharp):** A C# object oriented wrapper around Libimobiledevice
 - **[PList-Net](https://github.com/PList-Net/PList-Net):** .Net Library for working with Apple *.plist Files.
 - **[pymobiledevice3](https://github.com/doronz88/pymobiledevice3):** A pure python3 implementation to work with iOS devices.
