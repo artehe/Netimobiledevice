@@ -2,6 +2,7 @@
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
+using Netimobiledevice.NotificationProxy;
 using Netimobiledevice.Plist;
 using Netimobiledevice.SpringBoardServices;
 using Netimobiledevice.Usbmuxd;
@@ -174,11 +175,11 @@ namespace Netimobiledevice.Backup
 
         private async Task AquireBackupLock()
         {
-            notificationProxyService?.Post(Notification.SyncWillStart);
+            notificationProxyService?.Post(SendableNotificaton.SyncWillStart);
             syncLock = afcService?.FileOpen("/com.apple.itunes.lock_sync", "r+") ?? 0;
 
             if (syncLock != 0) {
-                notificationProxyService?.Post(Notification.SyncLockRequest);
+                notificationProxyService?.Post(SendableNotificaton.SyncLockRequest);
                 for (int i = 0; i < 50; i++) {
                     bool lockAquired = false;
                     try {
@@ -199,7 +200,7 @@ namespace Netimobiledevice.Backup
                     }
 
                     if (lockAquired) {
-                        notificationProxyService?.Post(Notification.SyncDidStart);
+                        notificationProxyService?.Post(SendableNotificaton.SyncDidStart);
                         break;
                     }
                 }
@@ -891,7 +892,7 @@ namespace Netimobiledevice.Backup
         /// </summary>
         protected virtual void OnBackupStarted()
         {
-            notificationProxyService?.Post(Notification.SyncDidStart);
+            notificationProxyService?.Post(SendableNotificaton.SyncDidStart);
             Started?.Invoke(this, EventArgs.Empty);
         }
 

@@ -68,17 +68,22 @@ namespace Netimobiledevice.Lockdown
                     Task<int> readTask = networkStream.ReadAsync(buffer, totalBytesRead, size - totalBytesRead, cToken);
                     Task timeoutTask = Task.Delay(networkStream.ReadTimeout);
 
+                    bool timeout = false;
                     await Task.Factory.ContinueWhenAny(new Task[] { readTask, timeoutTask }, (completedTask) => {
                         // The timeout task was the first to complete
                         if (completedTask == timeoutTask) {
                             cTokenSource.Cancel();
-                            throw new TimeoutException("Timedout waiting for message from service");
+                            timeout = true;
                         }
                         // The readTask completed
                         else {
                             bytesRead = readTask.Result;
                         }
                     });
+
+                    if (timeout) {
+                        throw new TimeoutException("Timeout waiting for message from service");
+                    }
                 }
                 else {
                     bytesRead = await networkStream.ReadAsync(buffer, totalBytesRead, size - totalBytesRead);

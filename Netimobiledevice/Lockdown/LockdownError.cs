@@ -25,7 +25,7 @@ namespace Netimobiledevice.Lockdown
         UserDeniedPairing = -18,
         PairingDialogResponsePending = -19,
         MissingHostId = -20,
-        InvalidHostId = -21,
+        InvalidHostID = -21,
         SessionActive = -22,
         SessionInactive = -23,
         MissingSessionId = -24,
