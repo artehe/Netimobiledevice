@@ -26,12 +26,13 @@ public class Program
         Usbmux.Subscribe(SubscriptionCallback, SubscriptionErrorCallback);
         Usbmux.Unsubscribe();
 
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, false)) {
-            using (NotificationProxyService np = new NotificationProxyService(lockdown)) {
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+            using (NotificationProxyService np = new NotificationProxyService(lockdown, true)) {
                 np.ReceivedNotification += Np_ReceivedNotification;
-                foreach (ReceivableNotification notification in Enum.GetValues(typeof(ReceivableNotification))) {
-                    np.ObserveNotification(notification);
-                }
+
+                Progress<PairingState> progress = new();
+                progress.ProgressChanged += Progress_ProgressChanged;
+                await lockdown.PairAsync(progress);
 
                 using (MisagentService misagentService = new MisagentService(lockdown)) {
                     misagentService.GetInstalledProvisioningProfiles();
@@ -63,6 +64,11 @@ public class Program
                 Console.ReadLine();
             }
         }
+    }
+
+    private static void Progress_ProgressChanged(object? sender, PairingState e)
+    {
+        throw new NotImplementedException();
     }
 
     private static void Np_ReceivedNotification(object? sender, ReceivedNotificationEventArgs e)

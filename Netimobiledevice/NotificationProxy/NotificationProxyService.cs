@@ -173,7 +173,7 @@ namespace Netimobiledevice.NotificationProxy
         }
 
         /// <summary>
-        /// Inform the device of the notification we want to observe./>
+        /// Inform the device of the notification we want to observe.
         /// </summary>
         /// <param name="notification"></param>
         public void ObserveNotification(ReceivableNotification notification)
