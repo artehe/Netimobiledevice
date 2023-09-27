@@ -12,6 +12,10 @@ public class Program
 {
     internal static async Task Main()
     {
+        TaskScheduler.UnobservedTaskException += (sender, args) => {
+            Console.WriteLine($"UnobservedTaskException error: {args.Exception}");
+        };
+
         List<UsbmuxdDevice> devices = Usbmux.GetDeviceList();
         Console.WriteLine($"There's {devices.Count} devices connected");
         UsbmuxdDevice? testDevice = null;
@@ -28,8 +32,14 @@ public class Program
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
             Progress<PairingState> progress = new();
             progress.ProgressChanged += Progress_ProgressChanged;
-            await lockdown.PairAsync(progress);
+            if (!lockdown.IsPaired) {
+                await lockdown.PairAsync(progress);
+            }
+        }
 
+        await Task.Delay(1000);
+
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
             using (MisagentService misagentService = new MisagentService(lockdown)) {
                 misagentService.GetInstalledProvisioningProfiles();
             }
