@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Authentication;
@@ -21,7 +22,7 @@ namespace Netimobiledevice.Lockdown
     /// </summary>
     public class ServiceConnection : IDisposable
     {
-        private const int MAX_READ_SIZE = 32767;
+        private const int MAX_READ_SIZE = 4096;
 
         private readonly UsbmuxdDevice? muxDevice;
         private Stream networkStream;
@@ -72,7 +73,7 @@ namespace Netimobiledevice.Lockdown
 
                 int bytesRead;
                 if (networkStream.ReadTimeout != -1) {
-                    Task<int> result = networkStream.ReadAsync(buf, totalBytesRead, size - totalBytesRead, cancellationToken);
+                    Task<int> result = networkStream.ReadAsync(buf, 0, buf.Length, cancellationToken);
                     await Task.WhenAny(result, Task.Delay(networkStream.ReadTimeout, cancellationToken));
                     if (!result.IsCompleted) {
                         throw new TimeoutException("Timeout waiting for message from service");
@@ -84,7 +85,7 @@ namespace Netimobiledevice.Lockdown
                 }
 
                 totalBytesRead += bytesRead;
-                buffer.AddRange(buf);
+                buffer.AddRange(buf.Take(bytesRead));
             }
 
             return buffer.ToArray();
@@ -192,6 +193,12 @@ namespace Netimobiledevice.Lockdown
         {
             SendPlist(data);
             return ReceivePlist().GetAwaiter().GetResult();
+        }
+
+        public async Task<PropertyNode?> SendReceivePlistAsync(PropertyNode data)
+        {
+            await SendPlistAsync(data);
+            return await ReceivePlist();
         }
 
         /// <summary>

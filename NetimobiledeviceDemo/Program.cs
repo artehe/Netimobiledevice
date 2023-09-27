@@ -41,7 +41,7 @@ public class Program
 
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
             using (MisagentService misagentService = new MisagentService(lockdown)) {
-                misagentService.GetInstalledProvisioningProfiles();
+                await misagentService.GetInstalledProvisioningProfiles();
             }
 
             using (DeviceBackup backupJob = new DeviceBackup(lockdown, @"%appdata%\..\Local\Temp")) {
