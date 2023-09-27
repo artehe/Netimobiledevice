@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Netimobiledevice.Misagent
 {
@@ -34,14 +35,15 @@ namespace Netimobiledevice.Misagent
             return parsedProfiles;
         }
 
-        private DictionaryNode SendReceiveRequest(PropertyNode request)
+        private async Task<DictionaryNode> SendReceiveRequest(PropertyNode request)
         {
-            DictionaryNode? response = Service.SendReceivePlist(request)?.AsDictionaryNode();
-            if (response != null) {
-                if (response.ContainsKey("Status") && response["Status"].AsIntegerNode().Value != 0) {
-                    throw new Exception($"Status Error response: {response["Status"].AsIntegerNode().Value}");
+            PropertyNode? response = await Service.SendReceivePlistAsync(request);
+            DictionaryNode? dict = response?.AsDictionaryNode();
+            if (dict != null) {
+                if (dict.ContainsKey("Status") && dict["Status"].AsIntegerNode().Value != 0) {
+                    throw new Exception($"Status Error response: {dict["Status"].AsIntegerNode().Value}");
                 }
-                return response;
+                return dict;
             }
             throw new Exception("Missing response from misagent service request");
         }
@@ -79,36 +81,36 @@ namespace Netimobiledevice.Misagent
             return result;
         }
 
-        public List<PropertyNode> GetInstalledProvisioningProfiles()
+        public async Task<List<PropertyNode>> GetInstalledProvisioningProfiles()
         {
             DictionaryNode request = new DictionaryNode() {
                 { "MessageType", new StringNode("CopyAll") },
                 {"ProfileType", new StringNode("Provisioning") }
             };
-            DictionaryNode response = SendReceiveRequest(request);
+            DictionaryNode response = await SendReceiveRequest(request);
             List<PropertyNode> profiles = ParseProfiles(response["Payload"].AsArrayNode());
             return profiles;
         }
 
-        public DictionaryNode Install(PropertyNode plist)
+        public async Task<DictionaryNode> Install(PropertyNode plist)
         {
             DictionaryNode request = new DictionaryNode() {
                 { "MessageType", new StringNode("Remove") },
                 {"Profile", plist },
                 {"ProfileType", new StringNode("Provisioning") }
             };
-            DictionaryNode response = SendReceiveRequest(request);
+            DictionaryNode response = await SendReceiveRequest(request);
             return response;
         }
 
-        public DictionaryNode Uninstall(string profileId)
+        public async Task<DictionaryNode> Uninstall(string profileId)
         {
             DictionaryNode request = new DictionaryNode() {
                 { "MessageType", new StringNode("Remove") },
                 {"ProfileID", new StringNode(profileId) },
                 {"ProfileType", new StringNode("Provisioning") }
             };
-            DictionaryNode response = SendReceiveRequest(request);
+            DictionaryNode response = await SendReceiveRequest(request);
             return response;
         }
     }

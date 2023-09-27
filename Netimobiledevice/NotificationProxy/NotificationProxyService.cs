@@ -7,6 +7,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Netimobiledevice.NotificationProxy
 {
@@ -14,6 +15,8 @@ namespace Netimobiledevice.NotificationProxy
     {
         private const string SERVICE_NAME = "com.apple.mobile.notification_proxy";
         private const string SERVICE_NAME_INSECURE = "com.apple.mobile.insecure_notification_proxy";
+
+        private static readonly SemaphoreSlim serviceLockSemaphoreSlim = new SemaphoreSlim(1, 1);
 
         /// <summary>
         /// Device-To-Host notifications.
@@ -75,10 +78,11 @@ namespace Netimobiledevice.NotificationProxy
             base.Dispose();
         }
 
-        private string? GetNotification()
+        private async Task<string?> GetNotification()
         {
-            lock (Service) {
-                PropertyNode? plist = Service.ReceivePlist().GetAwaiter().GetResult();
+            await serviceLockSemaphoreSlim.WaitAsync();
+            try {
+                PropertyNode? plist = await Service.ReceivePlist();
                 if (plist != null) {
                     DictionaryNode dict = plist.AsDictionaryNode();
                     if (dict.ContainsKey("Command") && dict["Command"].AsStringNode().Value == "RelayNotification") {
@@ -97,8 +101,15 @@ namespace Netimobiledevice.NotificationProxy
                     }
                 }
             }
+            catch (ArgumentException ex) {
+                Debug.WriteLine(ex);
+            }
+            finally {
+                serviceLockSemaphoreSlim.Release();
+            }
             return null;
         }
+
         private static ServiceConnection GetServiceConnection(LockdownClient client, bool useInsecureService)
         {
             ServiceConnection service;
@@ -111,12 +122,12 @@ namespace Netimobiledevice.NotificationProxy
             return service;
         }
 
-        private void NotificationListener_DoWork(object? sender, DoWorkEventArgs e)
+        private async void NotificationListener_DoWork(object? sender, DoWorkEventArgs e)
         {
             Service.SetTimeout(500);
             do {
                 try {
-                    string? notification = GetNotification();
+                    string? notification = await GetNotification();
                     if (!string.IsNullOrEmpty(notification)) {
                         KeyValuePair<ReceivableNotification, string> receivableNotificationKeyPair = receivableNotifications.AsEnumerable().First(x => x.Value.Equals(notification));
                         ReceivableNotification receivedNotification = receivableNotificationKeyPair.Key;
@@ -127,12 +138,13 @@ namespace Netimobiledevice.NotificationProxy
                     Debug.WriteLine("No notifications received yet, trying again");
                 }
                 catch (Exception ex) {
-                    Debug.WriteLine("======================== EXCEPTION ==============");
-                    Debug.WriteLine($"Notification proxy listener has an error: {ex}");
-                    throw;
+                    if (!notificationListener.CancellationPending) {
+                        Debug.WriteLine("======================== EXCEPTION ==============");
+                        Debug.WriteLine($"Notification proxy listener has an error: {ex}");
+                        throw;
+                    }
                 }
-
-                Thread.Sleep(1);
+                await Task.Delay(100);
             } while (!notificationListener.CancellationPending);
         }
 
@@ -147,8 +159,13 @@ namespace Netimobiledevice.NotificationProxy
                 { "Command", new StringNode("ObserveNotification") },
                 { "Name", new StringNode(notificationToObserve) }
             };
-            lock (Service) {
+
+            serviceLockSemaphoreSlim.Wait();
+            try {
                 Service.SendPlist(request);
+            }
+            finally {
+                serviceLockSemaphoreSlim.Release();
             }
 
             if (!notificationListener.IsBusy) {
@@ -167,8 +184,13 @@ namespace Netimobiledevice.NotificationProxy
                 { "Command", new StringNode("PostNotification") },
                 { "Name", new StringNode(notificationToSend) }
             };
-            lock (Service) {
+
+            serviceLockSemaphoreSlim.Wait();
+            try {
                 Service.SendPlist(msg);
+            }
+            finally {
+                serviceLockSemaphoreSlim.Release();
             }
         }
 
@@ -179,6 +201,14 @@ namespace Netimobiledevice.NotificationProxy
         public void ObserveNotification(ReceivableNotification notification)
         {
             RegisterNotification(notification);
+        }
+
+        /// <summary>
+        /// Stops observing any notifications from the device
+        /// </summary>
+        public void Stop()
+        {
+            notificationListener.CancelAsync();
         }
     }
 }
