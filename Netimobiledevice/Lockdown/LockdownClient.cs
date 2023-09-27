@@ -451,6 +451,7 @@ namespace Netimobiledevice.Lockdown
                     err = Pair();
                     switch (err) {
                         case LockdownError.Success: {
+                            np.Stop();
                             progress.Report(PairingState.Paired);
                             return IsPaired = true;
                         }
