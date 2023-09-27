@@ -138,11 +138,12 @@ namespace Netimobiledevice.NotificationProxy
                     Debug.WriteLine("No notifications received yet, trying again");
                 }
                 catch (Exception ex) {
-                    Debug.WriteLine("======================== EXCEPTION ==============");
-                    Debug.WriteLine($"Notification proxy listener has an error: {ex}");
-                    throw;
+                    if (!notificationListener.CancellationPending) {
+                        Debug.WriteLine("======================== EXCEPTION ==============");
+                        Debug.WriteLine($"Notification proxy listener has an error: {ex}");
+                        throw;
+                    }
                 }
-
                 await Task.Delay(100);
             } while (!notificationListener.CancellationPending);
         }
