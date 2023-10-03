@@ -24,7 +24,7 @@ namespace Netimobiledevice.Lockdown.Services
 
             ArrayNode result = new ArrayNode();
             while (true) {
-                PropertyNode? response = await Service.ReceivePlist();
+                PropertyNode? response = await Service.ReceivePlistAsync();
                 if (response == null) {
                     break;
                 }

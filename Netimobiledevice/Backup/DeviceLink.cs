@@ -33,7 +33,7 @@ namespace Netimobiledevice.Backup
 
         public async Task<ArrayNode> ReceiveMessage()
         {
-            PropertyNode? message = await _service.ReceivePlist();
+            PropertyNode? message = await _service.ReceivePlistAsync();
             if (message == null) {
                 return new ArrayNode();
             }

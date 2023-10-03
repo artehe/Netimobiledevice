@@ -40,12 +40,18 @@ public class Program
         await Task.Delay(1000);
 
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+            string path = "backups";
+            if (Directory.Exists(path)) {
+                Directory.Delete(path, true);
+            }
+            using (DeviceBackup backupJob = new DeviceBackup(lockdown, path)) {
+                await backupJob.Start();
+            }
+        }
+
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
             using (MisagentService misagentService = new MisagentService(lockdown)) {
                 await misagentService.GetInstalledProvisioningProfiles();
-            }
-
-            using (DeviceBackup backupJob = new DeviceBackup(lockdown, @"%appdata%\..\Local\Temp")) {
-                await backupJob.Start();
             }
 
             using (InstallationProxyService installationProxyService = new InstallationProxyService(lockdown)) {

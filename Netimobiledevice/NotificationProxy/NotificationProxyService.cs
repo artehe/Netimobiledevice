@@ -82,7 +82,7 @@ namespace Netimobiledevice.NotificationProxy
         {
             await serviceLockSemaphoreSlim.WaitAsync();
             try {
-                PropertyNode? plist = await Service.ReceivePlist();
+                PropertyNode? plist = await Service.ReceivePlistAsync();
                 if (plist != null) {
                     DictionaryNode dict = plist.AsDictionaryNode();
                     if (dict.ContainsKey("Command") && dict["Command"].AsStringNode().Value == "RelayNotification") {

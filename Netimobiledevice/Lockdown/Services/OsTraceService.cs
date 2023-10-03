@@ -18,12 +18,12 @@ namespace Netimobiledevice.Lockdown.Services
             DictionaryNode request = new DictionaryNode() {
                 { "Request", new StringNode("PidList") },
             };
-            Service.SendPlist(request);
+            await Service.SendPlistAsync(request);
 
             // Ignore the first received unknown byte
-            Service.Receive(1);
+            await Service.ReceiveAsync(1);
 
-            DictionaryNode response = (await Service.ReceivePlist())?.AsDictionaryNode() ?? new DictionaryNode();
+            DictionaryNode response = (await Service.ReceivePlistAsync())?.AsDictionaryNode() ?? new DictionaryNode();
             return response;
         }
     }
