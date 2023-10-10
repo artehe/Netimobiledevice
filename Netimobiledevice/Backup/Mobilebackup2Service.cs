@@ -12,11 +12,13 @@ namespace Netimobiledevice.Backup
 {
     public sealed class Mobilebackup2Service : BaseService
     {
+        private const string SERVICE_NAME = "com.apple.mobilebackup2";
+
         private DeviceLink? deviceLink;
 
-        protected override string ServiceName => "com.apple.mobilebackup2";
+        protected override string ServiceName => SERVICE_NAME;
 
-        private Mobilebackup2Service(LockdownClient client) : base(client) { }
+        private Mobilebackup2Service(LockdownClient client) : base(client, GetServiceConnection(client)) { }
 
         private void ChangeBackupEncryptionPassword(string? oldPassword, string? newPassword, BackupEncryptionFlags flag)
         {
@@ -50,6 +52,11 @@ namespace Netimobiledevice.Backup
             await deviceLink.VersionExchange();
             await VersionExchange(deviceLink);
             return deviceLink;
+        }
+
+        private static ServiceConnection GetServiceConnection(LockdownClient client)
+        {
+            return client.StartService(SERVICE_NAME, useEscrowBag: true);
         }
 
         private async Task<Mobilebackup2Service> InitializeAsync()
