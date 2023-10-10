@@ -114,7 +114,7 @@ namespace Netimobiledevice.NotificationProxy
         {
             ServiceConnection service;
             if (useInsecureService) {
-                service = client.StartService(SERVICE_NAME_INSECURE, false);
+                service = client.StartService(SERVICE_NAME_INSECURE, useTrustedConnection: false);
             }
             else {
                 service = client.StartService(SERVICE_NAME);

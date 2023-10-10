@@ -113,7 +113,7 @@ namespace Netimobiledevice.Lockdown
             }
         }
 
-        private PropertyNode GetServiceConnectionAttributes(string name, bool useTrustedConnection = true)
+        private PropertyNode GetServiceConnectionAttributes(string name, bool useEscrowBag, bool useTrustedConnection)
         {
             if (!IsPaired && useTrustedConnection) {
                 throw new NotPairedException();
@@ -122,6 +122,9 @@ namespace Netimobiledevice.Lockdown
             DictionaryNode options = new DictionaryNode {
                 { "Service", new StringNode(name) }
             };
+            if (useEscrowBag && pairRecord != null) {
+                options.Add("EscrowBag", pairRecord["EscrowBag"]);
+            }
 
             DictionaryNode response = Request("StartService", options).AsDictionaryNode();
             if (response.ContainsKey("Error")) {
@@ -531,9 +534,9 @@ namespace Netimobiledevice.Lockdown
             return Request("SetValue", options);
         }
 
-        public ServiceConnection StartService(string serviceName, bool usingNonTrustedConnection = false)
+        public ServiceConnection StartService(string serviceName, bool useEscrowBag = false, bool useTrustedConnection = true)
         {
-            DictionaryNode attr = GetServiceConnectionAttributes(serviceName, usingNonTrustedConnection).AsDictionaryNode();
+            DictionaryNode attr = GetServiceConnectionAttributes(serviceName, useEscrowBag, useTrustedConnection).AsDictionaryNode();
             ServiceConnection serviceConnection = CreateServiceConnection((ushort) attr["Port"].AsIntegerNode().Value);
 
             if (attr.ContainsKey("EnableServiceSSL") && attr["EnableServiceSSL"].AsBooleanNode().Value) {
