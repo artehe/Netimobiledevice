@@ -23,7 +23,7 @@ namespace Netimobiledevice.Lockdown
         private readonly string label = DEFAULT_CLIENT_NAME;
         private string hostId = string.Empty;
         private readonly ConnectionMedium medium;
-        private readonly string pairingRecordsCacheDir;
+        private readonly string? pairRecordCacheDir;
         /// <summary>
         /// The pairing record for the connected device
         /// </summary>
@@ -55,12 +55,12 @@ namespace Netimobiledevice.Lockdown
 
         public string WifiMacAddress => GetValue("WiFiAddress")?.AsStringNode().Value ?? string.Empty;
 
-        private LockdownClient(string udid, ConnectionMedium connectionMedium)
+        private LockdownClient(string udid, string? pairRecordCacheDir, ConnectionMedium connectionMedium)
         {
             UDID = udid;
             medium = connectionMedium;
             usbmuxdConnectionType = UsbmuxdConnectionType.Usb;
-            pairingRecordsCacheDir = string.Empty;
+            this.pairRecordCacheDir = pairRecordCacheDir;
         }
 
         private ServiceConnection CreateServiceConnection(ushort port)
@@ -79,6 +79,9 @@ namespace Netimobiledevice.Lockdown
             }
             else if (OperatingSystem.IsWindows()) {
                 filePath = Path.Combine("C:\\ProgramData\\Apple\\Lockdown", filePath);
+            }
+            else {
+                throw new NotSupportedException("Getting paring record for this OS is not supported.");
             }
 
             try {
@@ -99,17 +102,18 @@ namespace Netimobiledevice.Lockdown
             Debug.WriteLine("Looking for Netimobiledevice pairing record");
 
             string filePath = $"{UDID}.plist";
-            if (string.IsNullOrEmpty(pairingRecordsCacheDir)) {
-                filePath = Path.Combine(pairingRecordsCacheDir, filePath);
+            if (!string.IsNullOrEmpty(pairRecordCacheDir)) {
+                filePath = Path.Combine(pairRecordCacheDir, filePath);
             }
 
-            if (!File.Exists(filePath)) {
+            if (File.Exists(filePath)) {
+                using (FileStream fs = File.OpenRead(filePath)) {
+                    return PropertyList.Load(fs).AsDictionaryNode();
+                }
+            }
+            else {
                 Debug.WriteLine($"No Netimobiledevice pairing record found for device {UDID}");
                 return null;
-            }
-
-            using (FileStream fs = File.OpenRead(filePath)) {
-                return PropertyList.Load(fs).AsDictionaryNode();
             }
         }
 
@@ -349,8 +353,10 @@ namespace Netimobiledevice.Lockdown
 
         private void WriteStorageFile(string filename, byte[] data)
         {
-            string file = Path.Combine(pairingRecordsCacheDir, filename);
-            File.WriteAllBytes(file, data);
+            if (pairRecordCacheDir != null) {
+                string file = Path.Combine(pairRecordCacheDir, filename);
+                File.WriteAllBytes(file, data);
+            }
         }
 
         public void Dispose()
@@ -570,9 +576,10 @@ namespace Netimobiledevice.Lockdown
         /// <param name="udid">UDID of the device to connect to (over usbmux)</param>
         /// <param name="autoPair">Should pairing with the device be automatically attempted</param>
         /// <param name="connectionMedium">What medium should be used to connect to the lockdown client</param>
-        public static LockdownClient CreateLockdownClient(string udid, bool autoPair = false, ConnectionMedium connectionMedium = ConnectionMedium.USBMUX)
+        /// <param name="pairRecordCacheDir">Where local pair records are created and read from if needed</param>
+        public static LockdownClient CreateLockdownClient(string udid, bool autoPair = false, ConnectionMedium connectionMedium = ConnectionMedium.USBMUX, string? pairRecordCacheDir = null)
         {
-            LockdownClient client = new LockdownClient(udid, connectionMedium);
+            LockdownClient client = new LockdownClient(udid, pairRecordCacheDir, connectionMedium);
             client.service = ServiceConnection.Create(client.medium, client.UDID, SERVICE_PORT, client.usbmuxdConnectionType);
 
             if (client.QueryType() != "com.apple.mobile.lockdown") {
