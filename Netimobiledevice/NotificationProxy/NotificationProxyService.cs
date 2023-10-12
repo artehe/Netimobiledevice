@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -133,6 +134,14 @@ namespace Netimobiledevice.NotificationProxy
                         ReceivableNotification receivedNotification = receivableNotificationKeyPair.Key;
                         ReceivedNotification?.Invoke(this, new ReceivedNotificationEventArgs(receivedNotification, notification));
                     }
+                }
+                catch (IOException) {
+                    // If there is an IO exception we also have to assume that the service is closed so we abort the listener
+                    break;
+                }
+                catch (ObjectDisposedException) {
+                    // If the object is disposed the most likely reason is that the service is closed
+                    break;
                 }
                 catch (TimeoutException) {
                     Debug.WriteLine("No notifications received yet, trying again");
