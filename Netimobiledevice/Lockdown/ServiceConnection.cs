@@ -171,7 +171,7 @@ namespace Netimobiledevice.Lockdown
                     bytesRead = await result;
                 }
                 else {
-                    bytesRead = await networkStream.ReadAsync(buf, totalBytesRead, remainingSize, cancellationToken);
+                    bytesRead = await networkStream.ReadAsync(buf, 0, buf.Length, cancellationToken);
                 }
 
                 totalBytesRead += bytesRead;
