@@ -7,13 +7,15 @@ namespace Netimobiledevice.Backup
 {
     internal sealed class DeviceLink : IDisposable
     {
-        private const int SERVICE_TIMEOUT = 60 * 1000;
+        private const int SERVICE_TIMEOUT = 300 * 1000;
 
         private readonly ServiceConnection _service;
 
         public DeviceLink(ServiceConnection service)
         {
             _service = service;
+
+            // Adjust the timeout to be long enough to handle device with a large amount of data
             _service.SetTimeout(SERVICE_TIMEOUT);
         }
 

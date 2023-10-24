@@ -62,10 +62,6 @@ namespace Netimobiledevice.Backup
         private async Task<Mobilebackup2Service> InitializeAsync()
         {
             deviceLink = await GetDeviceLink();
-
-            // Adjust the timeout to be long enough to handle device with a large amount of data
-            Service.SetTimeout(300 * 1000);
-
             return this;
         }
 
