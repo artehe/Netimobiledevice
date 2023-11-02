@@ -24,6 +24,7 @@ namespace Netimobiledevice.Lockdown
     {
         private const int MAX_READ_SIZE = 4096;
 
+        private readonly byte[] receiveBuffer = new byte[MAX_READ_SIZE];
         private readonly UsbmuxdDevice? muxDevice;
         private Stream networkStream;
 
@@ -126,18 +127,15 @@ namespace Netimobiledevice.Lockdown
             int totalBytesRead = 0;
             while (totalBytesRead < length) {
                 int remainingSize = length - totalBytesRead;
-                byte[] buf;
+                int readSize = remainingSize;
                 if (remainingSize > MAX_READ_SIZE) {
-                    buf = new byte[MAX_READ_SIZE];
-                }
-                else {
-                    buf = new byte[remainingSize];
+                    readSize = MAX_READ_SIZE;
                 }
 
-                int bytesRead = networkStream.Read(buf, 0, buf.Length);
-
+                int bytesRead = networkStream.Read(receiveBuffer, 0, readSize);
                 totalBytesRead += bytesRead;
-                buffer.AddRange(buf.Take(bytesRead));
+
+                buffer.AddRange(receiveBuffer.Take(bytesRead));
             }
 
             return buffer.ToArray();
@@ -153,17 +151,14 @@ namespace Netimobiledevice.Lockdown
             int totalBytesRead = 0;
             while (totalBytesRead < length) {
                 int remainingSize = length - totalBytesRead;
-                byte[] buf;
+                int readSize = remainingSize;
                 if (remainingSize > MAX_READ_SIZE) {
-                    buf = new byte[MAX_READ_SIZE];
-                }
-                else {
-                    buf = new byte[remainingSize];
+                    readSize = MAX_READ_SIZE;
                 }
 
                 int bytesRead;
                 if (networkStream.ReadTimeout != -1) {
-                    Task<int> result = networkStream.ReadAsync(buf, 0, buf.Length, cancellationToken);
+                    Task<int> result = networkStream.ReadAsync(receiveBuffer, 0, readSize, cancellationToken);
                     await Task.WhenAny(result, Task.Delay(networkStream.ReadTimeout, cancellationToken));
                     if (!result.IsCompleted) {
                         throw new TimeoutException("Timeout waiting for message from service");
@@ -171,11 +166,11 @@ namespace Netimobiledevice.Lockdown
                     bytesRead = await result;
                 }
                 else {
-                    bytesRead = await networkStream.ReadAsync(buf, 0, buf.Length, cancellationToken);
+                    bytesRead = await networkStream.ReadAsync(receiveBuffer, 0, readSize, cancellationToken);
                 }
 
                 totalBytesRead += bytesRead;
-                buffer.AddRange(buf.Take(bytesRead));
+                buffer.AddRange(receiveBuffer.Take(bytesRead));
             }
 
             return buffer.ToArray();
