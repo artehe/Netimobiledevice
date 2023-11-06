@@ -22,11 +22,8 @@ namespace Netimobiledevice.Lockdown
 
         private static X509Certificate2 CreateRootCertificate(RSA key)
         {
-            // create DN for subject and issuer
-            X500DistinguishedName dn = new X500DistinguishedName($"CN={string.Empty}");
-
             // Create a certificate signing request (CSR)
-            CertificateRequest csr = new CertificateRequest(dn, key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+            CertificateRequest csr = new CertificateRequest(string.Empty, key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
             csr.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, false, 0, true));
             csr.CertificateExtensions.Add(new X509SubjectKeyIdentifierExtension(csr.PublicKey, false));
 
