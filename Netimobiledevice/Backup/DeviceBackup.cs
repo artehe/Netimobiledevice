@@ -394,33 +394,34 @@ namespace Netimobiledevice.Backup
         /// <returns>The application dictionary and array of applications bundle ids.</returns>
         private async Task<(DictionaryNode, ArrayNode)> CreateInstalledAppList()
         {
-            InstallationProxyService installationProxyService = new InstallationProxyService(LockdownClient);
-            SpringBoardServicesService springBoardServicesService = new SpringBoardServicesService(LockdownClient);
-
             DictionaryNode appDict = new DictionaryNode();
             ArrayNode installedApps = new ArrayNode();
 
-            try {
-                ArrayNode apps = await installationProxyService.Browse(
-                new DictionaryNode() { { "ApplicationType", new StringNode("User") } },
-                new ArrayNode() { new StringNode("CFBundleIdentifier"), new StringNode("ApplicationSINF"), new StringNode("iTunesMetadata") });
-                foreach (DictionaryNode app in apps.Cast<DictionaryNode>()) {
-                    if (app.ContainsKey("CFBundleIdentifier")) {
-                        StringNode bundleId = app["CFBundleIdentifier"].AsStringNode();
-                        installedApps.Add(bundleId);
-                        if (app.ContainsKey("iTunesMetadata") && app.ContainsKey("ApplicationSINF")) {
-                            appDict.Add(bundleId.Value, new DictionaryNode() {
+            using (InstallationProxyService installationProxyService = new InstallationProxyService(LockdownClient)) {
+                using (SpringBoardServicesService springBoardServicesService = new SpringBoardServicesService(LockdownClient)) {
+                    try {
+                        ArrayNode apps = await installationProxyService.Browse(
+                        new DictionaryNode() { { "ApplicationType", new StringNode("User") } },
+                        new ArrayNode() { new StringNode("CFBundleIdentifier"), new StringNode("ApplicationSINF"), new StringNode("iTunesMetadata") });
+                        foreach (DictionaryNode app in apps.Cast<DictionaryNode>()) {
+                            if (app.ContainsKey("CFBundleIdentifier")) {
+                                StringNode bundleId = app["CFBundleIdentifier"].AsStringNode();
+                                installedApps.Add(bundleId);
+                                if (app.ContainsKey("iTunesMetadata") && app.ContainsKey("ApplicationSINF")) {
+                                    appDict.Add(bundleId.Value, new DictionaryNode() {
                                 { "ApplicationSINF", app["ApplicationSINF"] },
                                 { "iTunesMetadata", app["iTunesMetadata"] },
                                 { "PlaceholderIcon", springBoardServicesService.GetIconPNGData(bundleId.Value) },
                             });
+                                }
+                            }
                         }
                     }
+                    catch (Exception ex) {
+                        Debug.WriteLine($"ERROR: Creating application list for Info.plist");
+                        Debug.WriteLine(ex);
+                    }
                 }
-            }
-            catch (Exception ex) {
-                Debug.WriteLine($"ERROR: Creating application list for Info.plist");
-                Debug.WriteLine(ex);
             }
             return (appDict, installedApps);
         }
