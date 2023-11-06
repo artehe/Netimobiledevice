@@ -265,10 +265,7 @@ namespace Netimobiledevice.Backup
                 DictionaryNode options = CreateBackupOptions();
                 mobilebackup2Service.SendRequest("Backup", LockdownClient.UDID, LockdownClient.UDID, options);
 
-                // iOS versions 15.7.1 and anything 16.1 or newer will require you to input a passcode before
-                // it can start a backup so we make sure to notify the user about this.
-                if ((LockdownClient.IOSVersion >= new Version(15, 7, 1) && LockdownClient.IOSVersion < new Version(16, 0)) ||
-                    LockdownClient.IOSVersion >= new Version(16, 1)) {
+                if (IsPasscodeRequiredBeforeBackup()) {
                     PasscodeRequiredForBackup?.Invoke(this, EventArgs.Empty);
                 }
 
@@ -426,6 +423,27 @@ namespace Netimobiledevice.Backup
                 Debug.WriteLine(ex);
             }
             return (appDict, installedApps);
+        }
+
+        private bool IsPasscodeRequiredBeforeBackup()
+        {
+            // iOS versions 15.7.1 and anything 16.1 or newer will require you to input a passcode before
+            // it can start a backup so we make sure to notify the user about this.
+            if ((LockdownClient.IOSVersion >= new Version(15, 7, 1) && LockdownClient.IOSVersion < new Version(16, 0)) ||
+                LockdownClient.IOSVersion >= new Version(16, 1)) {
+                using (DiagnosticsService diagnosticsService = new DiagnosticsService(LockdownClient)) {
+                    string queryString = "PasswordConfigured";
+                    DictionaryNode queryResponse = diagnosticsService.MobileGestalt(new List<string>() { queryString });
+
+                    if (queryResponse.ContainsKey(queryString)) {
+                        bool passcodeSet = queryResponse[queryString].AsBooleanNode().Value;
+                        if (passcodeSet) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
         }
 
         /// <summary>
