@@ -33,26 +33,23 @@ namespace Netimobiledevice.Plist
 
         private static PropertyNode LoadAsBinary(Stream stream)
         {
-            var reader = new BinaryFormatReader();
+            BinaryFormatReader reader = new BinaryFormatReader();
             return reader.Read(stream);
         }
 
         private static async Task<PropertyNode> LoadAsBinaryAsync(Stream stream)
         {
-            return await Task.Run(() => {
-                var reader = new BinaryFormatReader();
-                return reader.Read(stream);
-            });
+            return await Task.Run(() => LoadAsBinary(stream));
         }
 
         private static PropertyNode LoadAsXml(Stream stream)
         {
             // Set resolver to null in order to avoid calls to apple.com to resolve DTD
-            var settings = new XmlReaderSettings {
+            XmlReaderSettings settings = new XmlReaderSettings {
                 DtdProcessing = DtdProcessing.Ignore,
             };
 
-            using (var reader = XmlReader.Create(stream, settings)) {
+            using (XmlReader reader = XmlReader.Create(stream, settings)) {
                 reader.MoveToContent();
                 reader.ReadStartElement("plist");
 
@@ -69,12 +66,12 @@ namespace Netimobiledevice.Plist
         private static async Task<PropertyNode> LoadAsXmlAsync(Stream stream)
         {
             // Set resolver to null in order to avoid calls to apple.com to resolve DTD
-            var settings = new XmlReaderSettings {
+            XmlReaderSettings settings = new XmlReaderSettings {
                 Async = true,
                 DtdProcessing = DtdProcessing.Ignore,
             };
 
-            using (var reader = XmlReader.Create(stream, settings)) {
+            using (XmlReader reader = XmlReader.Create(stream, settings)) {
                 await reader.MoveToContentAsync();
                 reader.ReadStartElement("plist");
 
@@ -99,15 +96,15 @@ namespace Netimobiledevice.Plist
             if (format == PlistFormat.Xml) {
                 const string newLine = "\n";
 
-                var sets = new XmlWriterSettings {
+                XmlWriterSettings sets = new XmlWriterSettings {
                     Encoding = Encoding.UTF8,
                     Indent = true,
                     IndentChars = "\t",
                     NewLineChars = newLine,
                 };
 
-                using (var tmpStream = new MemoryStream()) {
-                    using (var xmlWriter = XmlWriter.Create(tmpStream, sets)) {
+                using (MemoryStream tmpStream = new MemoryStream()) {
+                    using (XmlWriter xmlWriter = XmlWriter.Create(tmpStream, sets)) {
                         xmlWriter.WriteStartDocument();
                         xmlWriter.WriteDocType("plist", "-//Apple Computer//DTD PLIST 1.0//EN", "http://www.apple.com/DTDs/PropertyList-1.0.dtd", null);
 
@@ -122,8 +119,8 @@ namespace Netimobiledevice.Plist
                     // XmlWriter always inserts a space before element closing (e.g. <true />)
                     // whereas the Apple parser can't deal with the space and expects <true/>
                     tmpStream.Seek(0, SeekOrigin.Begin);
-                    using (var reader = new StreamReader(tmpStream)) {
-                        using (var writer = new StreamWriter(stream, Encoding.UTF8, 4096, true)) {
+                    using (StreamReader reader = new StreamReader(tmpStream)) {
+                        using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, 4096, true)) {
                             writer.NewLine = newLine;
                             for (string? line = reader.ReadLine(); line != null; line = reader.ReadLine()) {
                                 if (line.Trim() == "<true />") {
@@ -139,7 +136,7 @@ namespace Netimobiledevice.Plist
                 }
             }
             else {
-                var writer = new BinaryFormatWriter();
+                BinaryFormatWriter writer = new BinaryFormatWriter();
                 writer.Write(stream, rootNode);
             }
         }

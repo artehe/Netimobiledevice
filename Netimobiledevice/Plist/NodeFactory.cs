@@ -9,8 +9,8 @@ namespace Netimobiledevice.Plist
 	/// </summary>
     internal static class NodeFactory
     {
-        private static readonly Dictionary<byte, Type> _binaryTags = new Dictionary<byte, Type>();
-        private static readonly Dictionary<string, Type> _xmlTags = new Dictionary<string, Type>();
+        private static readonly Dictionary<byte, PropertyNode> _binaryTags = new Dictionary<byte, PropertyNode>();
+        private static readonly Dictionary<string, PropertyNode> _xmlTags = new Dictionary<string, PropertyNode>();
 
         /// <summary>
 		/// Initializes the <see cref="NodeFactory"/> class.
@@ -41,10 +41,10 @@ namespace Netimobiledevice.Plist
 		private static void Register<T>(T node) where T : PropertyNode, new()
         {
             if (!_binaryTags.ContainsKey(node.BinaryTag)) {
-                _binaryTags.Add(node.BinaryTag, node.GetType());
+                _binaryTags.Add(node.BinaryTag, node);
             }
             if (!_xmlTags.ContainsKey(node.XmlTag)) {
-                _xmlTags.Add(node.XmlTag, node.GetType());
+                _xmlTags.Add(node.XmlTag, node);
             }
         }
 
@@ -58,10 +58,10 @@ namespace Netimobiledevice.Plist
 		private static void Register<T>(string xmlTag, byte binaryTag, T node) where T : PropertyNode, new()
         {
             if (!_binaryTags.ContainsKey(binaryTag)) {
-                _binaryTags.Add(binaryTag, node.GetType());
+                _binaryTags.Add(binaryTag, node);
             }
             if (!_xmlTags.ContainsKey(xmlTag)) {
-                _xmlTags.Add(xmlTag, node.GetType());
+                _xmlTags.Add(xmlTag, node);
             }
         }
 
@@ -73,9 +73,8 @@ namespace Netimobiledevice.Plist
 		public static PropertyNode Create(string tag)
         {
             if (_xmlTags.ContainsKey(tag)) {
-                return (PropertyNode) Activator.CreateInstance(_xmlTags[tag]);
+                return (PropertyNode?) Activator.CreateInstance(_xmlTags[tag].GetType()) ?? new NullNode();
             }
-
             throw new PlistFormatException($"Unknown node - XML tag \"{tag}\"");
         }
 
@@ -98,7 +97,7 @@ namespace Netimobiledevice.Plist
                 return new StringNode { IsUtf16 = true };
             }
             if (_binaryTags.ContainsKey(binaryTag)) {
-                return (PropertyNode) Activator.CreateInstance(_binaryTags[binaryTag]);
+                return (PropertyNode?) Activator.CreateInstance(_binaryTags[binaryTag].GetType()) ?? new NullNode();
             }
 
             throw new PlistFormatException($"Unknown node - binary tag {binaryTag}");
