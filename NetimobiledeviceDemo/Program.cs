@@ -2,6 +2,7 @@
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Misagent;
+using Netimobiledevice.Mobilesync;
 using Netimobiledevice.Plist;
 using Netimobiledevice.SpringBoardServices;
 using Netimobiledevice.Usbmuxd;
@@ -23,6 +24,29 @@ public class Program
             Console.WriteLine($"Device found: {device.DeviceId} - {device.Serial}");
             if (device.ConnectionType == UsbmuxdConnectionType.Usb) {
                 testDevice = device;
+            }
+        }
+
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+            PropertyNode? val = lockdown.GetValue("com.apple.mobile.tethered_sync");
+
+            using (MobilesyncService mobilesyncService = await MobilesyncService.StartServiceAsync(lockdown)) {
+                string anchor = DateTime.Now.ToString();
+                MobilesyncAnchors anchors = new MobilesyncAnchors() {
+                    DeviceAnchor = null,
+                    ComputerAnchor = anchor
+                };
+                string mobilesyncdataPath = "mobileSyncedData.plist";
+                await mobilesyncService.StartSync("com.apple.Contacts", anchors);
+                mobilesyncService.GetAllRecordsFromDevice();
+                ArrayNode entities = new ArrayNode();
+                await foreach (PropertyNode entity in mobilesyncService.ReceiveChanges(null)) {
+                    entities.Add(entity);
+                    mobilesyncService.AcknowledgeChangesFromDevice();
+                }
+                byte[] fileData = PropertyList.SaveAsByteArray(entities, PlistFormat.Xml);
+                File.WriteAllBytes(mobilesyncdataPath, fileData);
+                await mobilesyncService.FinishSync();
             }
         }
 
