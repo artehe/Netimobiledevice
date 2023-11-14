@@ -1,7 +1,6 @@
-﻿using Netimobiledevice.Lockdown.Services;
-using System;
+﻿using System;
 
-namespace Netimobiledevice.Exceptions
+namespace Netimobiledevice.Afc
 {
     public class AfcException : Exception
     {

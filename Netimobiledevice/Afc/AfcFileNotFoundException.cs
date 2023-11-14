@@ -1,6 +1,4 @@
-﻿using Netimobiledevice.Lockdown.Services;
-
-namespace Netimobiledevice.Exceptions
+﻿namespace Netimobiledevice.Afc
 {
     public class AfcFileNotFoundException : AfcException
     {
