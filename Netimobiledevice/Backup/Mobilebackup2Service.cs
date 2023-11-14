@@ -12,6 +12,9 @@ namespace Netimobiledevice.Backup
 {
     public sealed class Mobilebackup2Service : BaseService
     {
+        private const int MOBILEBACKUP2_VERSION_MAJOR = 400;
+        private const int MOBILEBACKUP2_VERSION_MINOR = 0;
+
         private const string SERVICE_NAME = "com.apple.mobilebackup2";
 
         private DeviceLink? deviceLink;
@@ -49,7 +52,7 @@ namespace Netimobiledevice.Backup
         private async Task<DeviceLink> GetDeviceLink()
         {
             DeviceLink deviceLink = new DeviceLink(Service);
-            await deviceLink.VersionExchange();
+            await deviceLink.VersionExchange(MOBILEBACKUP2_VERSION_MAJOR, MOBILEBACKUP2_VERSION_MINOR);
             await VersionExchange(deviceLink);
             return deviceLink;
         }
