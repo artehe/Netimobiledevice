@@ -13,10 +13,10 @@ namespace Netimobiledevice.Mobilesync
         private const int MOBILESYNC_VERSION_MAJOR = 400;
         private const int MOBILESYNC_VERSION_MINOR = 100;
 
+        private const ulong COMPUTER_DATA_CLASS_VERSION = 106;
         private const string EMPTY_PARAMETER_STRING = "___EmptyParameterString___";
         private const string SERVICE_NAME = "com.apple.mobilesync";
 
-        private ulong computerDataClassVersion = 106;
         private DeviceLink? deviceLink;
         private MobilesyncType syncType;
         private ulong deviceDataClassVersion;
@@ -122,7 +122,7 @@ namespace Netimobiledevice.Mobilesync
                 msg.Add(new StringNode("---"));
             }
             msg.Add(new StringNode(anchors.ComputerAnchor));
-            msg.Add(new IntegerNode(computerDataClassVersion));
+            msg.Add(new IntegerNode(COMPUTER_DATA_CLASS_VERSION));
             msg.Add(new StringNode(EMPTY_PARAMETER_STRING));
             deviceLink?.Send(msg);
 

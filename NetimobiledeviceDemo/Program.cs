@@ -28,10 +28,16 @@ public class Program
         }
 
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
-            PropertyNode? val = lockdown.GetValue("com.apple.mobile.tethered_sync");
+            PropertyNode? val = lockdown.GetValue("com.apple.mobile.tethered_sync", null);
+            DictionaryNode tetherValue = new DictionaryNode() {
+                { "DisableTethered", new BooleanNode(false) },
+                { "SyncingOS", new StringNode("Windows") }
+            };
+            lockdown.SetValue("com.apple.mobile.tethered_sync", "Calendars", tetherValue);
+            val = lockdown.GetValue("com.apple.mobile.tethered_sync", null);
 
             using (MobilesyncService mobilesyncService = await MobilesyncService.StartServiceAsync(lockdown)) {
-                string anchor = DateTime.Now.ToString();
+                string anchor = new DateTime(2001, 1, 1, 0, 0, 0, DateTimeKind.Utc).ToString();
                 MobilesyncAnchors anchors = new MobilesyncAnchors() {
                     DeviceAnchor = null,
                     ComputerAnchor = anchor
