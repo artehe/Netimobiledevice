@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown.Services
 {
+    // TODO I think this should change to be more like an actual service which we inherit from with the two iOS services which use it (mobilebackup2 and mobilesync)
     internal sealed class DeviceLink : IDisposable
     {
         private const int SERVICE_TIMEOUT = 300 * 1000;
@@ -39,10 +40,22 @@ namespace Netimobiledevice.Lockdown.Services
             }
             return message.AsArrayNode();
         }
-
         public void Send(PropertyNode message)
         {
             _service.SendPlist(message, PlistFormat.Binary);
+        }
+
+        /// <summary>
+        /// Sends a DLMessagePing plist.
+        /// </summary>
+        /// <param name="message">String to send as ping message.</param>
+        public void SendPing(string message)
+        {
+            ArrayNode msg = new ArrayNode() {
+                new StringNode("DLMessagePing"),
+                new StringNode(message)
+            };
+            Send(msg);
         }
 
         public void SendProcessMessage(PropertyNode message)

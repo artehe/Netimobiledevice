@@ -52,6 +52,12 @@ public class Program
                 }
                 byte[] fileData = PropertyList.SaveAsByteArray(entities, PlistFormat.Xml);
                 File.WriteAllBytes(mobilesyncdataPath, fileData);
+
+                // We should send any changes we have back even if there aren't any
+                await mobilesyncService.ReadyToSendChangesFromComputer();
+                mobilesyncService.SendChanges(new DictionaryNode(), true, null);
+                await mobilesyncService.RemapIdentifiers();
+
                 await mobilesyncService.FinishSync();
             }
         }

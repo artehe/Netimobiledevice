@@ -35,6 +35,25 @@ namespace Netimobiledevice.Mobilesync
             deviceLink?.Send(msg);
         }
 
+        private ArrayNode CreateProcessChangesMessage(DictionaryNode entities, bool moreChanges, PropertyNode? actions)
+        {
+            ArrayNode msg = new ArrayNode() {
+                new StringNode("SDMessageProcessChanges"),
+                new StringNode(syncingDataClass),
+                entities,
+                new BooleanNode(moreChanges)
+            };
+
+            if (actions != null) {
+                msg.Add(actions);
+            }
+            else {
+                msg.Add(new StringNode(EMPTY_PARAMETER_STRING));
+            }
+
+            return msg;
+        }
+
         private async Task InitialiseAsync()
         {
             deviceLink = new DeviceLink(Service);
@@ -76,6 +95,25 @@ namespace Netimobiledevice.Mobilesync
             }
         }
 
+        public async Task ReadyToSendChangesFromComputer()
+        {
+            if (deviceLink != null) {
+                ArrayNode msg = await deviceLink.ReceiveMessage();
+
+                string responseType = msg[0].AsStringNode().Value;
+                if (responseType == "SDMessageCancelSession") {
+                    string reason = msg[2].AsStringNode().Value;
+                    throw new Exception($"Device cancelled sync: {reason}");
+                }
+
+                if (responseType != "SDMessageDeviceReadyToReceiveChanges") {
+                    throw new Exception("Device not ready");
+                }
+
+                deviceLink?.SendPing("Preparing to get changes for device");
+            }
+        }
+
         public async IAsyncEnumerable<PropertyNode> ReceiveChanges(PropertyNode? actions)
         {
             bool isLastRecord = false;
@@ -107,6 +145,33 @@ namespace Netimobiledevice.Mobilesync
                     }
                 }
             }
+        }
+
+        public async Task<DictionaryNode> RemapIdentifiers()
+        {
+            if (deviceLink != null) {
+                ArrayNode msg = await deviceLink.ReceiveMessage();
+
+                string responseType = msg[0].AsStringNode().Value;
+                if (responseType == "SDMessageCancelSession") {
+                    string reason = msg[2].AsStringNode().Value;
+                    throw new Exception($"Device cancelled sync: {reason}");
+                }
+
+                if (responseType != "SDMessageRemapRecordIdentifiers") {
+                    throw new Exception("Device not remapping");
+                }
+
+                DictionaryNode mapping = msg[2].AsDictionaryNode();
+                return mapping;
+            }
+            return new DictionaryNode();
+        }
+
+        public void SendChanges(DictionaryNode entities, bool isLastRecord, PropertyNode? actions)
+        {
+            ArrayNode msg = CreateProcessChangesMessage(entities, isLastRecord, actions);
+            deviceLink?.Send(msg);
         }
 
         public async Task StartSync(string dataClass, MobilesyncAnchors anchors)
