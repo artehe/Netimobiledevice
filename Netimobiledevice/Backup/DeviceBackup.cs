@@ -227,7 +227,6 @@ namespace Netimobiledevice.Backup
             notificationProxyService?.Dispose();
             mobilebackup2Service?.Dispose();
             afcService?.Dispose();
-            LockdownClient?.Dispose();
             InProgress = false;
         }
 
@@ -274,7 +273,6 @@ namespace Netimobiledevice.Backup
             }
             catch (Exception ex) {
                 OnError(ex);
-                CleanResources();
                 return;
             }
         }
@@ -894,7 +892,6 @@ namespace Netimobiledevice.Backup
         protected virtual void OnBackupCompleted()
         {
             Debug.WriteLine("Device Backup Completed");
-            CleanResources();
             Completed?.Invoke(this, new BackupResultEventArgs(failedFiles, userCancelled, deviceDisconnected));
         }
 

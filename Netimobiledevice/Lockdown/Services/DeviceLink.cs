@@ -4,18 +4,14 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown.Services
 {
-    // TODO I think this should change to be more like an actual service which we inherit from with the two iOS services which use it (mobilebackup2 and mobilesync)
-    internal sealed class DeviceLink : IDisposable
+    public abstract class DeviceLink : BaseService
     {
         private const int SERVICE_TIMEOUT = 300 * 1000;
 
-        private readonly ServiceConnection _service;
-
-        public DeviceLink(ServiceConnection service)
+        protected DeviceLink(LockdownClient lockdown, ServiceConnection? service = null) : base(lockdown, service)
         {
-            _service = service;
             // Adjust the timeout to be long enough to handle device with a large amount of data
-            _service.SetTimeout(SERVICE_TIMEOUT);
+            Service.SetTimeout(SERVICE_TIMEOUT);
         }
 
         private void Disconnect()
@@ -24,43 +20,39 @@ namespace Netimobiledevice.Lockdown.Services
                 new StringNode("DLMessageDisconnect"),
                 new StringNode("___EmptyParameterString___")
             };
-            _service.SendPlist(message, PlistFormat.Binary);
+            Service.SendPlist(message, PlistFormat.Binary);
         }
 
-        public void Dispose()
+        protected async Task<ArrayNode> DeviceLinkReceiveMessage()
         {
-            Disconnect();
-        }
-
-        public async Task<ArrayNode> ReceiveMessage()
-        {
-            PropertyNode? message = await _service.ReceivePlistAsync();
+            PropertyNode? message = await Service.ReceivePlistAsync();
             if (message == null) {
                 return new ArrayNode();
             }
             return message.AsArrayNode();
         }
-        public void Send(PropertyNode message)
+
+        protected void DeviceLinkSend(PropertyNode message)
         {
-            _service.SendPlist(message, PlistFormat.Binary);
+            Service.SendPlist(message, PlistFormat.Binary);
         }
 
         /// <summary>
         /// Sends a DLMessagePing plist.
         /// </summary>
         /// <param name="message">String to send as ping message.</param>
-        public void SendPing(string message)
+        protected void DeviceLinkSendPing(string message)
         {
             ArrayNode msg = new ArrayNode() {
                 new StringNode("DLMessagePing"),
                 new StringNode(message)
             };
-            Send(msg);
+            DeviceLinkSend(msg);
         }
 
-        public void SendProcessMessage(PropertyNode message)
+        protected void DeviceLinkSendProcessMessage(PropertyNode message)
         {
-            _service.SendPlist(new ArrayNode() {
+            Service.SendPlist(new ArrayNode() {
                 new StringNode("DLMessageProcessMessage"),
                 message
             }, PlistFormat.Binary);
@@ -73,10 +65,10 @@ namespace Netimobiledevice.Lockdown.Services
         /// </summary>
         /// <param name="versionMajor">The major version number to check.</param>
         /// <param name="versionMinor">The minor version number to check.</param>
-        public async Task VersionExchange(ulong versionMajor, ulong versionMinor)
+        protected async Task DeviceLinkVersionExchange(ulong versionMajor, ulong versionMinor)
         {
             // Get DLMessageVersionExchange from device
-            ArrayNode versionExchangeMessage = await ReceiveMessage();
+            ArrayNode versionExchangeMessage = await DeviceLinkReceiveMessage();
             string dlMessage = versionExchangeMessage[0].AsStringNode().Value;
             if (string.IsNullOrEmpty(dlMessage) || dlMessage != "DLMessageVersionExchange") {
                 throw new Exception("Didn't receive DLMessageVersionExchange from device");
@@ -96,18 +88,25 @@ namespace Netimobiledevice.Lockdown.Services
             }
 
             // The version is ok so send reply
-            _service.SendPlist(new ArrayNode {
+            Service.SendPlist(new ArrayNode {
                 new StringNode("DLMessageVersionExchange"),
                 new StringNode("DLVersionsOk"),
                 new IntegerNode(versionMajor)
             }, PlistFormat.Binary);
 
             // Receive DeviceReady message
-            ArrayNode messageDeviceReady = await ReceiveMessage();
+            ArrayNode messageDeviceReady = await DeviceLinkReceiveMessage();
             dlMessage = messageDeviceReady[0].AsStringNode().Value;
             if (string.IsNullOrEmpty(dlMessage) || dlMessage != "DLMessageDeviceReady") {
                 throw new Exception("Device link didn't return ready state (DLMessageDeviceReady)");
             }
+        }
+
+        public override void Dispose()
+        {
+            Disconnect();
+            Close();
+            GC.SuppressFinalize(this);
         }
     }
 }

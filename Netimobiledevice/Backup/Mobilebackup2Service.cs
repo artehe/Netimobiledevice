@@ -10,14 +10,12 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Backup
 {
-    public sealed class Mobilebackup2Service : BaseService
+    public sealed class Mobilebackup2Service : DeviceLink
     {
         private const int MOBILEBACKUP2_VERSION_MAJOR = 400;
         private const int MOBILEBACKUP2_VERSION_MINOR = 0;
 
         private const string SERVICE_NAME = "com.apple.mobilebackup2";
-
-        private DeviceLink? deviceLink;
 
         protected override string ServiceName => SERVICE_NAME;
 
@@ -49,23 +47,9 @@ namespace Netimobiledevice.Backup
             SendMessage("ChangePassword", opts);
         }
 
-        private async Task<DeviceLink> GetDeviceLink()
-        {
-            DeviceLink deviceLink = new DeviceLink(Service);
-            await deviceLink.VersionExchange(MOBILEBACKUP2_VERSION_MAJOR, MOBILEBACKUP2_VERSION_MINOR);
-            await VersionExchange(deviceLink);
-            return deviceLink;
-        }
-
         private static ServiceConnection GetServiceConnection(LockdownClient client)
         {
             return client.StartService(SERVICE_NAME, useEscrowBag: true);
-        }
-
-        private async Task<Mobilebackup2Service> InitializeAsync()
-        {
-            deviceLink = await GetDeviceLink();
-            return this;
         }
 
         private void SendMessage(string message, DictionaryNode options)
@@ -80,12 +64,10 @@ namespace Netimobiledevice.Backup
                     dict = options;
                 }
                 dict.Add("MessageName", new StringNode(message));
-
-                // Send it as DLMessageProcessMessage 
-                deviceLink?.SendProcessMessage(dict);
+                DeviceLinkSendProcessMessage(dict);
             }
             else {
-                deviceLink?.SendProcessMessage(options);
+                DeviceLinkSendProcessMessage(options);
             }
         }
 
@@ -99,18 +81,18 @@ namespace Netimobiledevice.Backup
         /// Exchange versions with the device and assert that the device supports our version of the protocol.
         /// </summary>
         /// <param name="deviceLink">Initialized device link.</param>
-        private static async Task VersionExchange(DeviceLink deviceLink)
+        private async Task VersionExchange()
         {
             ArrayNode supportedVersions = new ArrayNode {
                 new RealNode(2.0),
                 new RealNode(2.1)
             };
-            deviceLink.SendProcessMessage(new DictionaryNode() {
+            DeviceLinkSendProcessMessage(new DictionaryNode() {
                 {"MessageName", new StringNode("Hello") },
                 {"SupportedProtocolVersions", supportedVersions }
             });
 
-            ArrayNode reply = await deviceLink.ReceiveMessage();
+            ArrayNode reply = await DeviceLinkReceiveMessage();
             if (reply[0].AsStringNode().Value != "DLMessageProcessMessage" || reply[1].AsDictionaryNode()["ErrorCode"].AsIntegerNode().Value != 0) {
                 throw new Exception($"Found error in response during version exchange");
             }
@@ -129,23 +111,17 @@ namespace Netimobiledevice.Backup
             ChangeBackupEncryptionPassword(oldPassword, newPassword, BackupEncryptionFlags.ChangePassword);
         }
 
-        public static Task<Mobilebackup2Service> CreateAsync(LockdownClient client)
+        public static async Task<Mobilebackup2Service> CreateAsync(LockdownClient client)
         {
-            Mobilebackup2Service ret = new Mobilebackup2Service(client);
-            return ret.InitializeAsync();
-        }
-
-        public override void Dispose()
-        {
-            base.Dispose();
+            Mobilebackup2Service service = new Mobilebackup2Service(client);
+            await service.DeviceLinkVersionExchange(MOBILEBACKUP2_VERSION_MAJOR, MOBILEBACKUP2_VERSION_MINOR);
+            await service.VersionExchange();
+            return service;
         }
 
         public async Task<ArrayNode> ReceiveMessage()
         {
-            if (deviceLink != null) {
-                return await deviceLink.ReceiveMessage();
-            }
-            throw new NullReferenceException("DeviceLink null, please run LoadDeviceLink function before calling");
+            return await DeviceLinkReceiveMessage();
         }
 
         public byte[] ReceiveRaw(int length)
@@ -239,7 +215,7 @@ namespace Netimobiledevice.Backup
                 array.Add(new DictionaryNode());
             }
 
-            deviceLink?.Send(array);
+            DeviceLinkSend(array);
         }
 
         /// <summary>

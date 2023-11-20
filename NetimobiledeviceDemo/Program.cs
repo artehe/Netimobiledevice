@@ -43,7 +43,7 @@ public class Program
                     ComputerAnchor = anchor
                 };
                 string mobilesyncdataPath = "mobileSyncedData.plist";
-                await mobilesyncService.StartSync("com.apple.Contacts", anchors);
+                await mobilesyncService.StartSync("com.apple.Calendars", anchors);
                 mobilesyncService.GetAllRecordsFromDevice();
                 ArrayNode entities = new ArrayNode();
                 await foreach (PropertyNode entity in mobilesyncService.ReceiveChanges(null)) {
