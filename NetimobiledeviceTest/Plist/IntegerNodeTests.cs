@@ -26,4 +26,14 @@ public class IntegerNodeTests
         node = new IntegerNode(274);
         Assert.AreEqual($"<integer>: 274", node.ToString());
     }
+
+    [TestMethod]
+    public void ParseHandlesNegativeValue()
+    {
+        IntegerNode node = new IntegerNode();
+        node.Parse("-536854523");
+
+        int actualValue = (int) node.Value;
+        Assert.AreEqual(-536854523, actualValue);
+    }
 }
