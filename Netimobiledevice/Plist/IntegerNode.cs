@@ -41,7 +41,7 @@ namespace Netimobiledevice.Plist
         /// <value>The value of this element.</value>
         public override ulong Value { get; set; }
 
-        public bool Unsigned { get; }
+        public bool Unsigned { get; private set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="IntegerNode"/> class.
@@ -108,7 +108,14 @@ namespace Netimobiledevice.Plist
         /// <param name="data">The string whis is parsed.</param>
         internal override void Parse(string data)
         {
-            Value = ulong.Parse(data, CultureInfo.InvariantCulture);
+            if (data.StartsWith('-')) {
+                Value = (ulong) long.Parse(data, CultureInfo.InvariantCulture);
+                Unsigned = false;
+            }
+            else {
+                Value = ulong.Parse(data, CultureInfo.InvariantCulture);
+                Unsigned = true;
+            }
         }
 
         /// <summary>
