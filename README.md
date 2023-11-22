@@ -1,6 +1,6 @@
 # Netimobiledevice
 
-Netimobiledevice is a .Net Core implementation for working with all iOS devices (iPhone, iPad, iPod) as well the plists that they use.
+Netimobiledevice is a pure C# implementation for working with iOS devices (iPhone, iPad, iPod).
 
 - [Netimobiledevice](#Netimobiledevice)
     * [Features](#Features)
@@ -16,7 +16,7 @@ Netimobiledevice is a .Net Core implementation for working with all iOS devices 
  - Backup an iOS device in the normal iTunes way or as customised as you like. 
  - Device discovery and connection via Usbmux.
  - Interact with iOS services
- - Handle all Plists whether they are in XML or Binary format
+ - Handle all property lists files (.plist) whether they are in XML or Binary format
 
 ## Installation
 
@@ -110,7 +110,7 @@ private void Progress_ProgressChanged(object? sender, PairingState e)
 
 The list of all the services from lockdownd which have been implemented and the functions available for each one. Clicking on the service name will take you to it's implementation, to learn more about it.
 
-- [com.apple.afc](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/AfcService.cs)
+- [com.apple.afc](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Afc/AfcService.cs)
   * Interact with the publicly available directories and files
 - [com.apple.misagent](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Misagent/MisagentService.cs)
   * Management for provisioning profiles 
@@ -125,6 +125,8 @@ The list of all the services from lockdownd which have been implemented and the 
 - [com.apple.mobilebackup2](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Backup/Mobilebackup2Service.cs)
   * Backup Creation
   * Communication with the Backup service
+- [com.apple.mobilesync](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Mobilesync/Mobilesync.cs)
+  * Sync data (Contacts, Calendar etc) between device and computer
 - [com.apple.os_trace_relay](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/InstallationProxyService.cs)
   * Get pid list
 - [com.apple.springboardservices](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/SpringBoardServices/SpringBoardServicesService.cs)
