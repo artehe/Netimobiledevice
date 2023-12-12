@@ -1,4 +1,5 @@
-﻿using Netimobiledevice.Backup;
+﻿using Netimobiledevice.Afc;
+using Netimobiledevice.Backup;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Misagent;
@@ -106,6 +107,13 @@ public class Program
                 foreach (string line in syslog.Watch()) {
                     Console.WriteLine(line);
                 }
+            }
+
+            //Get the list of directories in the Connected iOS device.
+            using (AfcService afcService = new AfcService(lockdown)) {
+                List<string> pathList = afcService.GetDirectoryList();
+                Console.WriteLine("Path's available in the connected iOS device are as below." + Environment.NewLine);
+                Console.WriteLine(string.Join(", " + Environment.NewLine, pathList));
             }
         }
 
