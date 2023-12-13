@@ -49,6 +49,11 @@ namespace Netimobiledevice.Lockdown
         /// </summary>
         public bool IsPaired { get; private set; } = false;
 
+        /// <summary>
+        /// Get the internal device model identifier
+        /// </summary>
+        public string Product => GetValue("ProductType")?.AsStringNode().Value ?? string.Empty;
+
         public string SerialNumber { get; private set; } = string.Empty;
 
         public string UDID { get; private set; } = string.Empty;

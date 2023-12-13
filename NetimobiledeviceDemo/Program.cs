@@ -29,6 +29,20 @@ public class Program
         }
 
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+            Progress<PairingState> progress = new();
+            progress.ProgressChanged += Progress_ProgressChanged;
+            if (!lockdown.IsPaired) {
+                await lockdown.PairAsync(progress);
+            }
+        }
+
+        await Task.Delay(1000);
+
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+            string product = lockdown.Product;
+        }
+
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
             PropertyNode? val = lockdown.GetValue("com.apple.mobile.tethered_sync", null);
             DictionaryNode tetherValue = new DictionaryNode() {
                 { "DisableTethered", new BooleanNode(false) },
@@ -65,16 +79,6 @@ public class Program
 
         Usbmux.Subscribe(SubscriptionCallback, SubscriptionErrorCallback);
         Usbmux.Unsubscribe();
-
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
-            Progress<PairingState> progress = new();
-            progress.ProgressChanged += Progress_ProgressChanged;
-            if (!lockdown.IsPaired) {
-                await lockdown.PairAsync(progress);
-            }
-        }
-
-        await Task.Delay(1000);
 
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
             string path = "backups";
