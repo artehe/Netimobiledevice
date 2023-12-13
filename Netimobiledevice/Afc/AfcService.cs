@@ -240,5 +240,27 @@ namespace Netimobiledevice.Afc
             byte[] data = RunOperation(AfcOpCode.FileOpen, openRequest.GetBytes());
             return StructExtentions.FromBytes<AfcFileOpenResponse>(data).Handle;
         }
+
+        public List<string> GetDirectoryList()
+        {
+            List<string> directoryList = new List<string>();
+            try {
+                AfcFileInfoRequest request = new AfcFileInfoRequest(new CString("/", Encoding.UTF8));
+                byte[] response = RunOperation(AfcOpCode.ReadDir, request.GetBytes());
+                directoryList = ParseFileInfoResponseForMessage(response);
+            }
+            catch (Exception e) {
+                Console.WriteLine(e.Message);
+            }
+            return directoryList;
+        }
+
+        private static List<string> ParseFileInfoResponseForMessage(byte[] data)
+        {
+            string decodedData = Encoding.UTF8.GetString(data);
+            List<string> seperatedData = decodedData.Split('\0').ToList();
+            seperatedData.RemoveAt(seperatedData.Count - 1);
+            return seperatedData;
+        }
     }
 }
