@@ -39,6 +39,15 @@ public class Program
         await Task.Delay(1000);
 
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+            using (DiagnosticsService diagnosticsService = new DiagnosticsService(lockdown)) {
+                Dictionary<string, ulong> storageInfo = diagnosticsService.GetStorageDetails();
+                ulong totalDiskValue = 0;
+                storageInfo?.TryGetValue("TotalDiskCapacity", out totalDiskValue);
+                Console.WriteLine($"Total disk capacity in bytes: {totalDiskValue} bytes");
+            }
+        }
+
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
             string product = lockdown.Product;
             string productName = lockdown.ProductFriendlyName;
         }
