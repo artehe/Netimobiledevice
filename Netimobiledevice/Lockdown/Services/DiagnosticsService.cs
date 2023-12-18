@@ -15,7 +15,7 @@ namespace Netimobiledevice.Lockdown.Services
         private const string SERVICE_NAME_NEW = "com.apple.mobile.diagnostics_relay";
         private const string SERVICE_NAME_OLD = "com.apple.iosdiagnostics.relay";
 
-        private string[] _mobileGestaltKeys = new string[] {
+        private readonly string[] _mobileGestaltKeys = new string[] {
             "AllDeviceCapabilities",
             "AllowYouTube",
             "AllowYouTubePlugin",

@@ -185,7 +185,8 @@ namespace Netimobiledevice.Afc
                 string target = info["LinkTarget"].AsStringNode().Value;
                 if (!target.StartsWith("/")) {
                     // Relative path
-                    filename = Path.Combine(Path.GetDirectoryName(filename), target);
+                    string filePath = Path.GetDirectoryName(filename) ?? string.Empty;
+                    filename = Path.Combine(filePath, target);
                 }
                 else {
                     filename = target;
@@ -232,11 +233,10 @@ namespace Netimobiledevice.Afc
 
         public ulong FileOpen(string filename, string mode = "r")
         {
-            if (!FileOpenModes.ContainsKey(mode)) {
+            if (!FileOpenModes.TryGetValue(mode, out AfcFileOpenMode value)) {
                 throw new ArgumentException($"mode can oly be one of {FileOpenModes.Keys}", nameof(mode));
             }
-
-            AfcFileOpenRequest openRequest = new AfcFileOpenRequest(FileOpenModes[mode], new CString(filename, Encoding.UTF8));
+            AfcFileOpenRequest openRequest = new AfcFileOpenRequest(value, new CString(filename, Encoding.UTF8));
             byte[] data = RunOperation(AfcOpCode.FileOpen, openRequest.GetBytes());
             return StructExtentions.FromBytes<AfcFileOpenResponse>(data).Handle;
         }

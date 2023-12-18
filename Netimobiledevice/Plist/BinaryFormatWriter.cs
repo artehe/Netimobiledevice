@@ -55,22 +55,20 @@ namespace Netimobiledevice.Plist
         private static int GetNodeCount(PropertyNode node)
         {
             if (node == null) {
-                throw new ArgumentNullException("node");
+                throw new ArgumentNullException(nameof(node));
             }
 
             // Special case: array
-            ArrayNode array = node as ArrayNode;
-            if (array != null) {
+            if (node is ArrayNode array) {
                 int count = 1;
-                foreach (var subNode in array) {
+                foreach (PropertyNode subNode in array) {
                     count += GetNodeCount(subNode);
                 }
                 return count;
             }
 
             // Special case: dictionary
-            DictionaryNode dictionary = node as DictionaryNode;
-            if (dictionary != null) {
+            if (node is DictionaryNode dictionary) {
                 int count = 1;
                 foreach (PropertyNode subNode in dictionary.Values) {
                     count += GetNodeCount(subNode);
@@ -95,18 +93,19 @@ namespace Netimobiledevice.Plist
         {
             int elementIdx = offsets.Count;
             if (node.IsBinaryUnique && node is IEquatable<PropertyNode>) {
-                if (!_uniqueElements.ContainsKey(node.BinaryTag)) {
-                    _uniqueElements.Add(node.BinaryTag, new Dictionary<PropertyNode, int>());
+                if (!_uniqueElements.TryGetValue(node.BinaryTag, out Dictionary<PropertyNode, int>? value)) {
+                    value = new Dictionary<PropertyNode, int>();
+                    _uniqueElements.Add(node.BinaryTag, value);
                 }
-                if (!_uniqueElements[node.BinaryTag].ContainsKey(node)) {
-                    _uniqueElements[node.BinaryTag][node] = elementIdx;
+                if (!value.TryGetValue(node, out int retValue)) {
+                    value[node] = elementIdx;
                 }
                 else {
                     if (node is BooleanNode) {
-                        elementIdx = _uniqueElements[node.BinaryTag][node];
+                        elementIdx = retValue;
                     }
                     else {
-                        return _uniqueElements[node.BinaryTag][node];
+                        return retValue;
                     }
                 }
             }
@@ -114,23 +113,21 @@ namespace Netimobiledevice.Plist
             int offset = (int) stream.Position;
             offsets.Add(offset);
             int len = node.BinaryLength;
-            byte typeCode = (byte) (node.BinaryTag << 4 | (len < 0x0F ? len : 0x0F));
+            byte typeCode = (byte) ((node.BinaryTag << 4) | (len < 0x0F ? len : 0x0F));
             stream.WriteByte(typeCode);
             if (len >= 0x0F) {
-                var extLen = NodeFactory.CreateLengthElement(len);
-                byte binaryTag = (byte) (extLen.BinaryTag << 4 | extLen.BinaryLength);
+                PropertyNode extLen = NodeFactory.CreateLengthElement(len);
+                byte binaryTag = (byte) ((extLen.BinaryTag << 4) | extLen.BinaryLength);
                 stream.WriteByte(binaryTag);
                 extLen.WriteBinary(stream);
             }
 
-            ArrayNode arrayNode = node as ArrayNode;
-            if (arrayNode != null) {
+            if (node is ArrayNode arrayNode) {
                 WriteInternal(stream, nodeIndexSize, offsets, arrayNode);
                 return elementIdx;
             }
 
-            DictionaryNode dictionaryNode = node as DictionaryNode;
-            if (dictionaryNode != null) {
+            if (node is DictionaryNode dictionaryNode) {
                 WriteInternal(stream, nodeIndexSize, offsets, dictionaryNode);
                 return elementIdx;
             }
@@ -141,8 +138,8 @@ namespace Netimobiledevice.Plist
 
         private void WriteInternal(Stream stream, byte nodeIndexSize, List<int> offsets, ArrayNode array)
         {
-            var nodes = new byte[nodeIndexSize * array.Count];
-            var streamPos = stream.Position;
+            byte[] nodes = new byte[nodeIndexSize * array.Count];
+            long streamPos = stream.Position;
 
             stream.Write(nodes, 0, nodes.Length);
             for (int i = 0; i < array.Count; i++) {
@@ -220,7 +217,7 @@ namespace Netimobiledevice.Plist
             }
 
             for (int i = 0; i < offsets.Count; i++) {
-                byte[] buf = null;
+                byte[]? buf = null;
                 switch (offsetSize) {
                     case 1: {
                         buf = new[] { (byte) offsets[i] };
@@ -235,7 +232,9 @@ namespace Netimobiledevice.Plist
                         break;
                     }
                 }
-                stream.Write(buf, 0, buf.Length);
+                if (buf != null) {
+                    stream.Write(buf, 0, buf.Length);
+                }
             }
 
             byte[] header = new byte[32];

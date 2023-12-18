@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Threading.Tasks;
 using System.Xml;
@@ -249,7 +250,7 @@ namespace Netimobiledevice.Plist
         /// <returns>true if the key exists, otherwise false</returns>
         /// <param name="key">Key</param>
         /// <param name="value">Value</param>
-        public bool TryGetValue(string key, out PropertyNode value)
+        public bool TryGetValue(string key, [MaybeNullWhen(false)] out PropertyNode value)
         {
             return _dictionary.TryGetValue(key, out value);
         }
