@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
 namespace Netimobiledevice.HelperFiles
 {
@@ -89,9 +85,18 @@ namespace Netimobiledevice.HelperFiles
                 {"iPad11,7", "iPad (8th generation, Cellular)"},
                 {"iPad5,3","iPad Air 2"},
                 {"iPad5,4","iPad Air 2"},
-                {"iPad4,7","iPad mini 3"}
+                {"iPad4,7","iPad mini 3"},
+
+                //iPod models
+                { "iPod1,1", "iPod touch (1st generation)" },
+                { "iPod2,1", "iPod touch (2nd generation)" },
+                { "iPod3,1", "iPod touch (3rd generation)" },
+                { "iPod4,1", "iPod touch (4th generation)" },
+                { "iPod5,1", "iPod touch (5th generation)" },
+                { "iPod7,1", "iPod touch (6th generation)" },
+                { "iPod9,1", "iPod touch (7th generation)" }
             };
-            
+
             if (modelMapping.TryGetValue(identifier, out var modelName)) {
                 return modelName;
             }
