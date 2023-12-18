@@ -40,6 +40,7 @@ public class Program
 
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
             string product = lockdown.Product;
+            string productName = lockdown.ProductFriendlyName;
         }
 
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
