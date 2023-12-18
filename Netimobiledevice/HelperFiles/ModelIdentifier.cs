@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.HelperFiles
 {
-    public static class ModelIdentifier
+    internal static class ModelIdentifier
     {
-        public static string GetDeviceModelName(string identifier)
+        internal static string GetDeviceModelName(string identifier)
         {
             Dictionary<string, string> modelMapping = new Dictionary<string, string>
             {
@@ -96,7 +96,8 @@ namespace Netimobiledevice.HelperFiles
                 return modelName;
             }
 
-            return "Unknown Model";
+            //if none of the above one is returned, then new iPhone version has been released and it's model has to be added to the list.
+            return identifier;
         }
     }
 }

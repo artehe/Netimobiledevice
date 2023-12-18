@@ -1,4 +1,5 @@
 ﻿using Netimobiledevice.Exceptions;
+using Netimobiledevice.HelperFiles;
 using Netimobiledevice.NotificationProxy;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd;
@@ -53,6 +54,8 @@ namespace Netimobiledevice.Lockdown
         /// Get the internal device model identifier
         /// </summary>
         public string Product => GetValue("ProductType")?.AsStringNode().Value ?? string.Empty;
+
+        public string ProductFriendlyName => ModelIdentifier.GetDeviceModelName(Product);
 
         public string SerialNumber { get; private set; } = string.Empty;
 

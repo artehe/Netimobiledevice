@@ -1,6 +1,5 @@
 ﻿using Netimobiledevice.Afc;
 using Netimobiledevice.Backup;
-using Netimobiledevice.HelperFiles;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Misagent;
@@ -40,11 +39,8 @@ public class Program
         await Task.Delay(1000);
 
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
-            Console.WriteLine($"Current connected model : {ModelIdentifier.GetDeviceModelName(lockdown.Product)}");
-        }
-
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
             string product = lockdown.Product;
+            string productName = lockdown.ProductFriendlyName;
         }
 
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
