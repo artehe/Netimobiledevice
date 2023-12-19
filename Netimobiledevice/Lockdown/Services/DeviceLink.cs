@@ -1,5 +1,6 @@
 ﻿using Netimobiledevice.Plist;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown.Services
@@ -23,9 +24,9 @@ namespace Netimobiledevice.Lockdown.Services
             Service.SendPlist(message, PlistFormat.Binary);
         }
 
-        protected async Task<ArrayNode> DeviceLinkReceiveMessage()
+        protected async Task<ArrayNode> DeviceLinkReceiveMessage(CancellationToken cancellationToken)
         {
-            PropertyNode? message = await Service.ReceivePlistAsync();
+            PropertyNode? message = await Service.ReceivePlistAsync(cancellationToken);
             if (message == null) {
                 return new ArrayNode();
             }
@@ -65,10 +66,10 @@ namespace Netimobiledevice.Lockdown.Services
         /// </summary>
         /// <param name="versionMajor">The major version number to check.</param>
         /// <param name="versionMinor">The minor version number to check.</param>
-        protected async Task DeviceLinkVersionExchange(ulong versionMajor, ulong versionMinor)
+        protected async Task DeviceLinkVersionExchange(ulong versionMajor, ulong versionMinor, CancellationToken cancellationToken)
         {
             // Get DLMessageVersionExchange from device
-            ArrayNode versionExchangeMessage = await DeviceLinkReceiveMessage();
+            ArrayNode versionExchangeMessage = await DeviceLinkReceiveMessage(cancellationToken);
             string dlMessage = versionExchangeMessage[0].AsStringNode().Value;
             if (string.IsNullOrEmpty(dlMessage) || dlMessage != "DLMessageVersionExchange") {
                 throw new Exception("Didn't receive DLMessageVersionExchange from device");
@@ -95,7 +96,7 @@ namespace Netimobiledevice.Lockdown.Services
             }, PlistFormat.Binary);
 
             // Receive DeviceReady message
-            ArrayNode messageDeviceReady = await DeviceLinkReceiveMessage();
+            ArrayNode messageDeviceReady = await DeviceLinkReceiveMessage(cancellationToken);
             dlMessage = messageDeviceReady[0].AsStringNode().Value;
             if (string.IsNullOrEmpty(dlMessage) || dlMessage != "DLMessageDeviceReady") {
                 throw new Exception("Device link didn't return ready state (DLMessageDeviceReady)");

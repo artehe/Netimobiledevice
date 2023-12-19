@@ -1,4 +1,5 @@
 ﻿using Netimobiledevice.Plist;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown.Services
@@ -13,17 +14,17 @@ namespace Netimobiledevice.Lockdown.Services
 
         public OsTraceService(LockdownClient client) : base(client) { }
 
-        public async Task<DictionaryNode> GetPidList()
+        public async Task<DictionaryNode> GetPidList(CancellationToken cancellationToken = default)
         {
             DictionaryNode request = new DictionaryNode() {
                 { "Request", new StringNode("PidList") },
             };
-            await Service.SendPlistAsync(request);
+            await Service.SendPlistAsync(request, cancellationToken);
 
             // Ignore the first received unknown byte
-            await Service.ReceiveAsync(1);
+            await Service.ReceiveAsync(1, cancellationToken);
 
-            DictionaryNode response = (await Service.ReceivePlistAsync())?.AsDictionaryNode() ?? new DictionaryNode();
+            DictionaryNode response = (await Service.ReceivePlistAsync(cancellationToken))?.AsDictionaryNode() ?? new DictionaryNode();
             return response;
         }
     }

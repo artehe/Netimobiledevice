@@ -1,4 +1,5 @@
 ﻿using Netimobiledevice.Plist;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown.Services
@@ -9,7 +10,7 @@ namespace Netimobiledevice.Lockdown.Services
 
         public InstallationProxyService(LockdownClient client) : base(client) { }
 
-        public async Task<ArrayNode> Browse(DictionaryNode? options = null, ArrayNode? attributes = null)
+        public async Task<ArrayNode> Browse(DictionaryNode? options = null, ArrayNode? attributes = null, CancellationToken cancellationToken = default)
         {
             options ??= new DictionaryNode();
             if (attributes != null) {
@@ -24,7 +25,7 @@ namespace Netimobiledevice.Lockdown.Services
 
             ArrayNode result = new ArrayNode();
             while (true) {
-                PropertyNode? response = await Service.ReceivePlistAsync();
+                PropertyNode? response = await Service.ReceivePlistAsync(cancellationToken);
                 if (response == null) {
                     break;
                 }

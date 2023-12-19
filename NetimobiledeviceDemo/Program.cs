@@ -12,6 +12,9 @@ namespace NetimobiledeviceDemo;
 
 public class Program
 {
+    private static CancellationTokenSource tokenSource = new CancellationTokenSource();
+    private static Timer timer = new Timer(Timer_Callback);
+
     internal static async Task Main()
     {
         TaskScheduler.UnobservedTaskException += (sender, args) => {
@@ -50,6 +53,7 @@ public class Program
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
             string product = lockdown.Product;
             string productName = lockdown.ProductFriendlyName;
+            Console.WriteLine($"Connected device is a {productName} ({product})");
         }
 
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
@@ -90,13 +94,15 @@ public class Program
         Usbmux.Subscribe(SubscriptionCallback, SubscriptionErrorCallback);
         Usbmux.Unsubscribe();
 
+        timer.Change(15 * 1000, Timeout.Infinite);
+
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
             string path = "backups";
             if (Directory.Exists(path)) {
                 Directory.Delete(path, true);
             }
             using (DeviceBackup backupJob = new DeviceBackup(lockdown, path)) {
-                await backupJob.Start();
+                await backupJob.Start(tokenSource.Token);
             }
         }
 
@@ -150,5 +156,10 @@ public class Program
     {
         Console.WriteLine("NewErrorCallbackExecuted");
         Console.WriteLine(ex.Message);
+    }
+
+    private static void Timer_Callback(object? state)
+    {
+        tokenSource.Cancel();
     }
 }

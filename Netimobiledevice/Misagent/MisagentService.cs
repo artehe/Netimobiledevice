@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Misagent
@@ -35,9 +36,9 @@ namespace Netimobiledevice.Misagent
             return parsedProfiles;
         }
 
-        private async Task<DictionaryNode> SendReceiveRequest(PropertyNode request)
+        private async Task<DictionaryNode> SendReceiveRequest(PropertyNode request, CancellationToken cancellationToken = default)
         {
-            PropertyNode? response = await Service.SendReceivePlistAsync(request);
+            PropertyNode? response = await Service.SendReceivePlistAsync(request, cancellationToken);
             DictionaryNode? dict = response?.AsDictionaryNode();
             if (dict != null) {
                 if (dict.ContainsKey("Status") && dict["Status"].AsIntegerNode().Value != 0) {

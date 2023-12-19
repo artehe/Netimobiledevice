@@ -79,11 +79,11 @@ namespace Netimobiledevice.NotificationProxy
             base.Dispose();
         }
 
-        private async Task<string?> GetNotification()
+        private async Task<string?> GetNotification(CancellationToken cancellationToken = default)
         {
             await serviceLockSemaphoreSlim.WaitAsync();
             try {
-                PropertyNode? plist = await Service.ReceivePlistAsync();
+                PropertyNode? plist = await Service.ReceivePlistAsync(cancellationToken);
                 if (plist != null) {
                     DictionaryNode dict = plist.AsDictionaryNode();
                     if (dict.ContainsKey("Command") && dict["Command"].AsStringNode().Value == "RelayNotification") {
