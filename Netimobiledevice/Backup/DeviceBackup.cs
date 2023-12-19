@@ -223,7 +223,15 @@ namespace Netimobiledevice.Backup
                 IsCancelling = true;
             }
 
-            Unlock();
+            try {
+                Unlock();
+            }
+            catch (ObjectDisposedException) {
+                Debug.WriteLine("Object already disposed so I assume we can just continue");
+            }
+            catch (IOException) {
+                Debug.WriteLine("Had an IO exception but I assume we can just continue");
+            }
 
             notificationProxyService?.Dispose();
             mobilebackup2Service?.Dispose();
