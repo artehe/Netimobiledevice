@@ -112,7 +112,7 @@ namespace Netimobiledevice.Backup
             ChangeBackupEncryptionPassword(oldPassword, newPassword, BackupEncryptionFlags.ChangePassword);
         }
 
-        public static async Task<Mobilebackup2Service> CreateAsync(LockdownClient client, CancellationToken cancellationToken)
+        public static async Task<Mobilebackup2Service> CreateAsync(LockdownClient client, CancellationToken cancellationToken = default)
         {
             Mobilebackup2Service service = new Mobilebackup2Service(client);
             await service.DeviceLinkVersionExchange(MOBILEBACKUP2_VERSION_MAJOR, MOBILEBACKUP2_VERSION_MINOR, cancellationToken);
