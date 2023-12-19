@@ -14,6 +14,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Backup
@@ -222,7 +223,15 @@ namespace Netimobiledevice.Backup
                 IsCancelling = true;
             }
 
-            Unlock();
+            try {
+                Unlock();
+            }
+            catch (ObjectDisposedException) {
+                Debug.WriteLine("Object already disposed so I assume we can just continue");
+            }
+            catch (IOException) {
+                Debug.WriteLine("Had an IO exception but I assume we can just continue");
+            }
 
             notificationProxyService?.Dispose();
             mobilebackup2Service?.Dispose();
@@ -233,7 +242,7 @@ namespace Netimobiledevice.Backup
         /// <summary>
         /// Backup creation task entry point.
         /// </summary>
-        private async Task CreateBackup()
+        private async Task CreateBackup(CancellationToken cancellationToken)
         {
             Debug.WriteLine($"Starting backup of device {LockdownClient.GetValue("ProductType")?.AsStringNode().Value} v{LockdownClient.IOSVersion}");
 
@@ -256,7 +265,7 @@ namespace Netimobiledevice.Backup
 
             try {
                 afcService = new AfcService(LockdownClient);
-                mobilebackup2Service = await Mobilebackup2Service.CreateAsync(LockdownClient);
+                mobilebackup2Service = await Mobilebackup2Service.CreateAsync(LockdownClient, cancellationToken);
                 notificationProxyService = new NotificationProxyService(LockdownClient);
 
                 await AquireBackupLock();
@@ -269,7 +278,7 @@ namespace Netimobiledevice.Backup
                     PasscodeRequiredForBackup?.Invoke(this, EventArgs.Empty);
                 }
 
-                await MessageLoop();
+                await MessageLoop(cancellationToken);
             }
             catch (Exception ex) {
                 OnError(ex);
@@ -408,10 +417,10 @@ namespace Netimobiledevice.Backup
                                 installedApps.Add(bundleId);
                                 if (app.ContainsKey("iTunesMetadata") && app.ContainsKey("ApplicationSINF")) {
                                     appDict.Add(bundleId.Value, new DictionaryNode() {
-                                { "ApplicationSINF", app["ApplicationSINF"] },
-                                { "iTunesMetadata", app["iTunesMetadata"] },
-                                { "PlaceholderIcon", springBoardServicesService.GetIconPNGData(bundleId.Value) },
-                            });
+                                        { "ApplicationSINF", app["ApplicationSINF"] },
+                                        { "iTunesMetadata", app["iTunesMetadata"] },
+                                        { "PlaceholderIcon", springBoardServicesService.GetIconPNGData(bundleId.Value) },
+                                    });
                                 }
                             }
                         }
@@ -449,7 +458,7 @@ namespace Netimobiledevice.Backup
         /// <summary>
         /// The main loop for processing messages from the device.
         /// </summary>
-        private async Task MessageLoop()
+        private async Task MessageLoop(CancellationToken cancellationToken)
         {
             bool isFirstMessage = true;
 
@@ -457,7 +466,7 @@ namespace Netimobiledevice.Backup
             while (!IsStopping) {
                 try {
                     if (mobilebackup2Service != null) {
-                        ArrayNode msg = await mobilebackup2Service.ReceiveMessage();
+                        ArrayNode msg = await mobilebackup2Service.ReceiveMessage(cancellationToken);
                         if (msg != null) {
                             // Reset waiting state
                             if (snapshotState == SnapshotState.Waiting) {
@@ -486,7 +495,7 @@ namespace Netimobiledevice.Backup
                 catch (TimeoutException) {
                     OnSnapshotStateChanged(snapshotState, SnapshotState.Waiting);
                     OnStatus("Waiting for device to be ready ...");
-                    await Task.Delay(100);
+                    await Task.Delay(100, cancellationToken);
                 }
                 catch (Exception ex) {
                     Debug.WriteLine($"ERROR Receiving message");
@@ -621,7 +630,7 @@ namespace Netimobiledevice.Backup
                 default: {
                     Debug.WriteLine($"ERROR On ProcessMessage: {resultCode}");
                     DictionaryNode msgDict = msg[1].AsDictionaryNode();
-                    if (msgDict.TryGetValue("ErrorDescription", out PropertyNode errDescription)) {
+                    if (msgDict.TryGetValue("ErrorDescription", out PropertyNode? errDescription)) {
                         throw new Exception($"Error {resultCode}: {errDescription.AsStringNode().Value}");
                     }
                     else {
@@ -1292,10 +1301,10 @@ namespace Netimobiledevice.Backup
         /// <summary>
         /// Starts the backup process.
         /// </summary>
-        public async Task Start()
+        public async Task Start(CancellationToken cancellationToken = default)
         {
             if (!InProgress) {
-                await CreateBackup();
+                await CreateBackup(cancellationToken);
             }
         }
 

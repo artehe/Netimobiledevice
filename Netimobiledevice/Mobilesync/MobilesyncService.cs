@@ -4,6 +4,8 @@ using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Mobilesync
@@ -65,7 +67,7 @@ namespace Netimobiledevice.Mobilesync
             GetRecords("SDMessageGetAllRecordsFromDevice");
         }
 
-        public async Task FinishSync()
+        public async Task FinishSync(CancellationToken cancellationToken = default)
         {
             ArrayNode? msg = new ArrayNode() {
                 new StringNode("SDMessageFinishSessionOnDevice"),
@@ -73,16 +75,16 @@ namespace Netimobiledevice.Mobilesync
             };
             DeviceLinkSend(msg);
 
-            msg = await DeviceLinkReceiveMessage();
+            msg = await DeviceLinkReceiveMessage(cancellationToken);
             string responseType = msg[0].AsStringNode().Value;
             if (!string.IsNullOrEmpty(responseType) && responseType != "SDMessageDeviceFinishedSession") {
                 throw new Exception($"Device failed to finish sync: {responseType}");
             }
         }
 
-        public async Task ReadyToSendChangesFromComputer()
+        public async Task ReadyToSendChangesFromComputer(CancellationToken cancellationToken = default)
         {
-            ArrayNode msg = await DeviceLinkReceiveMessage();
+            ArrayNode msg = await DeviceLinkReceiveMessage(cancellationToken);
 
             string responseType = msg[0].AsStringNode().Value;
             if (responseType == "SDMessageCancelSession") {
@@ -97,11 +99,11 @@ namespace Netimobiledevice.Mobilesync
             DeviceLinkSendPing("Preparing to get changes for device");
         }
 
-        public async IAsyncEnumerable<PropertyNode> ReceiveChanges(PropertyNode? actions)
+        public async IAsyncEnumerable<PropertyNode> ReceiveChanges(PropertyNode? actions, [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             bool isLastRecord = false;
             while (!isLastRecord) {
-                ArrayNode msg = await DeviceLinkReceiveMessage();
+                ArrayNode msg = await DeviceLinkReceiveMessage(cancellationToken);
                 if (msg != null) {
                     string responseType = msg[0].AsStringNode().Value;
 
@@ -128,9 +130,9 @@ namespace Netimobiledevice.Mobilesync
             }
         }
 
-        public async Task<DictionaryNode> RemapIdentifiers()
+        public async Task<DictionaryNode> RemapIdentifiers(CancellationToken cancellationToken = default)
         {
-            ArrayNode msg = await DeviceLinkReceiveMessage();
+            ArrayNode msg = await DeviceLinkReceiveMessage(cancellationToken);
 
             string responseType = msg[0].AsStringNode().Value;
             if (responseType == "SDMessageCancelSession") {
@@ -155,7 +157,7 @@ namespace Netimobiledevice.Mobilesync
             DeviceLinkSend(msg);
         }
 
-        public async Task StartSync(string dataClass, MobilesyncAnchors anchors)
+        public async Task StartSync(string dataClass, MobilesyncAnchors anchors, CancellationToken cancellationToken = default)
         {
             ArrayNode? msg = new ArrayNode() {
                 new StringNode("SDMessageSyncDataClassWithDevice"),
@@ -172,7 +174,7 @@ namespace Netimobiledevice.Mobilesync
             msg.Add(new StringNode(EMPTY_PARAMETER_STRING));
             DeviceLinkSend(msg);
 
-            msg = await DeviceLinkReceiveMessage();
+            msg = await DeviceLinkReceiveMessage(cancellationToken);
             string responseType = msg[0].AsStringNode().Value;
 
             // Did the device refuse to sync with the computer?
@@ -190,10 +192,10 @@ namespace Netimobiledevice.Mobilesync
             syncingDataClass = dataClass;
         }
 
-        public static async Task<MobilesyncService> StartServiceAsync(LockdownClient client)
+        public static async Task<MobilesyncService> StartServiceAsync(LockdownClient client, CancellationToken cancellationToken = default)
         {
             MobilesyncService service = new MobilesyncService(client);
-            await service.DeviceLinkVersionExchange(MOBILESYNC_VERSION_MAJOR, MOBILESYNC_VERSION_MINOR);
+            await service.DeviceLinkVersionExchange(MOBILESYNC_VERSION_MAJOR, MOBILESYNC_VERSION_MINOR, cancellationToken);
             return service;
         }
     }

@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Backup
@@ -81,7 +82,7 @@ namespace Netimobiledevice.Backup
         /// Exchange versions with the device and assert that the device supports our version of the protocol.
         /// </summary>
         /// <param name="deviceLink">Initialized device link.</param>
-        private async Task VersionExchange()
+        private async Task VersionExchange(CancellationToken cancellationToken)
         {
             ArrayNode supportedVersions = new ArrayNode {
                 new RealNode(2.0),
@@ -92,7 +93,7 @@ namespace Netimobiledevice.Backup
                 {"SupportedProtocolVersions", supportedVersions }
             });
 
-            ArrayNode reply = await DeviceLinkReceiveMessage();
+            ArrayNode reply = await DeviceLinkReceiveMessage(cancellationToken);
             if (reply[0].AsStringNode().Value != "DLMessageProcessMessage" || reply[1].AsDictionaryNode()["ErrorCode"].AsIntegerNode().Value != 0) {
                 throw new Exception($"Found error in response during version exchange");
             }
@@ -111,17 +112,17 @@ namespace Netimobiledevice.Backup
             ChangeBackupEncryptionPassword(oldPassword, newPassword, BackupEncryptionFlags.ChangePassword);
         }
 
-        public static async Task<Mobilebackup2Service> CreateAsync(LockdownClient client)
+        public static async Task<Mobilebackup2Service> CreateAsync(LockdownClient client, CancellationToken cancellationToken = default)
         {
             Mobilebackup2Service service = new Mobilebackup2Service(client);
-            await service.DeviceLinkVersionExchange(MOBILEBACKUP2_VERSION_MAJOR, MOBILEBACKUP2_VERSION_MINOR);
-            await service.VersionExchange();
+            await service.DeviceLinkVersionExchange(MOBILEBACKUP2_VERSION_MAJOR, MOBILEBACKUP2_VERSION_MINOR, cancellationToken);
+            await service.VersionExchange(cancellationToken);
             return service;
         }
 
-        public async Task<ArrayNode> ReceiveMessage()
+        public async Task<ArrayNode> ReceiveMessage(CancellationToken cancellationToken)
         {
-            return await DeviceLinkReceiveMessage();
+            return await DeviceLinkReceiveMessage(cancellationToken);
         }
 
         public byte[] ReceiveRaw(int length)
