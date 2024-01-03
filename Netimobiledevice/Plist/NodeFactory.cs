@@ -72,8 +72,8 @@ namespace Netimobiledevice.Plist
 		/// <returns>The created <see cref="PropertyNode"/> object</returns>
 		public static PropertyNode Create(string tag)
         {
-            if (_xmlTags.ContainsKey(tag)) {
-                return (PropertyNode?) Activator.CreateInstance(_xmlTags[tag].GetType()) ?? new NullNode();
+            if (_xmlTags.TryGetValue(tag, out PropertyNode? value)) {
+                return (PropertyNode?) Activator.CreateInstance(value.GetType()) ?? new NullNode();
             }
             throw new PlistFormatException($"Unknown node - XML tag \"{tag}\"");
         }
@@ -96,8 +96,8 @@ namespace Netimobiledevice.Plist
             if (binaryTag == 6) {
                 return new StringNode { IsUtf16 = true };
             }
-            if (_binaryTags.ContainsKey(binaryTag)) {
-                return (PropertyNode?) Activator.CreateInstance(_binaryTags[binaryTag].GetType()) ?? new NullNode();
+            if (_binaryTags.TryGetValue(binaryTag, out PropertyNode? value)) {
+                return (PropertyNode?) Activator.CreateInstance(value.GetType()) ?? new NullNode();
             }
 
             throw new PlistFormatException($"Unknown node - binary tag {binaryTag}");
