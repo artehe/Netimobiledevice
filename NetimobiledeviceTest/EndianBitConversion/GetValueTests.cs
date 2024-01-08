@@ -5,8 +5,8 @@ namespace NetimobiledeviceTest.EndianBitConversion;
 [TestClass]
 public class GetValueTests
 {
-    private static EndianBitConverter machineEndianBitConverter;
-    private static EndianBitConverter otherEndianBitConverter;
+    private static EndianBitConverter machineEndianBitConverter = EndianBitConverter.BigEndian;
+    private static EndianBitConverter otherEndianBitConverter = EndianBitConverter.LittleEndian;
 
     private static void AssertEightByteValueResult<TOutput>(
             Func<byte[], int, TOutput> bitConverterMethod,
@@ -74,8 +74,8 @@ public class GetValueTests
             int outputSize)
     {
         // Null check
-        Assert.ThrowsException<ArgumentNullException>(() => machineEndianBitConverterMethod(null, 0));
-        Assert.ThrowsException<ArgumentNullException>(() => otherEndianBitConverterMethod(null, 0));
+        Assert.ThrowsException<ArgumentNullException>(() => machineEndianBitConverterMethod(null!, 0));
+        Assert.ThrowsException<ArgumentNullException>(() => otherEndianBitConverterMethod(null!, 0));
 
         // Negative index
         Assert.ThrowsException<ArgumentOutOfRangeException>(() => machineEndianBitConverterMethod(new byte[8], -1));
@@ -89,7 +89,7 @@ public class GetValueTests
     }
 
     [ClassInitialize()]
-    public static void ClassInit(TestContext context)
+    public static void ClassInit(TestContext _)
     {
         if (BitConverter.IsLittleEndian) {
             machineEndianBitConverter = EndianBitConverter.LittleEndian;

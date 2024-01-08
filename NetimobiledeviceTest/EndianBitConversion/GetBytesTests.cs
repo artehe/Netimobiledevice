@@ -5,8 +5,8 @@ namespace NetimobiledeviceTest.EndianBitConversion;
 [TestClass]
 public class GetBytesTests
 {
-    private static EndianBitConverter machineEndianBitConverter;
-    private static EndianBitConverter otherEndianBitConverter;
+    private static EndianBitConverter machineEndianBitConverter = EndianBitConverter.BigEndian;
+    private static EndianBitConverter otherEndianBitConverter = EndianBitConverter.LittleEndian;
 
     private static void AssertArraysEqual(byte[] expected, byte[] actual)
     {
@@ -36,7 +36,7 @@ public class GetBytesTests
     }
 
     [ClassInitialize()]
-    public static void ClassInit(TestContext context)
+    public static void ClassInit(TestContext _)
     {
         if (BitConverter.IsLittleEndian) {
             machineEndianBitConverter = EndianBitConverter.LittleEndian;
