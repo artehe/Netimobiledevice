@@ -48,7 +48,7 @@ namespace Netimobiledevice.Lockdown
         /// <summary>
         /// Is the connected iOS trusted/paired with this device.
         /// </summary>
-        public bool IsPaired { get; private set; } = false;
+        public bool IsPaired { get; private set; }
 
         /// <summary>
         /// Get the internal device model identifier
@@ -207,15 +207,15 @@ namespace Netimobiledevice.Lockdown
                 throw new LockdownException($"Incorrect response returned, as got {response["Request"].AsStringNode().Value} instead of {request}");
             }
 
-            if (response.ContainsKey("Error")) {
-                string error = response["Error"].AsStringNode().Value;
+            if (response.TryGetValue("Error", out PropertyNode? errorNode)) {
+                string error = errorNode.AsStringNode().Value;
                 Enum.TryParse(typeof(LockdownError), error, out object? lockdownError);
                 throw ((LockdownError?) lockdownError)?.GetException() ?? new LockdownException(error);
             }
 
             // On iOS < 5: "Error" doesn't exist, so we have to check for "Result" instead
-            if (response.ContainsKey("Result")) {
-                string error = response["Result"].AsStringNode().Value;
+            if (response.TryGetValue("Result", out PropertyNode? resultNode)) {
+                string error = resultNode.AsStringNode().Value;
                 if (error == "Failure") {
                     throw new LockdownException();
                 }

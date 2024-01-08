@@ -45,7 +45,7 @@ namespace Netimobiledevice.Backup
         /// <summary>
         /// The last backup status received.
         /// </summary>
-        private BackupStatus? lastStatus = null;
+        private BackupStatus? lastStatus;
         /// <summary>
         /// The Notification service.
         /// </summary>
@@ -61,7 +61,7 @@ namespace Netimobiledevice.Backup
         /// <summary>
         /// Indicates whether the device was disconnected during the backup process.
         /// </summary>
-        protected bool deviceDisconnected = false;
+        protected bool deviceDisconnected;
         /// <summary>
         /// The backup service.
         /// </summary>
@@ -73,13 +73,13 @@ namespace Netimobiledevice.Backup
         /// <summary>
         /// Indicates whether the user cancelled the backup process.
         /// </summary>
-        protected bool userCancelled = false;
+        protected bool userCancelled;
         /// <summary>
         /// A list of the files whose transfer failed due to a device error.
         /// </summary>
         protected readonly List<BackupFile> failedFiles = new List<BackupFile>();
 
-        protected bool IsFinished { get; set; } = false;
+        protected bool IsFinished { get; set; }
         /// <summary>
         /// The Lockdown client.
         /// </summary>
@@ -87,11 +87,11 @@ namespace Netimobiledevice.Backup
         /// <summary>
         /// The flag for cancelling the backup process.
         /// </summary>
-        protected bool IsCancelling { get; set; } = false;
+        protected bool IsCancelling { get; set; }
         /// <summary>
         /// Indicates whether the backup is encrypted.
         /// </summary>
-        public bool IsEncrypted { get; protected set; } = false;
+        public bool IsEncrypted { get; protected set; }
         public bool IsStopping => IsCancelling || IsFinished;
         /// <summary>
         /// The path to the backup folder, without the device UDID.
@@ -353,9 +353,9 @@ namespace Netimobiledevice.Backup
                 info.Add("Product Version", rootNode["ProductVersion"]);
                 info.Add("Serial Number", rootNode["SerialNumber"]);
 
-                info.Add("Target Identifier", new StringNode(LockdownClient.UDID.ToUpper()));
+                info.Add("Target Identifier", new StringNode(LockdownClient.UDID.ToUpperInvariant()));
                 info.Add("Target Type", new StringNode("Device"));
-                info.Add("Unique Identifier", new StringNode(LockdownClient.UDID.ToUpper()));
+                info.Add("Unique Identifier", new StringNode(LockdownClient.UDID.ToUpperInvariant()));
             }
 
             try {
@@ -444,8 +444,8 @@ namespace Netimobiledevice.Backup
                     string queryString = "PasswordConfigured";
                     DictionaryNode queryResponse = diagnosticsService.MobileGestalt(new List<string>() { queryString });
 
-                    if (queryResponse.ContainsKey(queryString)) {
-                        bool passcodeSet = queryResponse[queryString].AsBooleanNode().Value;
+                    if (queryResponse.TryGetValue(queryString, out PropertyNode? passcodeSetNode)) {
+                        bool passcodeSet = passcodeSetNode.AsBooleanNode().Value;
                         if (passcodeSet) {
                             return true;
                         }
@@ -995,7 +995,7 @@ namespace Netimobiledevice.Backup
         protected virtual void OnFileReceived(BackupFile file)
         {
             FileReceived?.Invoke(this, new BackupFileEventArgs(file));
-            if (string.Compare("Status.plist", Path.GetFileName(file.LocalPath), true) == 0) {
+            if (string.Equals("Status.plist", Path.GetFileName(file.LocalPath), StringComparison.OrdinalIgnoreCase)) {
                 using (FileStream fs = File.OpenRead(file.LocalPath)) {
                     DictionaryNode statusPlist = PropertyList.Load(fs).AsDictionaryNode();
                     OnStatusReceived(new BackupStatus(statusPlist));

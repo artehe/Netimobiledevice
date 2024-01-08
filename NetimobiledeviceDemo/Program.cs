@@ -12,8 +12,8 @@ namespace NetimobiledeviceDemo;
 
 public class Program
 {
-    private static CancellationTokenSource tokenSource = new CancellationTokenSource();
-    private static Timer timer = new Timer(Timer_Callback);
+    private static readonly CancellationTokenSource tokenSource = new CancellationTokenSource();
+    private static readonly Timer timer = new Timer(Timer_Callback);
 
     internal static async Task Main()
     {
