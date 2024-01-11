@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Netimobiledevice.Exceptions
+namespace Netimobiledevice.Plist
 {
     /// <summary>
     /// Property list format exception.

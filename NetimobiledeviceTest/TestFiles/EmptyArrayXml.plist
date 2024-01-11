@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+<key>Entitlements</key>
+<dict>
+<key>com.apple.developer.pass-type-identifiers</key>
+<array>
+<string>S25XN959HW.*</string>
+</array>
+<key>com.apple.developer.networking.networkextension</key>
+<array>
+<string>app-proxy-provider</string>
+<string>content-filter-provider</string>
+<string>packet-tunnel-provider</string>
+<string>dns-proxy</string>
+</array>
+<key>com.apple.developer.networking.HotspotConfiguration</key>
+<true/>
+<key>com.apple.developer.networking.multipath</key>
+<true/>
+<key>com.apple.developer.nfc.readersession.formats</key>
+<array>
+<string>NDEF</string>
+</array>
+<key>com.apple.developer.ClassKit-environment</key>
+<array>
+<string>development</string>
+<string>production</string>
+</array>
+<key>com.apple.developer.authentication-services.autofill-credential-provider</key>
+<true/>
+<key>com.apple.developer.networking.wifi-info</key>
+<true/>
+<key>keychain-access-groups</key>
+<array>
+<string>S25XN959HW.*</string>
+</array>
+<key>inter-app-audio</key>
+<true/>
+<key>get-task-allow</key>
+<true/>
+<key>application-identifier</key>
+<string>S25XN959HW.com.os.os04</string>
+<key>com.apple.developer.healthkit</key>
+<true/>
+<key>com.apple.developer.healthkit.access</key>
+<array>
+<string>health-records</string>
+</array>
+<key>com.apple.developer.ubiquity-kvstore-identifier</key>
+<string>S25XN959HW.*</string>
+<key>com.apple.developer.icloud-services</key>
+<string>*</string>
+<key>com.apple.developer.icloud-container-identifiers</key>
+<array> </array>
+<key>com.apple.developer.icloud-container-development-container-identifiers</key>
+<array> </array>
+<key>com.apple.developer.ubiquity-container-identifiers</key>
+<array> </array>
+<key>com.apple.developer.associated-domains</key>
+<string>*</string>
+<key>com.apple.security.application-groups</key>
+<array> </array>
+<key>com.apple.developer.homekit</key>
+<true/>
+<key>com.apple.developer.team-identifier</key>
+<string>S25XN959HW</string>
+<key>com.apple.external-accessory.wireless-configuration</key>
+<true/>
+<key>aps-environment</key>
+<string>development</string>
+<key>com.apple.developer.in-app-payments</key>
+<array> </array>
+<key>com.apple.developer.default-data-protection</key>
+<string>NSFileProtectionComplete</string>
+<key>com.apple.developer.networking.vpn.api</key>
+<array>
+<string>allow-vpn</string>
+</array>
+<key>com.apple.developer.siri</key>
+<true/>
+</dict>
+</dict>
+</plist>
