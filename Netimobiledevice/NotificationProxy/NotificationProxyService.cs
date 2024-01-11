@@ -81,7 +81,7 @@ namespace Netimobiledevice.NotificationProxy
 
         private async Task<string?> GetNotification(CancellationToken cancellationToken = default)
         {
-            await serviceLockSemaphoreSlim.WaitAsync();
+            await serviceLockSemaphoreSlim.WaitAsync(cancellationToken);
             try {
                 PropertyNode? plist = await Service.ReceivePlistAsync(cancellationToken);
                 if (plist != null) {
@@ -130,7 +130,7 @@ namespace Netimobiledevice.NotificationProxy
                 try {
                     string? notification = await GetNotification();
                     if (!string.IsNullOrEmpty(notification)) {
-                        KeyValuePair<ReceivableNotification, string> receivableNotificationKeyPair = receivableNotifications.AsEnumerable().First(x => x.Value.Equals(notification));
+                        KeyValuePair<ReceivableNotification, string> receivableNotificationKeyPair = receivableNotifications.AsEnumerable().First(x => x.Value.Equals(notification, StringComparison.Ordinal));
                         ReceivableNotification receivedNotification = receivableNotificationKeyPair.Key;
                         ReceivedNotification?.Invoke(this, new ReceivedNotificationEventArgs(receivedNotification, notification));
                     }

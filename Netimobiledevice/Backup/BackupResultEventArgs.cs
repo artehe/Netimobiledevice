@@ -26,6 +26,7 @@ namespace Netimobiledevice.Backup
         public BackupResultEventArgs(IEnumerable<BackupFile> failedFiles, bool userCancelled, bool deviceDisconnected)
         {
             UserCancelled = userCancelled;
+            DeviceDisconnected = deviceDisconnected;
             TransferErrors = new List<BackupFile>(failedFiles);
         }
     }

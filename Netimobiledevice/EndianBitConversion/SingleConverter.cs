@@ -5,15 +5,15 @@ namespace Netimobiledevice.EndianBitConversion
     // Converts between Single (float) and Int32 (int), as System.BitConverter does not have a method to do this in all .NET versions.
     // A union is used instead of an unsafe pointer cast so we don't have to worry about the trusted environment implications.
     [StructLayout(LayoutKind.Explicit)]
-    internal struct SingleConverter
+    internal readonly struct SingleConverter
     {
         // map int value to offset zero
         [FieldOffset(0)]
-        private int intValue;
+        private readonly int intValue;
 
         // map float value to offset zero - intValue and floatValue now take the same position in memory
         [FieldOffset(0)]
-        private float floatValue;
+        private readonly float floatValue;
 
         internal SingleConverter(int intValue)
         {
@@ -27,8 +27,8 @@ namespace Netimobiledevice.EndianBitConversion
             this.floatValue = floatValue;
         }
 
-        internal int GetIntValue() => this.intValue;
+        internal readonly int GetIntValue() => this.intValue;
 
-        internal float GetFloatValue() => this.floatValue;
+        internal readonly float GetFloatValue() => this.floatValue;
     }
 }
