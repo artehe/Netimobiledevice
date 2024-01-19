@@ -37,6 +37,54 @@ namespace Netimobiledevice.Diagnostics
             return response;
         }
 
+        public void CreateArchive(string outputPath, int? sizeLimit = null, int? ageLimit = null, int? startTime = null)
+        {
+            var request = new DictionaryNode() {
+                { "Request", new StringNode("CreateArchive") }
+            };
+
+            if (sizeLimit != null) {
+                request.Add("SizeLimit", new IntegerNode((int) sizeLimit));
+            }
+            if (ageLimit != null) {
+                request.Add("AgeLimit", new IntegerNode((int) ageLimit));
+            }
+            if (startTime != null) {
+                request.Add("StartTime", new IntegerNode((int) startTime));
+            }
+
+            Service.SendPlist(request);
+
+            int value = Service.Receive(1)[0];
+            if (value != 1) {
+                throw new Exception($"Invalid response got {value} instead of 1");
+            }
+
+            DictionaryNode plistResponse = Service.ReceivePlist()?.AsDictionaryNode() ?? new DictionaryNode();
+            if (!plistResponse.TryGetValue("Status", out PropertyNode status) || status.AsStringNode().Value != "RequestSuccessful") {
+                throw new Exception($"Invalid status: {status.AsStringNode().Value}");
+            }
+
+            using (FileStream f = new FileStream(outputPath, FileMode.Create, FileAccess.Write)) {
+                using (StreamWriter s = new StreamWriter(f)) {
+                    while (true) {
+                        try {
+                            value = Service.Receive(1)[0];
+                            if (value != 3) {
+                                throw new Exception("Invalid magic");
+                            }
+                        }
+                        catch (Exception) {
+                            break;
+                        }
+
+                        byte[] data = Service.ReceivePrefixed();
+                        s.Write(data);
+                    }
+                }
+            }
+        }
+
         public IEnumerable<SyslogEntry> WatchSyslog(int pid = -1)
         {
             DictionaryNode request = new DictionaryNode() {
