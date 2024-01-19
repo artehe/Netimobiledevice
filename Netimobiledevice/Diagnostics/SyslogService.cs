@@ -1,9 +1,11 @@
-﻿using System;
+﻿using Netimobiledevice.Lockdown;
+using Netimobiledevice.Lockdown.Services;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Netimobiledevice.Lockdown.Services
+namespace Netimobiledevice.Diagnostics
 {
     /// <summary>
     /// Read the raw system logs

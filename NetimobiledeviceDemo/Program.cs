@@ -1,4 +1,5 @@
 ﻿using Netimobiledevice.Backup;
+using Netimobiledevice.Diagnostics;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Misagent;
