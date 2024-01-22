@@ -4,6 +4,9 @@ using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Diagnostics
@@ -18,9 +21,55 @@ namespace Netimobiledevice.Diagnostics
 
         public OsTraceService(LockdownClient client) : base(client) { }
 
-        private SyslogEntry ParseSyslogData(byte[] data)
+        private SyslogEntry ParseSyslogData(List<byte> data)
         {
-            return new SyslogEntry(0, DateTime.Now, SyslogLevel.Fault, string.Empty, string.Empty, string.Empty, null);
+            data.RemoveRange(0, 9); // Skip the first 9 bytes            
+            int pid = EndianBitConverter.LittleEndian.ToInt32(data.ToArray(), 0);
+            data.RemoveRange(0, sizeof(int) + 42); // Skip size of int + 42 bytes
+            DateTime timestamp = OsTraceService.ParseTimeStamp(data.Take(12));
+            data.RemoveRange(0, 12 + 1); // Remove the size of the timestamp + 1 byte
+            SyslogLevel level = (SyslogLevel) data[0];
+            data.RemoveRange(0, 1 + 38); // Remove the enum byte followed by the next 38 bytes
+            short imageNameSize = EndianBitConverter.LittleEndian.ToInt16(data.ToArray(), 0);
+            short messageSize = EndianBitConverter.LittleEndian.ToInt16(data.ToArray(), 2);
+            data.RemoveRange(0, sizeof(short) + sizeof(short) + 6); // Skip size of the two shorts + 6 bytes
+            int subsystemSize = EndianBitConverter.LittleEndian.ToInt32(data.ToArray(), 0);
+            int categorySize = EndianBitConverter.LittleEndian.ToInt32(data.ToArray(), 4);
+            data.RemoveRange(0, sizeof(int) + sizeof(int) + 6); // Skip size of the two ints + 4 bytes
+
+            int filenameSize = 0;
+            for (int i = 0; i < data.Count; i++) {
+                if (data[i] == 0x00) {
+                    filenameSize = i + 1;
+                    break;
+                }
+            }
+            string filename = Encoding.UTF8.GetString(data.Take(filenameSize - 1).ToArray());
+            data.RemoveRange(0, filenameSize); // Remove the filename bytes
+
+            string imageName = Encoding.UTF8.GetString(data.Take(imageNameSize - 1).ToArray());
+            data.RemoveRange(0, imageNameSize);
+
+            string message = Encoding.UTF8.GetString(data.Take(messageSize - 1).ToArray());
+            data.RemoveRange(0, messageSize);
+
+            SyslogLabel? label = null;
+            if (data.Count > 0) {
+                string subsystem = Encoding.UTF8.GetString(data.Take(subsystemSize - 1).ToArray());
+                data.RemoveRange(0, subsystemSize);
+                string category = Encoding.UTF8.GetString(data.Take(categorySize - 1).ToArray());
+                data.RemoveRange(0, categorySize);
+                label = new SyslogLabel(category, subsystem);
+            }
+
+            return new SyslogEntry(pid, timestamp, level, imageName, filename, message, label);
+        }
+
+        private static DateTime ParseTimeStamp(IEnumerable<byte> data)
+        {
+            int seconds = EndianBitConverter.LittleEndian.ToInt32(data.ToArray(), 0);
+            int microseconds = EndianBitConverter.LittleEndian.ToInt32(data.ToArray(), 8) / 1000000;
+            return DateTime.UnixEpoch.AddSeconds(seconds).AddMilliseconds(microseconds * 1000);
         }
 
         public async Task<DictionaryNode> GetPidList()
@@ -62,7 +111,7 @@ namespace Netimobiledevice.Diagnostics
 
             DictionaryNode plistResponse = Service.ReceivePlist()?.AsDictionaryNode() ?? new DictionaryNode();
             if (!plistResponse.TryGetValue("Status", out PropertyNode status) || status.AsStringNode().Value != "RequestSuccessful") {
-                throw new Exception($"Invalid status: {status.AsStringNode().Value}");
+                throw new Exception($"Invalid status: {PropertyList.SaveAsString(plistResponse, PlistFormat.Xml)}");
             }
 
             using (FileStream f = new FileStream(outputPath, FileMode.Create, FileAccess.Write)) {
@@ -99,6 +148,11 @@ namespace Netimobiledevice.Diagnostics
             int lengthSize = EndianBitConverter.LittleEndian.ToInt32(lengthSizeBytes, 0);
 
             byte[] lengthBytes = Service.Receive(lengthSize);
+            if (lengthBytes.Length < 4) {
+                byte[] tmpArr = new byte[4];
+                lengthBytes.CopyTo(tmpArr, 0);
+                lengthBytes = tmpArr;
+            }
             int length = EndianBitConverter.LittleEndian.ToInt32(lengthBytes, 0);
 
             byte[] responseBytes = Service.Receive(length);
@@ -118,7 +172,7 @@ namespace Netimobiledevice.Diagnostics
                 length = EndianBitConverter.LittleEndian.ToInt32(lengthBytes, 0);
 
                 byte[] lineBytes = Service.Receive(length);
-                yield return ParseSyslogData(lineBytes);
+                yield return ParseSyslogData(lineBytes.ToList());
             }
         }
     }

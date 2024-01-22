@@ -38,6 +38,20 @@ public class Program
             }
         }
 
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+            using (OsTraceService osTrace = new OsTraceService(lockdown)) {
+                // TODO osTrace.CreateArchive("output", 5000);
+                int counter = 0;
+                foreach (SyslogEntry entry in osTrace.WatchSyslog()) {
+                    Console.WriteLine($"[{entry.Level}] {entry.Timestamp} {entry.Label?.Subsystem} - {entry.Message}");
+                    if (counter == 1000) {
+                        break;
+                    }
+                    counter++;
+                }
+            }
+        }
+
         await Task.Delay(1000);
 
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {

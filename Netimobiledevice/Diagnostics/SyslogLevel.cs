@@ -1,6 +1,6 @@
 ﻿namespace Netimobiledevice.Diagnostics
 {
-    internal enum SyslogLevel : int
+    public enum SyslogLevel : int
     {
         Notice = 0x00,
         Info = 0x01,
