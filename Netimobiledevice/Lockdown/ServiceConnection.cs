@@ -112,7 +112,7 @@ namespace Netimobiledevice.Lockdown
             return buffer.ToArray();
         }
 
-        public async Task<byte[]> ReceiveAsync(int length = 4096, CancellationToken cancellationToken = default)
+        public async Task<byte[]> ReceiveAsync(int length, CancellationToken cancellationToken)
         {
             if (length <= 0) {
                 return Array.Empty<byte>();
@@ -137,7 +137,7 @@ namespace Netimobiledevice.Lockdown
                     bytesRead = await result;
                 }
                 else {
-                    bytesRead = await networkStream.ReadAsync(receiveBuffer, 0, readSize, cancellationToken);
+                    bytesRead = await networkStream.ReadAsync(receiveBuffer.AsMemory(0, readSize), cancellationToken);
                 }
 
                 totalBytesRead += bytesRead;
@@ -156,9 +156,9 @@ namespace Netimobiledevice.Lockdown
             return PropertyList.LoadFromByteArray(plistBytes);
         }
 
-        public async Task<PropertyNode?> ReceivePlistAsync()
+        public async Task<PropertyNode?> ReceivePlistAsync(CancellationToken cancellationToken)
         {
-            byte[] plistBytes = await ReceivePrefixedAsync(CancellationToken.None);
+            byte[] plistBytes = await ReceivePrefixedAsync(cancellationToken);
             if (plistBytes.Length == 0) {
                 return null;
             }
@@ -200,9 +200,9 @@ namespace Netimobiledevice.Lockdown
             networkStream.Write(data);
         }
 
-        public async Task SendAsync(byte[] data)
+        public async Task SendAsync(byte[] data, CancellationToken cancellationToken)
         {
-            await networkStream.WriteAsync(data);
+            await networkStream.WriteAsync(data, cancellationToken);
         }
 
         public void SendPlist(PropertyNode data, PlistFormat format = PlistFormat.Xml)
@@ -216,7 +216,7 @@ namespace Netimobiledevice.Lockdown
             Send(payload.ToArray());
         }
 
-        public async Task SendPlistAsync(PropertyNode data)
+        public async Task SendPlistAsync(PropertyNode data, CancellationToken cancellationToken)
         {
             byte[] plistBytes = PropertyList.SaveAsByteArray(data, PlistFormat.Xml);
             byte[] lengthBytes = BitConverter.GetBytes(EndianBitConverter.BigEndian.ToInt32(BitConverter.GetBytes(plistBytes.Length), 0));
@@ -224,7 +224,7 @@ namespace Netimobiledevice.Lockdown
             List<byte> payload = new List<byte>();
             payload.AddRange(lengthBytes);
             payload.AddRange(plistBytes);
-            await SendAsync(payload.ToArray());
+            await SendAsync(payload.ToArray(), cancellationToken);
         }
 
         public PropertyNode? SendReceivePlist(PropertyNode data)
@@ -233,10 +233,10 @@ namespace Netimobiledevice.Lockdown
             return ReceivePlist();
         }
 
-        public async Task<PropertyNode?> SendReceivePlistAsync(PropertyNode data)
+        public async Task<PropertyNode?> SendReceivePlistAsync(PropertyNode data, CancellationToken cancellationToken)
         {
-            await SendPlistAsync(data);
-            return await ReceivePlistAsync();
+            await SendPlistAsync(data, cancellationToken);
+            return await ReceivePlistAsync(cancellationToken);
         }
 
         /// <summary>

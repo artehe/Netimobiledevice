@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Diagnostics
@@ -72,17 +73,17 @@ namespace Netimobiledevice.Diagnostics
             return DateTime.UnixEpoch.AddSeconds(seconds).AddMilliseconds(microseconds * 1000);
         }
 
-        public async Task<DictionaryNode> GetPidList()
+        public async Task<DictionaryNode> GetPidList(CancellationToken cancellationToken = default)
         {
             DictionaryNode request = new DictionaryNode() {
                 { "Request", new StringNode("PidList") },
             };
-            await Service.SendPlistAsync(request);
+            await Service.SendPlistAsync(request, cancellationToken);
 
             // Ignore the first received unknown byte
-            await Service.ReceiveAsync(1);
+            await Service.ReceiveAsync(1, cancellationToken);
 
-            DictionaryNode response = (await Service.ReceivePlistAsync())?.AsDictionaryNode() ?? new DictionaryNode();
+            DictionaryNode response = (await Service.ReceivePlistAsync(cancellationToken))?.AsDictionaryNode() ?? new DictionaryNode();
             return response;
         }
 
@@ -110,26 +111,24 @@ namespace Netimobiledevice.Diagnostics
             }
 
             DictionaryNode plistResponse = Service.ReceivePlist()?.AsDictionaryNode() ?? new DictionaryNode();
-            if (!plistResponse.TryGetValue("Status", out PropertyNode status) || status.AsStringNode().Value != "RequestSuccessful") {
+            if (!plistResponse.TryGetValue("Status", out PropertyNode? status) || status.AsStringNode().Value != "RequestSuccessful") {
                 throw new Exception($"Invalid status: {PropertyList.SaveAsString(plistResponse, PlistFormat.Xml)}");
             }
 
             using (FileStream f = new FileStream(outputPath, FileMode.Create, FileAccess.Write)) {
-                using (StreamWriter s = new StreamWriter(f)) {
-                    while (true) {
-                        try {
-                            value = Service.Receive(1)[0];
-                            if (value != 3) {
-                                throw new Exception("Invalid magic");
-                            }
+                while (true) {
+                    try {
+                        value = Service.Receive(1)[0];
+                        if (value != 3) {
+                            throw new Exception("Invalid magic");
                         }
-                        catch (Exception) {
-                            break;
-                        }
-
-                        byte[] data = Service.ReceivePrefixed();
-                        s.Write(data);
                     }
+                    catch (Exception) {
+                        break;
+                    }
+
+                    byte[] data = Service.ReceivePrefixed();
+                    f.Write(data);
                 }
             }
         }

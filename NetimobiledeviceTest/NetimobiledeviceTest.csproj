@@ -5,6 +5,10 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
+	
+  <ItemGroup>
+    <EmbeddedResource Include="TestFiles\*.plist" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Netimobiledevice\Netimobiledevice.csproj" />

@@ -3,6 +3,8 @@ using Netimobiledevice.Exceptions;
 using System;
 using System.Globalization;
 using System.IO;
+using System.Linq;
+using System.Numerics;
 
 namespace Netimobiledevice.Plist
 {
@@ -41,7 +43,7 @@ namespace Netimobiledevice.Plist
         /// <value>The value of this element.</value>
         public override ulong Value { get; set; }
 
-        public bool Unsigned { get; }
+        public bool Unsigned { get; private set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="IntegerNode"/> class.
@@ -108,7 +110,14 @@ namespace Netimobiledevice.Plist
         /// <param name="data">The string whis is parsed.</param>
         internal override void Parse(string data)
         {
-            Value = ulong.Parse(data, CultureInfo.InvariantCulture);
+            if (data.StartsWith('-')) {
+                Value = (ulong) long.Parse(data, CultureInfo.InvariantCulture);
+                Unsigned = false;
+            }
+            else {
+                Value = ulong.Parse(data, CultureInfo.InvariantCulture);
+                Unsigned = true;
+            }
         }
 
         /// <summary>
@@ -141,7 +150,18 @@ namespace Netimobiledevice.Plist
                     break;
                 }
                 default: {
-                    throw new PlistFormatException("UInt > 64Bit");
+                    byte[] valueBuf = buf.Skip(buf.Length - nodeLength).Take(nodeLength).ToArray();
+                    if (valueBuf.Length > 15) {
+                        throw new PlistFormatException("UInt > 64Bit");
+                    }
+                    else {
+                        uint nearestPowOf2 = BitOperations.RoundUpToPowerOf2((uint) valueBuf.Length);
+                        int nthRoot = (int) Math.Log(nearestPowOf2, 2);
+                        using (Stream valueBufStream = new MemoryStream(valueBuf)) {
+                            ReadBinary(valueBufStream, nthRoot);
+                        }
+                    }
+                    break;
                 }
             }
         }

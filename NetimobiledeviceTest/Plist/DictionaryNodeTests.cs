@@ -59,4 +59,21 @@ public class DictionaryNodeTests
             index++;
         }
     }
+
+    [TestMethod]
+    public void DictionaryTryGetValueReturnsCorrectly()
+    {
+        DictionaryNode dict = new DictionaryNode {
+            { "Zero", new IntegerNode(0) },
+            { "One", new IntegerNode(1) },
+            { "Two", new IntegerNode(2) }
+        };
+
+        Assert.IsTrue(dict.TryGetValue("One", out PropertyNode? value));
+        Assert.IsInstanceOfType(value, typeof(IntegerNode));
+        Assert.AreEqual(1, (int) value.AsIntegerNode().Value);
+
+        Assert.IsFalse(dict.TryGetValue("Three", out PropertyNode? value2));
+        Assert.IsNull(value2);
+    }
 }

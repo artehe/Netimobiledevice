@@ -46,6 +46,7 @@ namespace Netimobiledevice.Diagnostics
             "DeviceClass",
             "DeviceColor",
             "DiagData",
+            "DiskUsage",    
             "encrypted-data-partition",
             "EthernetMacAddress",
             "FirmwareVersion",
@@ -165,6 +166,18 @@ namespace Netimobiledevice.Diagnostics
             return IORegistry(null, null, "IOPMPowerSource");
         }
 
+        public Dictionary<string, ulong> GetStorageDetails()
+        {
+            Dictionary<string, ulong> storageData = new();
+            DictionaryNode storageList = MobileGestalt(new List<string>() { "DiskUsage" });
+            if (storageList.ContainsKey("DiskUsage")) {
+                foreach (KeyValuePair<string, PropertyNode> kvp in storageList["DiskUsage"].AsDictionaryNode()) {
+                    storageData.Add(kvp.Key, kvp.Value.AsIntegerNode().Value);
+                }
+            }
+            return storageData;
+        }
+
         public PropertyNode Info(string diagnosticType = "All")
         {
             return ExecuteCommand(new StringNode(diagnosticType));
@@ -191,7 +204,7 @@ namespace Netimobiledevice.Diagnostics
                     throw new Exception("Failed to query MobileGestalt");
                 }
             }
-
+          
             return response["Diagnostics"].AsDictionaryNode()["MobileGestalt"].AsDictionaryNode();
         }
 

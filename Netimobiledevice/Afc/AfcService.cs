@@ -185,7 +185,8 @@ namespace Netimobiledevice.Afc
                 string target = info["LinkTarget"].AsStringNode().Value;
                 if (!target.StartsWith("/")) {
                     // Relative path
-                    filename = Path.Combine(Path.GetDirectoryName(filename), target);
+                    string filePath = Path.GetDirectoryName(filename) ?? string.Empty;
+                    filename = Path.Combine(filePath, target);
                 }
                 else {
                     filename = target;
@@ -232,13 +233,34 @@ namespace Netimobiledevice.Afc
 
         public ulong FileOpen(string filename, string mode = "r")
         {
-            if (!FileOpenModes.ContainsKey(mode)) {
+            if (!FileOpenModes.TryGetValue(mode, out AfcFileOpenMode value)) {
                 throw new ArgumentException($"mode can oly be one of {FileOpenModes.Keys}", nameof(mode));
             }
-
-            AfcFileOpenRequest openRequest = new AfcFileOpenRequest(FileOpenModes[mode], new CString(filename, Encoding.UTF8));
+            AfcFileOpenRequest openRequest = new AfcFileOpenRequest(value, new CString(filename, Encoding.UTF8));
             byte[] data = RunOperation(AfcOpCode.FileOpen, openRequest.GetBytes());
             return StructExtentions.FromBytes<AfcFileOpenResponse>(data).Handle;
+        }
+
+        public List<string> GetDirectoryList()
+        {
+            List<string> directoryList = new List<string>();
+            try {
+                AfcFileInfoRequest request = new AfcFileInfoRequest(new CString("/", Encoding.UTF8));
+                byte[] response = RunOperation(AfcOpCode.ReadDir, request.GetBytes());
+                directoryList = ParseFileInfoResponseForMessage(response);
+            }
+            catch (Exception e) {
+                Console.WriteLine(e.Message);
+            }
+            return directoryList;
+        }
+
+        private static List<string> ParseFileInfoResponseForMessage(byte[] data)
+        {
+            string decodedData = Encoding.UTF8.GetString(data);
+            List<string> seperatedData = decodedData.Split('\0').ToList();
+            seperatedData.RemoveAt(seperatedData.Count - 1);
+            return seperatedData;
         }
     }
 }

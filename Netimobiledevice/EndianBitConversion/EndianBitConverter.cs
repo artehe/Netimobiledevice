@@ -35,7 +35,7 @@ namespace Netimobiledevice.EndianBitConversion
         /// <param name="value">A Boolean value.</param>
         /// <returns>A byte array with length 1.</returns>
         /// <remarks>You can convert a byte array back to a <see cref="Boolean"/> value by calling the <see cref="ToBoolean(byte[], int)"/> method.</remarks>
-        public byte[] GetBytes(bool value)
+        public virtual byte[] GetBytes(bool value)
         {
             return new byte[] { value ? (byte) 1 : (byte) 0 };
         }
@@ -144,10 +144,9 @@ namespace Netimobiledevice.EndianBitConversion
         /// <exception cref="ArgumentOutOfRangeException">
         /// <paramref name="startIndex"/> is less than zero or greater than the length of <paramref name="value"/> minus 1.
         /// </exception>
-        public bool ToBoolean(byte[] value, int startIndex)
+        public virtual bool ToBoolean(byte[] value, int startIndex)
         {
-            this.CheckArguments(value, startIndex, 1);
-
+            CheckArguments(value, startIndex, 1);
             return value[startIndex] != 0;
         }
 
@@ -315,10 +314,8 @@ namespace Netimobiledevice.EndianBitConversion
         }
 
         // Testing showed that this method wasn't automatically being inlined, and doing so offers a significant performance improvement.
-#if !NET40
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
-        internal void CheckArguments(byte[] value, int startIndex, int byteLength)
+        internal static void CheckArguments(byte[] value, int startIndex, int byteLength)
         {
             if (value == null) {
                 throw new ArgumentNullException(nameof(value));

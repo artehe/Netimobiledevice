@@ -6,7 +6,7 @@
     /// </summary>
     internal class BigEndianBitConverter : EndianBitConverter
     {
-        public override bool IsLittleEndian { get; } = false;
+        public override bool IsLittleEndian { get; }
 
         // Instance available from EndianBitConverter.BigEndian
         internal BigEndianBitConverter() { }
@@ -31,21 +31,21 @@
 
         public override short ToInt16(byte[] value, int startIndex)
         {
-            this.CheckArguments(value, startIndex, sizeof(short));
+            CheckArguments(value, startIndex, sizeof(short));
 
             return (short) ((value[startIndex] << 8) | (value[startIndex + 1]));
         }
 
         public override int ToInt32(byte[] value, int startIndex)
         {
-            this.CheckArguments(value, startIndex, sizeof(int));
+            CheckArguments(value, startIndex, sizeof(int));
 
             return (value[startIndex] << 24) | (value[startIndex + 1] << 16) | (value[startIndex + 2] << 8) | (value[startIndex + 3]);
         }
 
         public override long ToInt64(byte[] value, int startIndex)
         {
-            this.CheckArguments(value, startIndex, sizeof(long));
+            CheckArguments(value, startIndex, sizeof(long));
 
             int highBytes = (value[startIndex] << 24) | (value[startIndex + 1] << 16) | (value[startIndex + 2] << 8) | (value[startIndex + 3]);
             int lowBytes = (value[startIndex + 4] << 24) | (value[startIndex + 5] << 16) | (value[startIndex + 6] << 8) | (value[startIndex + 7]);

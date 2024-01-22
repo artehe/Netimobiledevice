@@ -19,7 +19,7 @@ namespace Netimobiledevice.Usbmuxd
         /// residing inside the target device. when this happens, we can no longer send/receive control commands to
         /// usbmux on same socket
         /// </summary>
-        private bool connected = false;
+        private bool connected;
         protected int connectionTimeout = DEFAULT_CONNECTION_TIMEOUT;
 
         protected UsbmuxdSocket Sock { get; }

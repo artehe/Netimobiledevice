@@ -26,4 +26,42 @@ public class IntegerNodeTests
         node = new IntegerNode(274);
         Assert.AreEqual($"<integer>: 274", node.ToString());
     }
+
+    [TestMethod]
+    public void ParseHandlesNegativeValue()
+    {
+        IntegerNode node = new IntegerNode();
+        node.Parse("-536854523");
+
+        int actualValue = (int) node.Value;
+        Assert.AreEqual(-536854523, actualValue);
+    }
+
+    [TestMethod]
+    public void ReadBinaryHandlesNodeLengthNotAsAPower()
+    {
+        IntegerNode node = new IntegerNode();
+        byte[] longNodeLength = new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xB, 0xB8 };
+
+        using (MemoryStream stream = new MemoryStream(longNodeLength)) {
+            node.ReadBinary(stream, 4);
+        }
+
+        int nodeValue = (int) node.Value;
+        Assert.AreEqual(3000, nodeValue);
+    }
+
+    [TestMethod]
+    public void ReadBinaryHandlesNodeLengthAsAPower()
+    {
+        IntegerNode node = new IntegerNode();
+        byte[] longNodeLength = new byte[] { 0, 0, 0x7, 0xD0 };
+
+        using (MemoryStream stream = new MemoryStream(longNodeLength)) {
+            node.ReadBinary(stream, 2);
+        }
+
+        int nodeValue = (int) node.Value;
+        Assert.AreEqual(2000, nodeValue);
+    }
 }
