@@ -1,5 +1,4 @@
-﻿using Netimobiledevice.Exceptions;
-using System.IO;
+﻿using System.IO;
 using System.Threading.Tasks;
 using System.Xml;
 
@@ -71,6 +70,15 @@ namespace Netimobiledevice.Plist
         {
             writer.WriteStartElement(XmlTag);
             writer.WriteEndElement();
+        }
+
+        /// <summary>
+        /// Returns a <see cref="System.String"/> that represents the NullNode
+        /// </summary>
+        /// <returns>A <see cref="System.String"/> that represents the NullNode</returns>
+        public override string ToString()
+        {
+            return $"<{XmlTag}>";
         }
     }
 }
