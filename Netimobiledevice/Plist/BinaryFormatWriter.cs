@@ -1,5 +1,4 @@
 ﻿using Netimobiledevice.EndianBitConversion;
-using Netimobiledevice.Exceptions;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -113,7 +112,7 @@ namespace Netimobiledevice.Plist
             int offset = (int) stream.Position;
             offsets.Add(offset);
             int len = node.BinaryLength;
-            byte typeCode = (byte) ((node.BinaryTag << 4) | (len < 0x0F ? len : 0x0F));
+            byte typeCode = (byte) ((node.BinaryTag & 0xF0) | (len < 0x0F ? len : 0x0F));
             stream.WriteByte(typeCode);
             if (len >= 0x0F) {
                 PropertyNode extLen = NodeFactory.CreateLengthElement(len);
