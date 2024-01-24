@@ -1,4 +1,5 @@
 ﻿using Netimobiledevice.Afc;
+using Netimobiledevice.Diagnostics;
 using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.Lockdown;

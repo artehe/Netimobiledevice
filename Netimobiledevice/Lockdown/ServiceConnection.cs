@@ -55,35 +55,6 @@ namespace Netimobiledevice.Lockdown
             return new ServiceConnection(sock, targetDevice);
         }
 
-        /// <summary>
-        /// Receive a data block prefixed with a u32 length field
-        /// </summary>
-        /// <returns>The data without the u32 field length as a byte array</returns>
-        private byte[] ReceivePrefixed()
-        {
-            byte[] sizeBytes = Receive(4);
-            if (sizeBytes.Length != 4) {
-                return Array.Empty<byte>();
-            }
-
-            int size = EndianBitConverter.BigEndian.ToInt32(sizeBytes, 0);
-            return Receive(size);
-        }
-
-        /// <summary>
-        /// Receive a data block prefixed with a u32 length field
-        /// </summary>
-        /// <returns>The data without the u32 field length as a byte array</returns>
-        private async Task<byte[]> ReceivePrefixedAsync(CancellationToken cancellationToken)
-        {
-            byte[] sizeBytes = await ReceiveAsync(4, cancellationToken);
-            if (sizeBytes.Length != 4) {
-                return Array.Empty<byte>();
-            }
-
-            int size = EndianBitConverter.BigEndian.ToInt32(sizeBytes, 0);
-            return await ReceiveAsync(size, cancellationToken);
-        }
 
         private bool UserCertificateValidationCallback(object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors)
         {
@@ -192,6 +163,36 @@ namespace Netimobiledevice.Lockdown
                 return null;
             }
             return await PropertyList.LoadFromByteArrayAsync(plistBytes);
+        }
+
+        /// <summary>
+        /// Receive a data block prefixed with a u32 length field
+        /// </summary>
+        /// <returns>The data without the u32 field length as a byte array</returns>
+        public byte[] ReceivePrefixed()
+        {
+            byte[] sizeBytes = Receive(4);
+            if (sizeBytes.Length != 4) {
+                return Array.Empty<byte>();
+            }
+
+            int size = EndianBitConverter.BigEndian.ToInt32(sizeBytes, 0);
+            return Receive(size);
+        }
+
+        /// <summary>
+        /// Receive a data block prefixed with a u32 length field
+        /// </summary>
+        /// <returns>The data without the u32 field length as a byte array</returns>
+        public async Task<byte[]> ReceivePrefixedAsync(CancellationToken cancellationToken = default)
+        {
+            byte[] sizeBytes = await ReceiveAsync(4, cancellationToken);
+            if (sizeBytes.Length != 4) {
+                return Array.Empty<byte>();
+            }
+
+            int size = EndianBitConverter.BigEndian.ToInt32(sizeBytes, 0);
+            return await ReceiveAsync(size, cancellationToken);
         }
 
         public void Send(byte[] data)

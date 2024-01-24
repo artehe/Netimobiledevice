@@ -1,10 +1,12 @@
-﻿using Netimobiledevice.Plist;
+﻿using Netimobiledevice.Lockdown;
+using Netimobiledevice.Lockdown.Services;
+using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 
-namespace Netimobiledevice.Lockdown.Services
+namespace Netimobiledevice.Diagnostics
 {
     /// <summary>
     /// Provides a service to query MobileGestalt & IORegistry keys, as well functionality to
