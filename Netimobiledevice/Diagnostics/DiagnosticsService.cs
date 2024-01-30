@@ -46,7 +46,7 @@ namespace Netimobiledevice.Diagnostics
             "DeviceClass",
             "DeviceColor",
             "DiagData",
-            "DiskUsage",    
+            "DiskUsage",
             "encrypted-data-partition",
             "EthernetMacAddress",
             "FirmwareVersion",
@@ -200,11 +200,11 @@ namespace Netimobiledevice.Diagnostics
             }
             if (response.ContainsKey("Diagnostics")) {
                 PropertyNode status = response["Diagnostics"].AsDictionaryNode()["MobileGestalt"].AsDictionaryNode()["Status"];
-                if (status.AsStringNode().Value != "Success") {
+                if (status.AsStringNode().Value != "Success" && status.AsStringNode().Value != "MobileGestaltDeprecated") {
                     throw new Exception("Failed to query MobileGestalt");
                 }
             }
-          
+
             return response["Diagnostics"].AsDictionaryNode()["MobileGestalt"].AsDictionaryNode();
         }
 
