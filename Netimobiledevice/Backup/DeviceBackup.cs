@@ -451,6 +451,13 @@ namespace Netimobiledevice.Backup
                             return true;
                         }
                     }
+                    else if (queryResponse.TryGetValue("Status", out PropertyNode? statusNode)) {
+                        if (statusNode.AsStringNode().Value == "MobileGestaltDeprecated") {
+                            // Assume that the passcode is set for now
+                            // TODO Try and find a new way to tell if the devices passcode is set 
+                            return true;
+                        }
+                    }
                 }
             }
             return false;
