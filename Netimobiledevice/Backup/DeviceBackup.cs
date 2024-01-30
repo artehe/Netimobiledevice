@@ -1,4 +1,5 @@
 ﻿using Netimobiledevice.Afc;
+using Netimobiledevice.Diagnostics;
 using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.Lockdown;
@@ -447,6 +448,13 @@ namespace Netimobiledevice.Backup
                     if (queryResponse.TryGetValue(queryString, out PropertyNode? passcodeSetNode)) {
                         bool passcodeSet = passcodeSetNode.AsBooleanNode().Value;
                         if (passcodeSet) {
+                            return true;
+                        }
+                    }
+                    else if (queryResponse.TryGetValue("Status", out PropertyNode? statusNode)) {
+                        if (statusNode.AsStringNode().Value == "MobileGestaltDeprecated") {
+                            // Assume that the passcode is set for now
+                            // TODO Try and find a new way to tell if the devices passcode is set 
                             return true;
                         }
                     }

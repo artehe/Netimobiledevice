@@ -1,10 +1,12 @@
-﻿using Netimobiledevice.Plist;
+﻿using Netimobiledevice.Lockdown;
+using Netimobiledevice.Lockdown.Services;
+using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 
-namespace Netimobiledevice.Lockdown.Services
+namespace Netimobiledevice.Diagnostics
 {
     /// <summary>
     /// Provides a service to query MobileGestalt & IORegistry keys, as well functionality to
@@ -44,7 +46,7 @@ namespace Netimobiledevice.Lockdown.Services
             "DeviceClass",
             "DeviceColor",
             "DiagData",
-            "DiskUsage",    
+            "DiskUsage",
             "encrypted-data-partition",
             "EthernetMacAddress",
             "FirmwareVersion",
@@ -198,11 +200,11 @@ namespace Netimobiledevice.Lockdown.Services
             }
             if (response.ContainsKey("Diagnostics")) {
                 PropertyNode status = response["Diagnostics"].AsDictionaryNode()["MobileGestalt"].AsDictionaryNode()["Status"];
-                if (status.AsStringNode().Value != "Success") {
+                if (status.AsStringNode().Value != "Success" && status.AsStringNode().Value != "MobileGestaltDeprecated") {
                     throw new Exception("Failed to query MobileGestalt");
                 }
             }
-          
+
             return response["Diagnostics"].AsDictionaryNode()["MobileGestalt"].AsDictionaryNode();
         }
 

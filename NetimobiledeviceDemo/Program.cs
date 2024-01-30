@@ -1,5 +1,6 @@
 ﻿using Netimobiledevice.Afc;
 using Netimobiledevice.Backup;
+using Netimobiledevice.Diagnostics;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Misagent;
@@ -36,6 +37,21 @@ public class Program
             progress.ProgressChanged += Progress_ProgressChanged;
             if (!lockdown.IsPaired) {
                 await lockdown.PairAsync(progress);
+            }
+        }
+
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+            using (OsTraceService osTrace = new OsTraceService(lockdown)) {
+                osTrace.CreateArchive("output");
+
+                int counter = 0;
+                foreach (SyslogEntry entry in osTrace.WatchSyslog()) {
+                    Console.WriteLine($"[{entry.Level}] {entry.Timestamp} {entry.Label?.Subsystem} - {entry.Message}");
+                    if (counter == 1000) {
+                        break;
+                    }
+                    counter++;
+                }
             }
         }
 
