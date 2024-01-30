@@ -200,7 +200,7 @@ namespace Netimobiledevice.Diagnostics
             }
             if (response.ContainsKey("Diagnostics")) {
                 PropertyNode status = response["Diagnostics"].AsDictionaryNode()["MobileGestalt"].AsDictionaryNode()["Status"];
-                if (status.AsStringNode().Value != "Success" || status.AsStringNode().Value == "MobileGestaltDeprecated") {
+                if (status.AsStringNode().Value != "Success" && status.AsStringNode().Value != "MobileGestaltDeprecated") {
                     throw new Exception("Failed to query MobileGestalt");
                 }
             }
