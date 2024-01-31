@@ -1,4 +1,5 @@
-﻿using Netimobiledevice.Lockdown;
+﻿using Netimobiledevice.Exceptions;
+using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
@@ -128,7 +129,7 @@ namespace Netimobiledevice.Diagnostics
 
             DictionaryNode response = Service.SendReceivePlist(command)?.AsDictionaryNode() ?? new DictionaryNode();
             if (response.ContainsKey("Status") && response["Status"].AsStringNode().Value != "Success") {
-                throw new Exception($"Failed to perform action: {action.Value}");
+                throw new DiagnosticsException($"Failed to perform action: {action.Value}");
             }
             return response["Diagnostics"];
         }
@@ -151,7 +152,7 @@ namespace Netimobiledevice.Diagnostics
 
             DictionaryNode response = Service.SendReceivePlist(dict)?.AsDictionaryNode() ?? new DictionaryNode();
             if (response.ContainsKey("Status") && response["Status"].AsStringNode().Value != "Success") {
-                throw new Exception($"Got invalid response: {response}");
+                throw new DiagnosticsException($"Got invalid response: {response}");
             }
 
             if (response.ContainsKey("Diagnostics")) {
@@ -196,12 +197,15 @@ namespace Netimobiledevice.Diagnostics
 
             DictionaryNode response = Service.SendReceivePlist(request)?.AsDictionaryNode() ?? new DictionaryNode();
             if (response.ContainsKey("Status") && response["Status"].AsStringNode().Value != "Success") {
-                throw new Exception("Failed to query MobileGestalt");
+                throw new DiagnosticsException("Failed to query MobileGestalt");
             }
             if (response.ContainsKey("Diagnostics")) {
                 PropertyNode status = response["Diagnostics"].AsDictionaryNode()["MobileGestalt"].AsDictionaryNode()["Status"];
-                if (status.AsStringNode().Value != "Success" && status.AsStringNode().Value != "MobileGestaltDeprecated") {
-                    throw new Exception("Failed to query MobileGestalt");
+                if (status.AsStringNode().Value == "MobileGestaltDeprecated") {
+                    throw new DeprecatedException("Failed to query MobileGestalt; deprecated as of iOS >= 17.4.");
+                }
+                else if (status.AsStringNode().Value != "Success") {
+                    throw new DiagnosticsException("Failed to query MobileGestalt");
                 }
             }
 

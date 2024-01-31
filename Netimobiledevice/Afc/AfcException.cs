@@ -1,8 +1,8 @@
-﻿using System;
+﻿using Netimobiledevice.Exceptions;
 
 namespace Netimobiledevice.Afc
 {
-    public class AfcException : Exception
+    public class AfcException : NetimobiledeviceException
     {
         public AfcError AfcError { get; } = AfcError.UnknownError;
 
