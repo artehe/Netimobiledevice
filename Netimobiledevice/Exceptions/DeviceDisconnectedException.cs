@@ -1,11 +1,9 @@
-﻿using System;
-
-namespace Netimobiledevice.Exceptions
+﻿namespace Netimobiledevice.Exceptions
 {
     /// <summary>
     /// Exception thrown when the device is disconnected.
     /// </summary>
-    public class DeviceDisconnectedException : Exception
+    public class DeviceDisconnectedException : NetimobiledeviceException
     {
         public DeviceDisconnectedException() : base("Device disconnected") { }
     }

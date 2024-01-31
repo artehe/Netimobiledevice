@@ -1,9 +1,8 @@
 ﻿using Netimobiledevice.Lockdown;
-using System;
 
 namespace Netimobiledevice.Exceptions
 {
-    public class LockdownException : Exception
+    public class LockdownException : NetimobiledeviceException
     {
         public LockdownError LockdownError { get; } = LockdownError.UnknownError;
 
