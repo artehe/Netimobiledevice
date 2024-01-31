@@ -1,8 +1,6 @@
-﻿using System;
-
-namespace Netimobiledevice.Exceptions
+﻿namespace Netimobiledevice.Exceptions
 {
-    public class ServiceStartException : Exception
+    public class ServiceStartException : NetimobiledeviceException
     {
         public ServiceStartException(string message) : base(message) { }
     }

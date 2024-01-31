@@ -1,8 +1,6 @@
-﻿using System;
-
-namespace Netimobiledevice.Exceptions
+﻿namespace Netimobiledevice.Exceptions
 {
-    public class UsbmuxVersionException : Exception
+    public class UsbmuxVersionException : NetimobiledeviceException
     {
         public UsbmuxVersionException(string message) : base(message) { }
     }

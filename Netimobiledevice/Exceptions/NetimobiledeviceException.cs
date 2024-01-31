@@ -2,7 +2,7 @@
 
 namespace Netimobiledevice.Exceptions
 {
-    public class NetimobiledeviceException : Exception
+    public class NetimobiledeviceException : NetimobiledeviceException
     {
         public NetimobiledeviceException() { }
 
