@@ -129,6 +129,7 @@ The list of all the services from lockdownd which have been implemented and the 
   * Sync data (Contacts, Calendar etc) between device and computer
 - [com.apple.os_trace_relay](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/InstallationProxyService.cs)
   * Get pid list
+  * More structural syslog lines.
 - [com.apple.springboardservices](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/SpringBoardServices/SpringBoardServicesService.cs)
   * Get icons from the installed apps on the device.
 - [com.apple.syslog_relay](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/SyslogService.cs)

@@ -443,8 +443,8 @@ namespace Netimobiledevice.Backup
                 LockdownClient.IOSVersion >= new Version(16, 1)) {
                 using (DiagnosticsService diagnosticsService = new DiagnosticsService(LockdownClient)) {
                     string queryString = "PasswordConfigured";
-                    DictionaryNode queryResponse = diagnosticsService.MobileGestalt(new List<string>() { queryString });
                     try {
+                    DictionaryNode queryResponse = diagnosticsService.MobileGestalt(new List<string>() { queryString });
                         if (queryResponse.TryGetValue(queryString, out PropertyNode? passcodeSetNode)) {
                             bool passcodeSet = passcodeSetNode.AsBooleanNode().Value;
                             if (passcodeSet) {

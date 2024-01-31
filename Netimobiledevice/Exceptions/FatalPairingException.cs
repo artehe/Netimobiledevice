@@ -1,8 +1,6 @@
-﻿using System;
-
-namespace Netimobiledevice.Exceptions
+﻿namespace Netimobiledevice.Exceptions
 {
-    public class FatalPairingException : Exception
+    public class FatalPairingException : NetimobiledeviceException
     {
     }
 }
