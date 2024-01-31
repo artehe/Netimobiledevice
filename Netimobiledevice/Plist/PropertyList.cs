@@ -85,13 +85,26 @@ namespace Netimobiledevice.Plist
             }
         }
 
+        private static bool ValidateBinaryHeader(byte[] buf)
+        {
+            if (Encoding.UTF8.GetString(buf, 0, 6) != "bplist") {
+                return false;
+            }
+
+            string versionString = Encoding.UTF8.GetString(buf, 6, 2);
+            return versionString switch {
+                "00" => true,
+                _ => throw new NotImplementedException($"The binary plist version {versionString} is not implemented yet"),
+            };
+        }
+
         /// <summary>
         /// Saves the Plist to the specified stream.
         /// </summary>
         /// <param name="rootNode">Root node of the Plist structure.</param>
         /// <param name="stream">The stream in which the PList is saves.</param>
         /// <param name="format">The format of the Plist (Binary/Xml).</param>
-        private static void Save(PropertyNode rootNode, Stream stream, PlistFormat format)
+        internal static void Save(PropertyNode rootNode, Stream stream, PlistFormat format)
         {
             if (format == PlistFormat.Xml) {
                 const string newLine = "\n";
@@ -139,19 +152,6 @@ namespace Netimobiledevice.Plist
                 BinaryFormatWriter writer = new BinaryFormatWriter();
                 writer.Write(stream, rootNode);
             }
-        }
-
-        private static bool ValidateBinaryHeader(byte[] buf)
-        {
-            if (Encoding.UTF8.GetString(buf, 0, 6) != "bplist") {
-                return false;
-            }
-
-            string versionString = Encoding.UTF8.GetString(buf, 6, 2);
-            return versionString switch {
-                "00" => true,
-                _ => throw new NotImplementedException($"The binary plist version {versionString} is not implemented yet"),
-            };
         }
 
         /// <summary>

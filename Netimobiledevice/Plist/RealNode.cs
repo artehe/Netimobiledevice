@@ -1,5 +1,4 @@
 ﻿using Netimobiledevice.EndianBitConversion;
-using Netimobiledevice.Exceptions;
 using System.Globalization;
 using System.IO;
 

@@ -9,6 +9,6 @@ public class NullNodeTests
     public void ToStringReturnsNodeType()
     {
         NullNode node = new NullNode();
-        Assert.AreEqual($"<boolean>", node.ToString());
+        Assert.AreEqual($"<null>", node.ToString());
     }
 }

@@ -7,7 +7,8 @@ namespace Netimobiledevice.Lockdown.Services
 {
     public abstract class DeviceLink : BaseService
     {
-        private const int SERVICE_TIMEOUT = 300 * 1000;
+        // Set the default timeout to be 5 minutes
+        private const int SERVICE_TIMEOUT = 5 * 60 * 1000;
 
         protected DeviceLink(LockdownClient lockdown, ServiceConnection? service = null) : base(lockdown, service)
         {
