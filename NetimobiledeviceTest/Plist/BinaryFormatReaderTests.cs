@@ -41,12 +41,14 @@ public class BinaryFormatReaderTests
     public void ReadingFileWith16bitIntegers()
     {
         using (Stream stream = TestFileHelper.GetTestFileStream("TestFiles/UnityBinary.plist")) {
-            try {
-                PropertyNode node = PropertyList.Load(stream);
-            }
-            catch (PlistFormatException ex) {
-                Assert.Fail(ex.Message);
-            }
+            DictionaryNode node = PropertyList.Load(stream).AsDictionaryNode();
+
+            Assert.AreEqual<ulong>(4, node["settings_manual_slot_count"].AsIntegerNode().Value);
+            Assert.AreEqual(1.000000, node["settings_audio_master_v1"].AsRealNode().Value);
+            Assert.AreEqual<ulong>(0, node["Screenmanager Is Fullscreen mode"].AsIntegerNode().Value);
+            Assert.AreEqual(0.7034282088279724, node["settings_audio_ambient_v1"].AsRealNode().Value);
+            Assert.AreEqual("{\"timestamp\":131326258247021180,\"locationName\":null,\"sceneName\":\"Orbit_loby\",\"shownName\":\"\",\"kind\":2,\"slotIndex\":-1}", node["chapter_7_info"].AsStringNode().Value);
+            Assert.AreEqual<ulong>(1024, node["Screenmanager Resolution Width"].AsIntegerNode().Value);
         }
     }
 

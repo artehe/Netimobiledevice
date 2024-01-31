@@ -1,4 +1,3 @@
-using Netimobiledevice.Exceptions;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -89,12 +88,12 @@ namespace Netimobiledevice.Plist
         /// </summary>
         internal override void ReadBinary(Stream stream, int nodeLength)
         {
-            byte[] buf = new byte[nodeLength * (BinaryTag == 5 ? 1 : 2)];
+            byte[] buf = new byte[nodeLength * (IsUtf16 ? 2 : 1)];
             if (stream.Read(buf, 0, buf.Length) != buf.Length) {
                 throw new PlistFormatException();
             }
 
-            Encoding encoding = BinaryTag == 5 ? Encoding.UTF8 : Encoding.BigEndianUnicode;
+            Encoding encoding = IsUtf16 ? Encoding.BigEndianUnicode : Encoding.UTF8;
             Value = encoding.GetString(buf, 0, buf.Length);
         }
 

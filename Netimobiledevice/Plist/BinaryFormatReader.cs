@@ -1,5 +1,4 @@
 ﻿using Netimobiledevice.EndianBitConversion;
-using Netimobiledevice.Exceptions;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -54,7 +53,7 @@ namespace Netimobiledevice.Plist
                 throw new PlistFormatException("Couldn't read node tag byte.");
             }
 
-            byte tag = (byte) ((buf[0] >> 4) & 0x0F);
+            byte tag = buf[0];
             int length = buf[0] & 0x0F;
 
             // Length fits in 4 bits, return

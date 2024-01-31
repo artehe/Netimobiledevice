@@ -1,5 +1,4 @@
-﻿using Netimobiledevice.Exceptions;
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace Netimobiledevice.Plist
@@ -86,17 +85,23 @@ namespace Netimobiledevice.Plist
 		/// <returns>The created <see cref="PropertyNode"/> object</returns>
 		public static PropertyNode Create(byte binaryTag, int length)
         {
-            if (binaryTag == 0 && length == 0x00) {
-                return new NullNode();
-            }
-            if (binaryTag == 0 && length == 0x0F) {
-                return new FillNode();
+            byte shortBinaryTag = (byte) (binaryTag & 0xF0);
+
+            if (shortBinaryTag == 0) {
+                if (length == 0x00) {
+                    return new NullNode();
+                }
+                if (length == 0x0F) {
+                    return new FillNode();
+                }
             }
 
-            if (binaryTag == 6) {
-                return new StringNode { IsUtf16 = true };
+            if (shortBinaryTag == 0x60) {
+                return new StringNode {
+                    IsUtf16 = true
+                };
             }
-            if (_binaryTags.TryGetValue(binaryTag, out PropertyNode? value)) {
+            if (_binaryTags.TryGetValue(shortBinaryTag, out PropertyNode? value)) {
                 return (PropertyNode?) Activator.CreateInstance(value.GetType()) ?? new NullNode();
             }
 

@@ -11,65 +11,70 @@ namespace Netimobiledevice.Plist
     internal enum PlistType : byte
     {
         /// <summary>
-        /// Fill node type.
-        /// </summary>
-        [EnumMember(Value = "fill")]
-        Fill = 0x00,
-        /// <summary>
         /// Null node type.
         /// </summary>
         [EnumMember(Value = "null")]
         Null = 0x00,
         /// <summary>
-        /// Boolean node type.
+        /// Boolean (false) node type.
         /// </summary>
         [EnumMember(Value = "boolean")]
-        Boolean = 0x00,
+        Bool = 0x08,
+        /// <summary>
+        /// Boolean (true) node type.
+        /// </summary>
+        [EnumMember(Value = "boolean")]
+        Boolean = 0x09,
+        /// <summary>
+        /// Fill node type.
+        /// </summary>
+        [EnumMember(Value = "fill")]
+        Fill = 0x0F,
         /// <summary>
         /// Integer node type.
         /// </summary>
         [EnumMember(Value = "integer")]
-        Integer = 0x01,
+        Integer = 0x10,
         /// <summary>
         /// Real node type.
         /// </summary>
         [EnumMember(Value = "real")]
-        Real = 0x02,
+        Real = 0x20,
         /// <summary>
         /// Date node type.
         /// </summary>
         [EnumMember(Value = "date")]
-        Date = 0x03,
+        Date = 0x30,
         /// <summary>
         /// Data node type.
         /// </summary>
         [EnumMember(Value = "data")]
-        Data = 0x04,
+        Data = 0x40,
         /// <summary>
         /// String node type.
         /// </summary>
         [EnumMember(Value = "string")]
-        String = 0x05,
+        String = 0x50,
         /// <summary>
         /// UTF16 String node type.
         /// </summary>
         [EnumMember(Value = "string")]
-        UString = 0x06,
+        UString = 0x60,
         /// <summary>
         /// UID node type.
         /// </summary>
         [EnumMember(Value = "uid")]
-        Uid = 0x08,
+        Uid = 0x80,
         /// <summary>
         /// Array node type.
         /// </summary>
         [EnumMember(Value = "array")]
-        Array = 0x0A,
+        Array = 0xA0,
         /// <summary>
         /// Dictionary node type.
         /// </summary>
         [EnumMember(Value = "dict")]
-        Dict = 0x0D,
+        Dict = 0xD0,
     }
 
     public static class PlistTypeExtensions
