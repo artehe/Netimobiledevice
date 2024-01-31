@@ -34,4 +34,22 @@ public class BinaryWriterTests
         Assert.AreEqual(true, reReadNode["Test"].AsStringNode().IsUtf16);
         Assert.AreEqual(utf16value, reReadNode["Test"].AsStringNode().Value);
     }
+
+    [TestMethod]
+    public void ConvertsPlistArrayCorrectly()
+    {
+        var arrayNode = new ArrayNode {
+            new StringNode("DLMessageVersionExchange"),
+            new StringNode("DLVersionsOk"),
+            new IntegerNode(400)
+        };
+
+        byte[] plistBytes = PropertyList.SaveAsByteArray(arrayNode, PlistFormat.Binary);
+
+        ArrayNode reReadNode = PropertyList.LoadFromByteArray(plistBytes).AsArrayNode();
+
+        Assert.AreEqual(arrayNode[0].AsStringNode().Value, reReadNode[0].AsStringNode().Value);
+        Assert.AreEqual(arrayNode[1].AsStringNode().Value, reReadNode[1].AsStringNode().Value);
+        Assert.AreEqual(arrayNode[2].AsIntegerNode().Value, reReadNode[2].AsIntegerNode().Value);
+    }
 }

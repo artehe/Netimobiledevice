@@ -116,7 +116,7 @@ namespace Netimobiledevice.Plist
             stream.WriteByte(typeCode);
             if (len >= 0x0F) {
                 PropertyNode extLen = NodeFactory.CreateLengthElement(len);
-                byte binaryTag = (byte) ((extLen.BinaryTag << 4) | extLen.BinaryLength);
+                byte binaryTag = (byte) ((extLen.BinaryTag & 0xF0) | extLen.BinaryLength);
                 stream.WriteByte(binaryTag);
                 extLen.WriteBinary(stream);
             }
