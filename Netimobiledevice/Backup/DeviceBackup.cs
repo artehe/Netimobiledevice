@@ -718,7 +718,7 @@ namespace Netimobiledevice.Backup
         /// </summary>
         /// <param name="msg">The message received.</param>
         /// <returns>The result status code from the message.</returns>
-        private static int ProcessMessage(ArrayNode msg)
+        private int ProcessMessage(ArrayNode msg)
         {
             DictionaryNode tmp = msg[1].AsDictionaryNode();
             int errorCode = (int) tmp["ErrorCode"].AsIntegerNode().Value;
