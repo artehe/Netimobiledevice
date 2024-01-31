@@ -1,11 +1,12 @@
-﻿using System;
+﻿using Netimobiledevice.Exceptions;
+using System;
 
 namespace Netimobiledevice.Plist
 {
     /// <summary>
     /// Property list format exception.
     /// </summary>
-    public class PlistFormatException : Exception
+    public class PlistFormatException : NetimobiledeviceException
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="PlistFormatException"/> class.
