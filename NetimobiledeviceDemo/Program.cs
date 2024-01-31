@@ -1,4 +1,5 @@
-﻿using Netimobiledevice.Afc;
+﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.Afc;
 using Netimobiledevice.Backup;
 using Netimobiledevice.Diagnostics;
 using Netimobiledevice.Lockdown;
@@ -18,6 +19,10 @@ public class Program
 
     internal static async Task Main()
     {
+        using ILoggerFactory factory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Debug).AddConsole());
+        ILogger logger = factory.CreateLogger("Program");
+        logger.LogInformation("Hello World! Logging is {Description}.", "fun");
+
         TaskScheduler.UnobservedTaskException += (sender, args) => {
             Console.WriteLine($"UnobservedTaskException error: {args.Exception}");
         };
@@ -117,7 +122,7 @@ public class Program
             if (Directory.Exists(path)) {
                 Directory.Delete(path, true);
             }
-            using (DeviceBackup backupJob = new DeviceBackup(lockdown, path)) {
+            using (DeviceBackup backupJob = new DeviceBackup(lockdown, path, factory.CreateLogger<DeviceBackup>())) {
                 await backupJob.Start(tokenSource.Token);
             }
         }

@@ -1,4 +1,6 @@
-﻿using Netimobiledevice.Afc;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Netimobiledevice.Afc;
 using Netimobiledevice.Diagnostics;
 using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Exceptions;
@@ -11,7 +13,6 @@ using Netimobiledevice.Usbmuxd;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -47,6 +48,10 @@ namespace Netimobiledevice.Backup
         /// The last backup status received.
         /// </summary>
         private BackupStatus? lastStatus;
+        /// <summary>
+        /// The internal logger
+        /// </summary>
+        private ILogger logger;
         /// <summary>
         /// The Notification service.
         /// </summary>
@@ -161,12 +166,22 @@ namespace Netimobiledevice.Backup
         /// </summary>
         /// <param name="lockdown">The lockdown client for the device that will be backed-up.</param>
         /// <param name="backupFolder">The folder to store the backup data. Without the device UDID.</param>
-        public DeviceBackup(LockdownClient lockdown, string backupFolder)
+        /// <param name="logger">The logger to handle and log messages output</param>
+        public DeviceBackup(LockdownClient lockdown, string backupFolder, ILogger<DeviceBackup> logger)
         {
+            this.logger = logger;
+
             LockdownClient = lockdown;
             BackupDirectory = backupFolder;
             DeviceBackupPath = Path.Combine(BackupDirectory, lockdown.UDID);
         }
+
+        /// <summary>
+        /// Creates an instance of a BackupJob class.
+        /// </summary>
+        /// <param name="lockdown">The lockdown client for the device that will be backed-up.</param>
+        /// <param name="backupFolder">The folder to store the backup data. Without the device UDID.</param>
+        public DeviceBackup(LockdownClient lockdown, string backupFolder) : this(lockdown, backupFolder, NullLogger<DeviceBackup>.Instance) { }
 
         /// <summary>
         /// Destructor of the BackupJob class.
@@ -228,10 +243,10 @@ namespace Netimobiledevice.Backup
                 Unlock();
             }
             catch (ObjectDisposedException) {
-                Debug.WriteLine("Object already disposed so I assume we can just continue");
+                logger.LogDebug("Object already disposed so I assume we can just continue");
             }
             catch (IOException) {
-                Debug.WriteLine("Had an IO exception but I assume we can just continue");
+                logger.LogDebug("Had an IO exception but I assume we can just continue");
             }
 
             notificationProxyService?.Dispose();
@@ -245,7 +260,7 @@ namespace Netimobiledevice.Backup
         /// </summary>
         private async Task CreateBackup(CancellationToken cancellationToken)
         {
-            Debug.WriteLine($"Starting backup of device {LockdownClient.GetValue("ProductType")?.AsStringNode().Value} v{LockdownClient.IOSVersion}");
+            logger.LogDebug($"Starting backup of device {LockdownClient.GetValue("ProductType")?.AsStringNode().Value} v{LockdownClient.IOSVersion}");
 
             // Reset everything in case we have called this more than once.
             lastStatus = null;
@@ -259,10 +274,10 @@ namespace Netimobiledevice.Backup
             terminatingException = null;
             snapshotState = SnapshotState.Uninitialized;
 
-            Debug.WriteLine($"Saving at {DeviceBackupPath}");
+            logger.LogDebug($"Saving at {DeviceBackupPath}");
 
             IsEncrypted = LockdownClient.GetValue("com.apple.mobile.backup", "WillEncrypt")?.AsBooleanNode().Value ?? false;
-            Debug.WriteLine($"The backup will{(IsEncrypted ? null : " not")} be encrypted.");
+            logger.LogDebug($"The backup will{(IsEncrypted ? null : " not")} be encrypted.");
 
             try {
                 afcService = new AfcService(LockdownClient);
@@ -427,8 +442,8 @@ namespace Netimobiledevice.Backup
                         }
                     }
                     catch (Exception ex) {
-                        Debug.WriteLine($"ERROR: Creating application list for Info.plist");
-                        Debug.WriteLine(ex);
+                        logger.LogDebug($"ERROR: Creating application list for Info.plist");
+                        logger.LogDebug(ex.Message);
                     }
                 }
             }
@@ -443,8 +458,8 @@ namespace Netimobiledevice.Backup
                 LockdownClient.IOSVersion >= new Version(16, 1)) {
                 using (DiagnosticsService diagnosticsService = new DiagnosticsService(LockdownClient)) {
                     string queryString = "PasswordConfigured";
-                    DictionaryNode queryResponse = diagnosticsService.MobileGestalt(new List<string>() { queryString });
                     try {
+                        DictionaryNode queryResponse = diagnosticsService.MobileGestalt(new List<string>() { queryString });
                         if (queryResponse.TryGetValue(queryString, out PropertyNode? passcodeSetNode)) {
                             bool passcodeSet = passcodeSetNode.AsBooleanNode().Value;
                             if (passcodeSet) {
@@ -469,7 +484,7 @@ namespace Netimobiledevice.Backup
         {
             bool isFirstMessage = true;
 
-            Debug.WriteLine("Starting the backup message loop.");
+            logger.LogDebug("Starting the backup message loop.");
             while (!IsStopping) {
                 try {
                     if (mobilebackup2Service != null) {
@@ -505,7 +520,7 @@ namespace Netimobiledevice.Backup
                     await Task.Delay(100, cancellationToken);
                 }
                 catch (Exception ex) {
-                    Debug.WriteLine($"ERROR Receiving message");
+                    logger.LogDebug($"ERROR Receiving message");
                     OnError(ex);
                     break;
                 }
@@ -516,8 +531,8 @@ namespace Netimobiledevice.Backup
                 throw new DeviceDisconnectedException();
             }
 
-            Debug.WriteLine($"Has error: {terminatingException != null}");
-            Debug.WriteLine($"Finished message loop. Cancelling = {IsCancelling}, Finished = {IsFinished}");
+            logger.LogDebug($"Has error: {terminatingException != null}");
+            logger.LogDebug($"Finished message loop. Cancelling = {IsCancelling}, Finished = {IsFinished}");
             OnBackupCompleted();
         }
 
@@ -560,7 +575,7 @@ namespace Netimobiledevice.Backup
         /// <returns>Depends on the message type, but a negative value always indicates an error.</returns>
         private void OnMessageReceived(ArrayNode msg, string message)
         {
-            Debug.WriteLine($"Message Received: {message}");
+            logger.LogDebug($"Message Received: {message}");
             switch (message) {
                 case DeviceLinkMessage.DownloadFiles: {
                     OnDownloadFiles(msg);
@@ -605,7 +620,7 @@ namespace Netimobiledevice.Backup
                     break;
                 }
                 default: {
-                    Debug.WriteLine($"WARNING: Unknown message in MessageLoop: {message}");
+                    logger.LogDebug($"WARNING: Unknown message in MessageLoop: {message}");
                     mobilebackup2Service?.SendStatusReport(1, "Operation not supported");
                     break;
                 }
@@ -635,7 +650,7 @@ namespace Netimobiledevice.Backup
                     break;
                 }
                 default: {
-                    Debug.WriteLine($"ERROR On ProcessMessage: {resultCode}");
+                    logger.LogDebug($"ERROR On ProcessMessage: {resultCode}");
                     DictionaryNode msgDict = msg[1].AsDictionaryNode();
                     if (msgDict.TryGetValue("ErrorDescription", out PropertyNode? errDescription)) {
                         throw new Exception($"Error {resultCode}: {errDescription.AsStringNode().Value}");
@@ -663,20 +678,20 @@ namespace Netimobiledevice.Backup
             long backupRealSize = 0;
             long backupTotalSize = (long) msg[3].AsIntegerNode().Value;
             if (backupTotalSize > 0) {
-                Debug.WriteLine($"Backup total size: {backupTotalSize}");
+                logger.LogDebug($"Backup total size: {backupTotalSize}");
             }
 
             while (!IsStopping) {
                 BackupFile? backupFile = ReceiveBackupFile();
                 if (backupFile != null) {
-                    Debug.WriteLine($"Receiving file {backupFile.BackupPath}");
+                    logger.LogDebug($"Receiving file {backupFile.BackupPath}");
                     OnBeforeReceivingFile(backupFile);
                     ResultCode code = ReceiveFile(backupFile, backupTotalSize, ref backupRealSize, out nlen);
                     if (code == ResultCode.Success) {
                         OnFileReceived(backupFile);
                     }
                     else if (code != ResultCode.Skipped) {
-                        Debug.WriteLine($"ERROR Receiving {backupFile.BackupPath}: {code}");
+                        logger.LogDebug($"ERROR Receiving {backupFile.BackupPath}: {code}");
                     }
                     fileCount++;
                 }
@@ -709,7 +724,7 @@ namespace Netimobiledevice.Backup
             int errorCode = (int) tmp["ErrorCode"].AsIntegerNode().Value;
             string errorDescription = tmp["ErrorDescription"].AsStringNode().Value;
             if (errorCode != 0) {
-                Debug.WriteLine($"ERROR: Code: {errorCode} {errorDescription}");
+                logger.LogDebug($"ERROR: Code: {errorCode} {errorDescription}");
             }
             return -errorCode;
         }
@@ -726,7 +741,7 @@ namespace Netimobiledevice.Backup
             }
             len = ReceiveFilename(out string backupPath);
             if (len <= 0) {
-                Debug.WriteLine("WARNING Error reading backup file path.");
+                logger.LogDebug("WARNING Error reading backup file path.");
             }
             return new BackupFile(devicePath, backupPath, BackupDirectory);
         }
@@ -755,7 +770,7 @@ namespace Netimobiledevice.Backup
 
             byte code = buffer[0];
             if (!Enum.IsDefined(typeof(ResultCode), code)) {
-                Debug.WriteLine($"WARNING: New backup code found: {code}");
+                logger.LogDebug($"WARNING: New backup code found: {code}");
             }
             ResultCode result = (ResultCode) code;
 
@@ -783,7 +798,7 @@ namespace Netimobiledevice.Backup
         /// <returns>The errno result of the operation.</returns>
         private void SendFile(string filename, DictionaryNode errList)
         {
-            Debug.WriteLine($"Sending file: {filename}");
+            logger.LogDebug($"Sending file: {filename}");
 
             mobilebackup2Service?.SendPath(filename);
             string localFile = Path.Combine(BackupDirectory, filename);
@@ -807,7 +822,7 @@ namespace Netimobiledevice.Backup
                 mobilebackup2Service?.SendRaw(bytes.ToArray());
             }
             else {
-                Debug.WriteLine($"Sending Error Code: {errorCode}");
+                logger.LogDebug($"Sending Error Code: {errorCode}");
                 DictionaryNode errReport = CreateErrorReport(errorCode);
                 errList.Add(filename, errReport);
                 mobilebackup2Service?.SendError(errReport);
@@ -878,7 +893,7 @@ namespace Netimobiledevice.Backup
                     }
                 }
                 catch (Exception ex) {
-                    Debug.WriteLine($"Error: {ex}");
+                    logger.LogDebug($"Error: {ex}");
                 }
             }
             return 0;
@@ -907,7 +922,7 @@ namespace Netimobiledevice.Backup
         /// </summary>
         protected virtual void OnBackupCompleted()
         {
-            Debug.WriteLine("Device Backup Completed");
+            logger.LogDebug("Device Backup Completed");
             Completed?.Invoke(this, new BackupResultEventArgs(failedFiles, userCancelled, deviceDisconnected));
         }
 
@@ -952,7 +967,7 @@ namespace Netimobiledevice.Backup
 
             FileInfo source = new FileInfo(srcPath);
             if (source.Attributes.HasFlag(FileAttributes.Directory)) {
-                Debug.WriteLine($"ERROR: Are you really asking me to copy a whole directory?");
+                logger.LogDebug($"ERROR: Are you really asking me to copy a whole directory?");
             }
             else {
                 File.Copy(source.FullName, new FileInfo(dstPath).FullName);
@@ -990,7 +1005,7 @@ namespace Netimobiledevice.Backup
         {
             IsCancelling = true;
             deviceDisconnected = Usbmux.IsDeviceConnected(LockdownClient.UDID);
-            Debug.WriteLine($"BackupJob.OnError: {ex.Message}");
+            logger.LogDebug($"BackupJob.OnError: {ex.Message}");
             terminatingException = deviceDisconnected ? ex : new DeviceDisconnectedException();
             Error?.Invoke(this, new ErrorEventArgs(terminatingException));
         }
@@ -1150,7 +1165,7 @@ namespace Netimobiledevice.Backup
                 }
 
                 if (string.IsNullOrEmpty(filename.Value)) {
-                    Debug.WriteLine("WARNING: Empty file to remove.");
+                    logger.LogDebug("WARNING: Empty file to remove.");
                 }
                 else {
                     FileInfo file = new FileInfo(Path.Combine(BackupDirectory, filename.Value));
@@ -1177,7 +1192,7 @@ namespace Netimobiledevice.Backup
         /// <param name="newSnapshotState">The new snapshot state.</param>
         protected virtual void OnSnapshotStateChanged(SnapshotState oldSnapshotState, SnapshotState newSnapshotState)
         {
-            Debug.WriteLine($"Snapshot state changed: {newSnapshotState}");
+            logger.LogDebug($"Snapshot state changed: {newSnapshotState}");
             OnStatus($"{newSnapshotState} ...");
             if (newSnapshotState == SnapshotState.Finished) {
                 IsFinished = true;
@@ -1191,7 +1206,7 @@ namespace Netimobiledevice.Backup
         protected virtual void OnStatus(string message)
         {
             Status?.Invoke(this, new StatusEventArgs(message));
-            Debug.WriteLine($"OnStatus: {message}");
+            logger.LogDebug($"OnStatus: {message}");
         }
 
         /// <summary>
@@ -1238,7 +1253,7 @@ namespace Netimobiledevice.Backup
                     if (blockSize > 0) {
                         byte[] msgBuffer = mobilebackup2Service?.ReceiveRaw(blockSize) ?? Array.Empty<byte>();
                         string msg = Encoding.UTF8.GetString(msgBuffer);
-                        Debug.WriteLine($"ERROR Receving file data: {code}: {msg}");
+                        logger.LogDebug($"ERROR Receving file data: {code}: {msg}");
                     }
                     OnFileTransferError(file);
                     return code;
@@ -1277,7 +1292,7 @@ namespace Netimobiledevice.Backup
             OnFileReceiving(backupFile, infoPlistData);
 
             TimeSpan elapsed = DateTime.Now - startTime;
-            Debug.WriteLine($"Creating Info.plist took {elapsed}");
+            logger.LogDebug($"Creating Info.plist took {elapsed}");
 
             OnFileReceived(backupFile);
         }
