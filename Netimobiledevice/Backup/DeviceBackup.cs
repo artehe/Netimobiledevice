@@ -444,19 +444,18 @@ namespace Netimobiledevice.Backup
                 using (DiagnosticsService diagnosticsService = new DiagnosticsService(LockdownClient)) {
                     string queryString = "PasswordConfigured";
                     DictionaryNode queryResponse = diagnosticsService.MobileGestalt(new List<string>() { queryString });
-
-                    if (queryResponse.TryGetValue(queryString, out PropertyNode? passcodeSetNode)) {
-                        bool passcodeSet = passcodeSetNode.AsBooleanNode().Value;
-                        if (passcodeSet) {
-                            return true;
+                    try {
+                        if (queryResponse.TryGetValue(queryString, out PropertyNode? passcodeSetNode)) {
+                            bool passcodeSet = passcodeSetNode.AsBooleanNode().Value;
+                            if (passcodeSet) {
+                                return true;
+                            }
                         }
                     }
-                    else if (queryResponse.TryGetValue("Status", out PropertyNode? statusNode)) {
-                        if (statusNode.AsStringNode().Value == "MobileGestaltDeprecated") {
-                            // Assume that the passcode is set for now
-                            // TODO Try and find a new way to tell if the devices passcode is set 
-                            return true;
-                        }
+                    catch (DeprecatedException) {
+                        // Assume that the passcode is set for now
+                        // TODO Try and find a new way to tell if the devices passcode is set 
+                        return true;
                     }
                 }
             }
