@@ -674,9 +674,6 @@ namespace Netimobiledevice.Backup
                     if (code == ResultCode.Success) {
                         OnFileReceived(backupFile);
                     }
-                    else if (code != ResultCode.Skipped) {
-                        LockdownClient.Logger.LogWarning($"Issue Receiving {backupFile.BackupPath}: {code}");
-                    }
                     fileCount++;
                 }
                 else if (Usbmux.IsDeviceConnected(LockdownClient.UDID, UsbmuxdConnectionType.Usb)) {
@@ -1210,34 +1207,39 @@ namespace Netimobiledevice.Backup
         /// <param name="file">The BackupFile to receive.</param>
         /// <param name="totalSize">The total size indicated in the device message.</param>
         /// <param name="realSize">The actual bytes transferred.</param>
-        /// <param name="nlen">The number of bytes left to read.</param>
+        /// <param name="size">The number of bytes left to read.</param>
         /// <param name="skip">Indicates whether to skip or save the file.</param>
         /// <returns>The result code of the transfer.</returns>
-        protected virtual ResultCode ReceiveFile(BackupFile file, long totalSize, ref long realSize, out int nlen, bool skip = false)
+        protected virtual ResultCode ReceiveFile(BackupFile file, long totalSize, ref long realSize, out int size, bool skip = false)
         {
-            nlen = 0;
+            size = 0;
             const int bufferLen = 32 * 1024;
             ResultCode lastCode = ResultCode.Success;
             if (File.Exists(file.LocalPath)) {
                 File.Delete(file.LocalPath);
             }
             while (!IsStopping) {
-                nlen = ReadInt32();
-                if (nlen <= 0) {
+                size = ReadInt32();
+                if (size <= 0) {
                     break;
                 }
 
                 ResultCode code = ReadCode();
-                int blockSize = nlen - 1;
+                int blockSize = size - sizeof(ResultCode);
                 if (code != ResultCode.FileData) {
                     if (code == ResultCode.Success) {
                         return code;
                     }
+
+                    string msg = string.Empty;
                     if (blockSize > 0) {
                         byte[] msgBuffer = mobilebackup2Service?.ReceiveRaw(blockSize) ?? Array.Empty<byte>();
-                        string msg = Encoding.UTF8.GetString(msgBuffer);
-                        LockdownClient.Logger.LogError($"Issue receving file data: {code}: {msg}");
+                        msg = Encoding.UTF8.GetString(msgBuffer);
                     }
+
+                    // iOS 17 beta devices seem to give RemoteError for a fair number of file now?
+                        LockdownClient.Logger.LogWarning($"Failed to fully upload {file.LocalPath}. Device file name {file.DevicePath}. Reason: {msg}");
+
                     OnFileTransferError(file);
                     return code;
                 }
