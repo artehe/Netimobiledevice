@@ -260,7 +260,7 @@ namespace Netimobiledevice.Backup
         /// </summary>
         private async Task CreateBackup(CancellationToken cancellationToken)
         {
-            logger.LogDebug($"Starting backup of device {LockdownClient.GetValue("ProductType")?.AsStringNode().Value} v{LockdownClient.IOSVersion}");
+            logger.LogInformation($"Starting backup of device {LockdownClient.GetValue("ProductType")?.AsStringNode().Value} v{LockdownClient.IOSVersion}");
 
             // Reset everything in case we have called this more than once.
             lastStatus = null;
@@ -277,7 +277,7 @@ namespace Netimobiledevice.Backup
             logger.LogDebug($"Saving at {DeviceBackupPath}");
 
             IsEncrypted = LockdownClient.GetValue("com.apple.mobile.backup", "WillEncrypt")?.AsBooleanNode().Value ?? false;
-            logger.LogDebug($"The backup will{(IsEncrypted ? null : " not")} be encrypted.");
+            logger.LogInformation($"The backup will{(IsEncrypted ? null : " not")} be encrypted.");
 
             try {
                 afcService = new AfcService(LockdownClient);
@@ -442,8 +442,7 @@ namespace Netimobiledevice.Backup
                         }
                     }
                     catch (Exception ex) {
-                        logger.LogDebug($"ERROR: Creating application list for Info.plist");
-                        logger.LogDebug(ex.Message);
+                        logger.LogWarning($"Failed to create application list for Info.plist: {ex.Message}");
                     }
                 }
             }
@@ -520,7 +519,7 @@ namespace Netimobiledevice.Backup
                     await Task.Delay(100, cancellationToken);
                 }
                 catch (Exception ex) {
-                    logger.LogDebug($"ERROR Receiving message");
+                    logger.LogError($"Issue receiving message: {ex.Message}");
                     OnError(ex);
                     break;
                 }
@@ -531,8 +530,7 @@ namespace Netimobiledevice.Backup
                 throw new DeviceDisconnectedException();
             }
 
-            logger.LogDebug($"Has error: {terminatingException != null}");
-            logger.LogDebug($"Finished message loop. Cancelling = {IsCancelling}, Finished = {IsFinished}");
+            logger.LogInformation($"Finished message loop. Cancelling = {IsCancelling}, Finished = {IsFinished}, Errored = {terminatingException != null}");
             OnBackupCompleted();
         }
 
@@ -620,7 +618,7 @@ namespace Netimobiledevice.Backup
                     break;
                 }
                 default: {
-                    logger.LogDebug($"WARNING: Unknown message in MessageLoop: {message}");
+                    logger.LogWarning($"WARNING: Unknown message in MessageLoop: {message}");
                     mobilebackup2Service?.SendStatusReport(1, "Operation not supported");
                     break;
                 }
@@ -650,7 +648,7 @@ namespace Netimobiledevice.Backup
                     break;
                 }
                 default: {
-                    logger.LogDebug($"ERROR On ProcessMessage: {resultCode}");
+                    logger.LogError($"Issue with OnProcessMessage: {resultCode}");
                     DictionaryNode msgDict = msg[1].AsDictionaryNode();
                     if (msgDict.TryGetValue("ErrorDescription", out PropertyNode? errDescription)) {
                         throw new Exception($"Error {resultCode}: {errDescription.AsStringNode().Value}");
@@ -691,7 +689,7 @@ namespace Netimobiledevice.Backup
                         OnFileReceived(backupFile);
                     }
                     else if (code != ResultCode.Skipped) {
-                        logger.LogDebug($"ERROR Receiving {backupFile.BackupPath}: {code}");
+                        logger.LogWarning($"Issue Receiving {backupFile.BackupPath}: {code}");
                     }
                     fileCount++;
                 }
@@ -724,7 +722,7 @@ namespace Netimobiledevice.Backup
             int errorCode = (int) tmp["ErrorCode"].AsIntegerNode().Value;
             string errorDescription = tmp["ErrorDescription"].AsStringNode().Value;
             if (errorCode != 0) {
-                logger.LogDebug($"ERROR: Code: {errorCode} {errorDescription}");
+                logger.LogError($"ProcessMessage Code: {errorCode} {errorDescription}");
             }
             return -errorCode;
         }
@@ -741,7 +739,7 @@ namespace Netimobiledevice.Backup
             }
             len = ReceiveFilename(out string backupPath);
             if (len <= 0) {
-                logger.LogDebug("WARNING Error reading backup file path.");
+                logger.LogWarning("Error reading backup file path.");
             }
             return new BackupFile(devicePath, backupPath, BackupDirectory);
         }
@@ -770,7 +768,7 @@ namespace Netimobiledevice.Backup
 
             byte code = buffer[0];
             if (!Enum.IsDefined(typeof(ResultCode), code)) {
-                logger.LogDebug($"WARNING: New backup code found: {code}");
+                logger.LogWarning($"New backup code found: {code}");
             }
             ResultCode result = (ResultCode) code;
 
@@ -799,7 +797,6 @@ namespace Netimobiledevice.Backup
         private void SendFile(string filename, DictionaryNode errList)
         {
             logger.LogDebug($"Sending file: {filename}");
-
             mobilebackup2Service?.SendPath(filename);
             string localFile = Path.Combine(BackupDirectory, filename);
             FileInfo fileInfo = new FileInfo(localFile);
@@ -893,7 +890,7 @@ namespace Netimobiledevice.Backup
                     }
                 }
                 catch (Exception ex) {
-                    logger.LogDebug($"Error: {ex}");
+                    logger.LogError($"Issue getting space from drive: {ex}");
                 }
             }
             return 0;
@@ -922,7 +919,7 @@ namespace Netimobiledevice.Backup
         /// </summary>
         protected virtual void OnBackupCompleted()
         {
-            logger.LogDebug("Device Backup Completed");
+            logger.LogInformation("Device Backup Completed");
             Completed?.Invoke(this, new BackupResultEventArgs(failedFiles, userCancelled, deviceDisconnected));
         }
 
@@ -967,7 +964,7 @@ namespace Netimobiledevice.Backup
 
             FileInfo source = new FileInfo(srcPath);
             if (source.Attributes.HasFlag(FileAttributes.Directory)) {
-                logger.LogDebug($"ERROR: Are you really asking me to copy a whole directory?");
+                logger.LogError($"Trying to coppy a whole directory rather than an individual file");
             }
             else {
                 File.Copy(source.FullName, new FileInfo(dstPath).FullName);
@@ -1005,7 +1002,7 @@ namespace Netimobiledevice.Backup
         {
             IsCancelling = true;
             deviceDisconnected = Usbmux.IsDeviceConnected(LockdownClient.UDID);
-            logger.LogDebug($"BackupJob.OnError: {ex.Message}");
+            logger.LogError($"Error in backup job: {ex.Message}");
             terminatingException = deviceDisconnected ? ex : new DeviceDisconnectedException();
             Error?.Invoke(this, new ErrorEventArgs(terminatingException));
         }
@@ -1165,7 +1162,7 @@ namespace Netimobiledevice.Backup
                 }
 
                 if (string.IsNullOrEmpty(filename.Value)) {
-                    logger.LogDebug("WARNING: Empty file to remove.");
+                    logger.LogWarning("Empty file to remove.");
                 }
                 else {
                     FileInfo file = new FileInfo(Path.Combine(BackupDirectory, filename.Value));
@@ -1253,7 +1250,7 @@ namespace Netimobiledevice.Backup
                     if (blockSize > 0) {
                         byte[] msgBuffer = mobilebackup2Service?.ReceiveRaw(blockSize) ?? Array.Empty<byte>();
                         string msg = Encoding.UTF8.GetString(msgBuffer);
-                        logger.LogDebug($"ERROR Receving file data: {code}: {msg}");
+                        logger.LogError($"Issue receving file data: {code}: {msg}");
                     }
                     OnFileTransferError(file);
                     return code;
