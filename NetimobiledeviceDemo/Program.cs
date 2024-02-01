@@ -20,7 +20,7 @@ public class Program
     internal static async Task Main()
     {
         using ILoggerFactory factory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Debug).AddConsole());
-        ILogger logger = factory.CreateLogger("Program");
+        ILogger logger = factory.CreateLogger("NetimobiledeviceDemo");
         logger.LogInformation("Hello World! Logging is {Description}.", "fun");
 
         TaskScheduler.UnobservedTaskException += (sender, args) => {
@@ -37,7 +37,7 @@ public class Program
             }
         }
 
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, factory.CreateLogger("NetimobiledeviceDemo"))) {
             Progress<PairingState> progress = new();
             progress.ProgressChanged += Progress_ProgressChanged;
             if (!lockdown.IsPaired) {
@@ -45,7 +45,7 @@ public class Program
             }
         }
 
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, factory.CreateLogger("NetimobiledeviceDemo"))) {
             using (OsTraceService osTrace = new OsTraceService(lockdown)) {
                 osTrace.CreateArchive("output");
 
@@ -62,7 +62,7 @@ public class Program
 
         await Task.Delay(1000);
 
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, factory.CreateLogger("NetimobiledeviceDemo"))) {
             using (DiagnosticsService diagnosticsService = new DiagnosticsService(lockdown)) {
                 Dictionary<string, ulong> storageInfo = diagnosticsService.GetStorageDetails();
                 ulong totalDiskValue = 0;
@@ -71,13 +71,13 @@ public class Program
             }
         }
 
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, factory.CreateLogger("NetimobiledeviceDemo"))) {
             string product = lockdown.Product;
             string productName = lockdown.ProductFriendlyName;
             Console.WriteLine($"Connected device is a {productName} ({product})");
         }
 
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, factory.CreateLogger("NetimobiledeviceDemo"))) {
             PropertyNode? val = lockdown.GetValue("com.apple.mobile.tethered_sync", null);
             DictionaryNode tetherValue = new DictionaryNode() {
                 { "DisableTethered", new BooleanNode(false) },
@@ -86,7 +86,7 @@ public class Program
             lockdown.SetValue("com.apple.mobile.tethered_sync", "Calendars", tetherValue);
             val = lockdown.GetValue("com.apple.mobile.tethered_sync", null);
 
-            using (MobilesyncService mobilesyncService = await MobilesyncService.StartServiceAsync(lockdown)) {
+            using (MobilesyncService mobilesyncService = await MobilesyncService.StartServiceAsync(lockdown, factory.CreateLogger("NetimobiledeviceDemo"))) {
                 string anchor = new DateTime(2001, 1, 1, 0, 0, 0, DateTimeKind.Utc).ToString();
                 MobilesyncAnchors anchors = new MobilesyncAnchors() {
                     DeviceAnchor = null,
@@ -117,17 +117,17 @@ public class Program
 
         timer.Change(15 * 1000, Timeout.Infinite);
 
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, factory.CreateLogger("NetimobiledeviceDemo"))) {
             string path = "backups";
             if (Directory.Exists(path)) {
                 Directory.Delete(path, true);
             }
-            using (DeviceBackup backupJob = new DeviceBackup(lockdown, path, factory.CreateLogger<DeviceBackup>())) {
+            using (DeviceBackup backupJob = new DeviceBackup(lockdown, path, factory.CreateLogger("NetimobiledeviceDemo"))) {
                 await backupJob.Start(tokenSource.Token);
             }
         }
 
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, factory.CreateLogger("NetimobiledeviceDemo"))) {
             using (MisagentService misagentService = new MisagentService(lockdown)) {
                 await misagentService.GetInstalledProvisioningProfiles();
             }
@@ -150,7 +150,7 @@ public class Program
                 }
             }
 
-            //Get the list of directories in the Connected iOS device.
+            // Get the list of directories in the Connected iOS device.
             using (AfcService afcService = new AfcService(lockdown)) {
                 List<string> pathList = afcService.GetDirectoryList();
                 Console.WriteLine("Path's available in the connected iOS device are as below." + Environment.NewLine);

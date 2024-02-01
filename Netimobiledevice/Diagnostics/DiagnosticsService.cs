@@ -1,10 +1,11 @@
-﻿using Netimobiledevice.Exceptions;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Netimobiledevice.Exceptions;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 
 namespace Netimobiledevice.Diagnostics
@@ -105,16 +106,18 @@ namespace Netimobiledevice.Diagnostics
 
         protected override string ServiceName => SERVICE_NAME_NEW;
 
-        public DiagnosticsService(LockdownClient client) : base(client, GetDiagnosticsServiceConnection(client)) { }
+        public DiagnosticsService(LockdownClient client, ILogger logger) : base(client, GetDiagnosticsServiceConnection(client, logger)) { }
 
-        private static ServiceConnection GetDiagnosticsServiceConnection(LockdownClient client)
+        public DiagnosticsService(LockdownClient client) : this(client, NullLogger.Instance) { }
+
+        private static ServiceConnection GetDiagnosticsServiceConnection(LockdownClient client, ILogger logger)
         {
             ServiceConnection service;
             try {
                 service = client.StartService(SERVICE_NAME_NEW);
             }
             catch (Exception ex) {
-                Debug.WriteLine(ex);
+                logger.LogWarning($"Failed to star the new service, falling back to the old service: {ex.Message}");
                 service = client.StartService(SERVICE_NAME_OLD);
             }
 

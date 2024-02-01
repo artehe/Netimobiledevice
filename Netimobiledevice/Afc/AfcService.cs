@@ -1,10 +1,11 @@
-﻿using Netimobiledevice.Extentions;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Netimobiledevice.Extentions;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -23,12 +24,21 @@ namespace Netimobiledevice.Afc
             { "a", AfcFileOpenMode.Append},
             { "a+", AfcFileOpenMode.ReadAppend},
         };
+        /// <summary>
+        /// The internal logger
+        /// </summary>
+        private readonly ILogger logger;
 
-        private ulong packetNumber = 0;
+        private ulong packetNumber;
 
         protected override string ServiceName => "com.apple.afc";
 
-        public AfcService(LockdownClient client) : base(client) { }
+        public AfcService(LockdownClient client, ILogger logger) : base(client)
+        {
+            this.logger = logger;
+        }
+
+        public AfcService(LockdownClient client) : this(client, NullLogger.Instance) { }
 
         private void DispatchPacket(AfcOpCode opCode, byte[] data, ulong? thisLength = null)
         {
@@ -168,7 +178,7 @@ namespace Netimobiledevice.Afc
                 data = Service.Receive(length);
                 if (header.Operation == AfcOpCode.Status) {
                     if (length != 8) {
-                        Debug.WriteLine("Status length is not 8 bytes long");
+                        logger.LogWarning("Status length is not 8 bytes long");
                     }
                     ulong statusValue = BitConverter.ToUInt64(data, 0);
                     status = (AfcError) statusValue;
@@ -249,8 +259,8 @@ namespace Netimobiledevice.Afc
                 byte[] response = RunOperation(AfcOpCode.ReadDir, request.GetBytes());
                 directoryList = ParseFileInfoResponseForMessage(response);
             }
-            catch (Exception e) {
-                Console.WriteLine(e.Message);
+            catch (Exception ex) {
+                logger.LogError($"Error trying to get directory list: {ex.Message}");
             }
             return directoryList;
         }

@@ -1,9 +1,9 @@
-﻿using Netimobiledevice.Lockdown;
+﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,11 +19,19 @@ namespace Netimobiledevice.Mobilesync
         private const string EMPTY_PARAMETER_STRING = "___EmptyParameterString___";
         private const string SERVICE_NAME = "com.apple.mobilesync";
 
+        /// <summary>
+        /// The internal logger
+        /// </summary>
+        private readonly ILogger logger;
+
         private string syncingDataClass = EMPTY_PARAMETER_STRING;
 
         protected override string ServiceName => SERVICE_NAME;
 
-        private MobilesyncService(LockdownClient client) : base(client) { }
+        private MobilesyncService(LockdownClient client, ILogger logger) : base(client)
+        {
+            this.logger = logger;
+        }
 
         private void GetRecords(string operation)
         {
@@ -109,7 +117,7 @@ namespace Netimobiledevice.Mobilesync
 
                     if (responseType == "SDMessageCancelSession") {
                         string reason = msg[2].AsStringNode().Value;
-                        Debug.WriteLine($"mobilesync cancelled by device: {reason}");
+                        logger.LogWarning($"mobilesync cancelled by device: {reason}");
                         yield break;
                     }
 
@@ -192,9 +200,9 @@ namespace Netimobiledevice.Mobilesync
             syncingDataClass = dataClass;
         }
 
-        public static async Task<MobilesyncService> StartServiceAsync(LockdownClient client, CancellationToken cancellationToken = default)
+        public static async Task<MobilesyncService> StartServiceAsync(LockdownClient client, ILogger logger, CancellationToken cancellationToken = default)
         {
-            MobilesyncService service = new MobilesyncService(client);
+            MobilesyncService service = new MobilesyncService(client, logger);
             await service.DeviceLinkVersionExchange(MOBILESYNC_VERSION_MAJOR, MOBILESYNC_VERSION_MINOR, cancellationToken);
             return service;
         }

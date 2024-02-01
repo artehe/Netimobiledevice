@@ -1,10 +1,10 @@
-﻿using Netimobiledevice.EndianBitConversion;
+﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,9 +18,17 @@ namespace Netimobiledevice.Backup
 
         private const string SERVICE_NAME = "com.apple.mobilebackup2";
 
+        /// <summary>
+        /// The internal logger
+        /// </summary>
+        private readonly ILogger logger;
+
         protected override string ServiceName => SERVICE_NAME;
 
-        private Mobilebackup2Service(LockdownClient client) : base(client, GetServiceConnection(client)) { }
+        private Mobilebackup2Service(LockdownClient client, ILogger logger) : base(client, GetServiceConnection(client))
+        {
+            this.logger = logger;
+        }
 
         private void ChangeBackupEncryptionPassword(string? oldPassword, string? newPassword, BackupEncryptionFlags flag)
         {
@@ -34,7 +42,7 @@ namespace Netimobiledevice.Backup
 
             DictionaryNode backupDomain = Lockdown.GetValue("com.apple.mobile.backup", null)?.AsDictionaryNode() ?? new DictionaryNode();
             if (flag == BackupEncryptionFlags.ChangePassword && backupDomain.ContainsKey("WillEncrypt") && !backupDomain["WillEncrypt"].AsBooleanNode().Value) {
-                Debug.WriteLine("Error Backup encryption is not enabled so can't change password. Aborting");
+                logger.LogError("Error Backup encryption is not enabled so can't change password. Aborting");
                 throw new InvalidOperationException("Backup encryption isn't enabled so can't change password");
             }
 
@@ -112,9 +120,9 @@ namespace Netimobiledevice.Backup
             ChangeBackupEncryptionPassword(oldPassword, newPassword, BackupEncryptionFlags.ChangePassword);
         }
 
-        public static async Task<Mobilebackup2Service> CreateAsync(LockdownClient client, CancellationToken cancellationToken = default)
+        public static async Task<Mobilebackup2Service> CreateAsync(LockdownClient client, ILogger logger, CancellationToken cancellationToken = default)
         {
-            Mobilebackup2Service service = new Mobilebackup2Service(client);
+            Mobilebackup2Service service = new Mobilebackup2Service(client, logger);
             await service.DeviceLinkVersionExchange(MOBILEBACKUP2_VERSION_MAJOR, MOBILEBACKUP2_VERSION_MINOR, cancellationToken);
             await service.VersionExchange(cancellationToken);
             return service;
@@ -238,12 +246,12 @@ namespace Netimobiledevice.Backup
         {
             DictionaryNode backupDomain = Lockdown.GetValue("com.apple.mobile.backup", null)?.AsDictionaryNode() ?? new DictionaryNode();
             if (backupDomain.ContainsKey("WillEncrypt") && backupDomain["WillEncrypt"].AsBooleanNode().Value) {
-                Debug.WriteLine("ERROR Backup encryption is already enabled. Aborting.");
+                logger.LogError("ERROR Backup encryption is already enabled. Aborting.");
                 throw new InvalidOperationException("Can't set backup password as one already exists");
             }
 
             if (password == null || password == string.Empty) {
-                Debug.WriteLine("No backup password given. Aborting.");
+                logger.LogError("No backup password given. Aborting.");
                 throw new ArgumentException("password can't be null or empty");
             }
 

@@ -1,10 +1,11 @@
-﻿using Netimobiledevice.Lockdown;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -18,6 +19,11 @@ namespace Netimobiledevice.NotificationProxy
         private const string SERVICE_NAME_INSECURE = "com.apple.mobile.insecure_notification_proxy";
 
         private static readonly SemaphoreSlim serviceLockSemaphoreSlim = new SemaphoreSlim(1, 1);
+
+        /// <summary>
+        /// The internal logger
+        /// </summary>
+        private readonly ILogger logger;
 
         /// <summary>
         /// Device-To-Host notifications.
@@ -62,13 +68,16 @@ namespace Netimobiledevice.NotificationProxy
 
         public event EventHandler<ReceivedNotificationEventArgs>? ReceivedNotification;
 
-        public NotificationProxyService(LockdownClient client, bool useInsecureService = false) : base(client, GetServiceConnection(client, useInsecureService))
+        public NotificationProxyService(LockdownClient client, ILogger logger, bool useInsecureService = false) : base(client, GetServiceConnection(client, useInsecureService))
         {
+            this.logger = logger;
             notificationListener = new BackgroundWorker {
                 WorkerSupportsCancellation = true
             };
             notificationListener.DoWork += NotificationListener_DoWork;
         }
+
+        public NotificationProxyService(LockdownClient client, bool useInsecureService = false) : this(client, NullLogger.Instance, useInsecureService) { }
 
         public override void Dispose()
         {
@@ -89,21 +98,21 @@ namespace Netimobiledevice.NotificationProxy
                     if (dict.ContainsKey("Command") && dict["Command"].AsStringNode().Value == "RelayNotification") {
                         if (dict.ContainsKey("Name")) {
                             string notificationName = dict["Name"].AsStringNode().Value;
-                            Debug.WriteLine($"Got notification {notificationName}");
+                            logger.LogDebug($"Got notification {notificationName}");
                             return notificationName;
                         }
                     }
                     else if (dict.ContainsKey("Command") && dict["Command"].AsStringNode().Value == "ProxyDeath") {
-                        Debug.WriteLine("NotificationProxy died");
+                        logger.LogError("NotificationProxy died");
                         throw new Exception("Notification proxy died, can't listen to notifications anymore");
                     }
                     else if (dict.ContainsKey("Command")) {
-                        Debug.WriteLine($"Unknown NotificationProxy command {dict["Command"]}");
+                        logger.LogWarning($"Unknown NotificationProxy command {dict["Command"]}");
                     }
                 }
             }
             catch (ArgumentException ex) {
-                Debug.WriteLine(ex);
+                logger.LogError($"Error: {ex}");
             }
             finally {
                 serviceLockSemaphoreSlim.Release();
@@ -144,12 +153,11 @@ namespace Netimobiledevice.NotificationProxy
                     break;
                 }
                 catch (TimeoutException) {
-                    Debug.WriteLine("No notifications received yet, trying again");
+                    logger.LogDebug("No notifications received yet, trying again");
                 }
                 catch (Exception ex) {
                     if (!notificationListener.CancellationPending) {
-                        Debug.WriteLine("======================== EXCEPTION ==============");
-                        Debug.WriteLine($"Notification proxy listener has an error: {ex}");
+                        logger.LogError($"Notification proxy listener has an error: {ex}");
                         throw;
                     }
                 }

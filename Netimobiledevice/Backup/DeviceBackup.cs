@@ -51,7 +51,7 @@ namespace Netimobiledevice.Backup
         /// <summary>
         /// The internal logger
         /// </summary>
-        private ILogger logger;
+        private readonly ILogger logger;
         /// <summary>
         /// The Notification service.
         /// </summary>
@@ -167,7 +167,7 @@ namespace Netimobiledevice.Backup
         /// <param name="lockdown">The lockdown client for the device that will be backed-up.</param>
         /// <param name="backupFolder">The folder to store the backup data. Without the device UDID.</param>
         /// <param name="logger">The logger to handle and log messages output</param>
-        public DeviceBackup(LockdownClient lockdown, string backupFolder, ILogger<DeviceBackup> logger)
+        public DeviceBackup(LockdownClient lockdown, string backupFolder, ILogger logger)
         {
             this.logger = logger;
 
@@ -181,7 +181,7 @@ namespace Netimobiledevice.Backup
         /// </summary>
         /// <param name="lockdown">The lockdown client for the device that will be backed-up.</param>
         /// <param name="backupFolder">The folder to store the backup data. Without the device UDID.</param>
-        public DeviceBackup(LockdownClient lockdown, string backupFolder) : this(lockdown, backupFolder, NullLogger<DeviceBackup>.Instance) { }
+        public DeviceBackup(LockdownClient lockdown, string backupFolder) : this(lockdown, backupFolder, NullLogger.Instance) { }
 
         /// <summary>
         /// Destructor of the BackupJob class.
@@ -281,7 +281,7 @@ namespace Netimobiledevice.Backup
 
             try {
                 afcService = new AfcService(LockdownClient);
-                mobilebackup2Service = await Mobilebackup2Service.CreateAsync(LockdownClient, cancellationToken);
+                mobilebackup2Service = await Mobilebackup2Service.CreateAsync(LockdownClient, logger, cancellationToken);
                 notificationProxyService = new NotificationProxyService(LockdownClient);
 
                 await AquireBackupLock();
@@ -1017,7 +1017,7 @@ namespace Netimobiledevice.Backup
             if (string.Equals("Status.plist", Path.GetFileName(file.LocalPath), StringComparison.OrdinalIgnoreCase)) {
                 using (FileStream fs = File.OpenRead(file.LocalPath)) {
                     DictionaryNode statusPlist = PropertyList.Load(fs).AsDictionaryNode();
-                    OnStatusReceived(new BackupStatus(statusPlist));
+                    OnStatusReceived(new BackupStatus(statusPlist, (ILogger<BackupStatus>) logger));
                 }
             }
         }

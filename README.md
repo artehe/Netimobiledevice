@@ -106,6 +106,19 @@ private void Progress_ProgressChanged(object? sender, PairingState e)
 }
 ```
 
+Get structured logging information using the logger of your choice (provided it can interact with Microsoft.Extentions.Logging ILogger):
+
+```csharp
+using Microsoft.Extensions.Logging;
+
+using ILoggerFactory factory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Debug).AddConsole());
+using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+    using (DeviceBackup backupJob = new DeviceBackup(lockdown, path, factory.CreateLogger("Netimobiledevice"))) {
+        await backupJob.Start(tokenSource.Token);
+    }
+}
+```
+
 ## Services
 
 The list of all the services from lockdownd which have been implemented and the functions available for each one. Clicking on the service name will take you to it's implementation, to learn more about it.
