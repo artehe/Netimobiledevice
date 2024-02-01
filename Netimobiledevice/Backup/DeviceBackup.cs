@@ -444,7 +444,7 @@ namespace Netimobiledevice.Backup
                 using (DiagnosticsService diagnosticsService = new DiagnosticsService(LockdownClient)) {
                     string queryString = "PasswordConfigured";
                     try {
-                    DictionaryNode queryResponse = diagnosticsService.MobileGestalt(new List<string>() { queryString });
+                        DictionaryNode queryResponse = diagnosticsService.MobileGestalt(new List<string>() { queryString });
                         if (queryResponse.TryGetValue(queryString, out PropertyNode? passcodeSetNode)) {
                             bool passcodeSet = passcodeSetNode.AsBooleanNode().Value;
                             if (passcodeSet) {
@@ -689,10 +689,6 @@ namespace Netimobiledevice.Backup
             }
 
             if (!IsStopping) {
-                // If there are leftovers to read, finish up cleanly.
-                if (--nlen > 0) {
-                    mobilebackup2Service?.ReceiveRaw(nlen);
-                }
                 mobilebackup2Service?.SendStatusReport(errorCode, errorDescription);
             }
         }
