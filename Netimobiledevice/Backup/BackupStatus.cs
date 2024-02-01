@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Netimobiledevice.Plist;
 using System;
 using System.Globalization;
@@ -39,8 +40,10 @@ namespace Netimobiledevice.Backup
         /// Creates an instance of BackupStatus.
         /// </summary>
         /// <param name="status">The dictionary from the Status.plist file.</param>
-        public BackupStatus(DictionaryNode status, ILogger logger)
+        public BackupStatus(DictionaryNode status, ILogger? logger = null)
         {
+            logger ??= NullLogger.Instance;
+
             UUID = status["UUID"].AsStringNode().Value;
             Date = status["Date"].AsDateNode().Value;
             Version = Version.Parse(status["Version"].AsStringNode().Value);

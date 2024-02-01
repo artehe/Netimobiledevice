@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd.Responses;
@@ -36,8 +35,6 @@ namespace Netimobiledevice.Usbmuxd
             this.errorCallback = errorCallback;
         }
 
-        public UsbmuxdConnectionMonitor(Action<UsbmuxdDevice, UsbmuxdConnectionEventType> callback, Action<Exception>? errorCallback = null) : this(NullLogger<UsbmuxdConnectionMonitor>.Instance, callback, errorCallback) { }
-
         private void AddDevice(UsbmuxdDevice usbmuxdDevice)
         {
             Devices.Add(usbmuxdDevice);
@@ -49,7 +46,7 @@ namespace Netimobiledevice.Usbmuxd
             do {
                 UsbmuxConnection muxConnection;
                 try {
-                    muxConnection = UsbmuxConnection.Create();
+                    muxConnection = UsbmuxConnection.Create(logger);
                 }
                 catch (UsbmuxConnectionException ex) {
                     errorCallback?.Invoke(ex);

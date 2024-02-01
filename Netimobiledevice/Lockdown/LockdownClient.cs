@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.HelperFiles;
 using Netimobiledevice.NotificationProxy;
@@ -53,6 +54,8 @@ namespace Netimobiledevice.Lockdown
         /// Is the connected iOS trusted/paired with this device.
         /// </summary>
         public bool IsPaired { get; private set; }
+
+        public ILogger Logger => logger;
 
         /// <summary>
         /// Get the internal device model identifier
@@ -177,7 +180,7 @@ namespace Netimobiledevice.Lockdown
             }
 
             // Second look for the usbmuxd pair record
-            UsbmuxConnection mux = UsbmuxConnection.Create();
+            UsbmuxConnection mux = UsbmuxConnection.Create(logger);
             if (medium == ConnectionMedium.USBMUX && mux is PlistMuxConnection plistMuxConnection) {
                 pairRecord = plistMuxConnection.GetPairRecord(UDID);
             }
@@ -293,7 +296,7 @@ namespace Netimobiledevice.Lockdown
             if (medium == ConnectionMedium.USBMUX) {
                 byte[] recordData = PropertyList.SaveAsByteArray(pairRecord, PlistFormat.Xml);
 
-                UsbmuxConnection mux = UsbmuxConnection.Create();
+                UsbmuxConnection mux = UsbmuxConnection.Create(Logger);
                 if (mux is PlistMuxConnection plistMuxConnection) {
                     int deviceId = (int) (service?.GetUsbmuxdDevice()?.DeviceId ?? 0);
                     plistMuxConnection.SavePairRecord(UDID, deviceId, recordData);
@@ -590,8 +593,9 @@ namespace Netimobiledevice.Lockdown
         /// <param name="autoPair">Should pairing with the device be automatically attempted</param>
         /// <param name="connectionMedium">What medium should be used to connect to the lockdown client</param>
         /// <param name="pairRecordCacheDir">Where local pair records are created and read from if needed</param>
-        public static LockdownClient CreateLockdownClient(string udid, ILogger logger, bool autoPair = false, ConnectionMedium connectionMedium = ConnectionMedium.USBMUX, string? pairRecordCacheDir = null)
+        public static LockdownClient CreateLockdownClient(string udid, bool autoPair = false, ConnectionMedium connectionMedium = ConnectionMedium.USBMUX, string? pairRecordCacheDir = null, ILogger? logger = null)
         {
+            logger ??= NullLogger.Instance;
             LockdownClient client = new LockdownClient(udid, pairRecordCacheDir, connectionMedium, logger);
             client.service = ServiceConnection.Create(client.medium, client.UDID, SERVICE_PORT, logger, client.usbmuxdConnectionType);
 

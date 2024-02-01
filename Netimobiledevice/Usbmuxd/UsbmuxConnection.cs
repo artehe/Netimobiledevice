@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.Extentions;
 using Netimobiledevice.Plist;
@@ -44,8 +43,6 @@ namespace Netimobiledevice.Usbmuxd
             Sock = socket;
             Tag = 1;
         }
-
-        protected UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion protocolVersion) : this(socket, protocolVersion, NullLogger.Instance) { }
 
         private int ReceivePacket(out UsbmuxdHeader header, out byte[] payload)
         {
@@ -178,11 +175,11 @@ namespace Netimobiledevice.Usbmuxd
             return Sock.GetInternalSocket();
         }
 
-        public static UsbmuxConnection Create()
+        public static UsbmuxConnection Create(ILogger logger)
         {
             // First attempt to connect with possibly the wrong version header (using Plist protocol)
             UsbmuxdSocket sock = new UsbmuxdSocket();
-            PlistMuxConnection conn = new PlistMuxConnection(sock);
+            PlistMuxConnection conn = new PlistMuxConnection(sock, logger);
             int tag = 1;
 
             PropertyNode plistMessage = new StringNode("ReadBUID");
@@ -194,10 +191,10 @@ namespace Netimobiledevice.Usbmuxd
 
             sock = new UsbmuxdSocket();
             if (response.Header.Version == UsbmuxdVersion.Binary) {
-                return new BinaryUsbmuxConnection(sock);
+                return new BinaryUsbmuxConnection(sock, logger);
             }
             else if (response.Header.Version == UsbmuxdVersion.Plist) {
-                return new PlistMuxConnection(sock);
+                return new PlistMuxConnection(sock, logger);
             }
             throw new UsbmuxVersionException($"Usbmuxd returned unsupported version: {response.Header.Version}");
         }

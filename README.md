@@ -112,8 +112,8 @@ Get structured logging information using the logger of your choice (provided it 
 using Microsoft.Extensions.Logging;
 
 using ILoggerFactory factory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Debug).AddConsole());
-using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
-    using (DeviceBackup backupJob = new DeviceBackup(lockdown, path, factory.CreateLogger("Netimobiledevice"))) {
+using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, logger: factory.CreateLogger("Netimobiledevice"))) {
+    using (DeviceBackup backupJob = new DeviceBackup(lockdown, path)) {
         await backupJob.Start(tokenSource.Token);
     }
 }

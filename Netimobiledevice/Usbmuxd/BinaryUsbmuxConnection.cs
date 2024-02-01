@@ -1,4 +1,5 @@
-﻿using Netimobiledevice.EndianBitConversion;
+﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.Usbmuxd.Responses;
 using System;
@@ -8,7 +9,7 @@ namespace Netimobiledevice.Usbmuxd
 {
     internal class BinaryUsbmuxConnection : UsbmuxConnection
     {
-        public BinaryUsbmuxConnection(UsbmuxdSocket sock) : base(sock, UsbmuxdVersion.Binary) { }
+        public BinaryUsbmuxConnection(UsbmuxdSocket sock, ILogger logger) : base(sock, UsbmuxdVersion.Binary, logger) { }
 
         private UsbmuxdResult SendReceive(UsbmuxdMessageType messageType)
         {

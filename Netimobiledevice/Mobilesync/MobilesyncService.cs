@@ -19,19 +19,11 @@ namespace Netimobiledevice.Mobilesync
         private const string EMPTY_PARAMETER_STRING = "___EmptyParameterString___";
         private const string SERVICE_NAME = "com.apple.mobilesync";
 
-        /// <summary>
-        /// The internal logger
-        /// </summary>
-        private readonly ILogger logger;
-
         private string syncingDataClass = EMPTY_PARAMETER_STRING;
 
         protected override string ServiceName => SERVICE_NAME;
 
-        private MobilesyncService(LockdownClient client, ILogger logger) : base(client)
-        {
-            this.logger = logger;
-        }
+        private MobilesyncService(LockdownClient client) : base(client) { }
 
         private void GetRecords(string operation)
         {
@@ -117,7 +109,7 @@ namespace Netimobiledevice.Mobilesync
 
                     if (responseType == "SDMessageCancelSession") {
                         string reason = msg[2].AsStringNode().Value;
-                        logger.LogWarning($"mobilesync cancelled by device: {reason}");
+                        Lockdown.Logger.LogWarning($"mobilesync cancelled by device: {reason}");
                         yield break;
                     }
 
@@ -200,9 +192,9 @@ namespace Netimobiledevice.Mobilesync
             syncingDataClass = dataClass;
         }
 
-        public static async Task<MobilesyncService> StartServiceAsync(LockdownClient client, ILogger logger, CancellationToken cancellationToken = default)
+        public static async Task<MobilesyncService> StartServiceAsync(LockdownClient client, CancellationToken cancellationToken = default)
         {
-            MobilesyncService service = new MobilesyncService(client, logger);
+            MobilesyncService service = new MobilesyncService(client);
             await service.DeviceLinkVersionExchange(MOBILESYNC_VERSION_MAJOR, MOBILESYNC_VERSION_MINOR, cancellationToken);
             return service;
         }

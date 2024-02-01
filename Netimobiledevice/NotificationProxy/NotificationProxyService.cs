@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
@@ -19,11 +18,6 @@ namespace Netimobiledevice.NotificationProxy
         private const string SERVICE_NAME_INSECURE = "com.apple.mobile.insecure_notification_proxy";
 
         private static readonly SemaphoreSlim serviceLockSemaphoreSlim = new SemaphoreSlim(1, 1);
-
-        /// <summary>
-        /// The internal logger
-        /// </summary>
-        private readonly ILogger logger;
 
         /// <summary>
         /// Device-To-Host notifications.
@@ -68,16 +62,13 @@ namespace Netimobiledevice.NotificationProxy
 
         public event EventHandler<ReceivedNotificationEventArgs>? ReceivedNotification;
 
-        public NotificationProxyService(LockdownClient client, ILogger logger, bool useInsecureService = false) : base(client, GetServiceConnection(client, useInsecureService))
+        public NotificationProxyService(LockdownClient client, bool useInsecureService = false) : base(client, GetServiceConnection(client, useInsecureService))
         {
-            this.logger = logger;
             notificationListener = new BackgroundWorker {
                 WorkerSupportsCancellation = true
             };
             notificationListener.DoWork += NotificationListener_DoWork;
         }
-
-        public NotificationProxyService(LockdownClient client, bool useInsecureService = false) : this(client, NullLogger.Instance, useInsecureService) { }
 
         public override void Dispose()
         {
@@ -98,21 +89,21 @@ namespace Netimobiledevice.NotificationProxy
                     if (dict.ContainsKey("Command") && dict["Command"].AsStringNode().Value == "RelayNotification") {
                         if (dict.ContainsKey("Name")) {
                             string notificationName = dict["Name"].AsStringNode().Value;
-                            logger.LogDebug($"Got notification {notificationName}");
+                            Lockdown.Logger.LogDebug($"Got notification {notificationName}");
                             return notificationName;
                         }
                     }
                     else if (dict.ContainsKey("Command") && dict["Command"].AsStringNode().Value == "ProxyDeath") {
-                        logger.LogError("NotificationProxy died");
+                        Lockdown.Logger.LogError("NotificationProxy died");
                         throw new Exception("Notification proxy died, can't listen to notifications anymore");
                     }
                     else if (dict.ContainsKey("Command")) {
-                        logger.LogWarning($"Unknown NotificationProxy command {dict["Command"]}");
+                        Lockdown.Logger.LogWarning($"Unknown NotificationProxy command {dict["Command"]}");
                     }
                 }
             }
             catch (ArgumentException ex) {
-                logger.LogError($"Error: {ex}");
+                Lockdown.Logger.LogError($"Error: {ex}");
             }
             finally {
                 serviceLockSemaphoreSlim.Release();
@@ -153,11 +144,11 @@ namespace Netimobiledevice.NotificationProxy
                     break;
                 }
                 catch (TimeoutException) {
-                    logger.LogDebug("No notifications received yet, trying again");
+                    Lockdown.Logger.LogDebug("No notifications received yet, trying again");
                 }
                 catch (Exception ex) {
                     if (!notificationListener.CancellationPending) {
-                        logger.LogError($"Notification proxy listener has an error: {ex}");
+                        Lockdown.Logger.LogError($"Notification proxy listener has an error: {ex}");
                         throw;
                     }
                 }

@@ -57,7 +57,7 @@ namespace Netimobiledevice.Lockdown
                 }
                 throw new NoDeviceConnectedException();
             }
-            Socket sock = targetDevice.Connect(port);
+            Socket sock = targetDevice.Connect(port, logger);
             return new ServiceConnection(sock, logger, targetDevice);
         }
 
