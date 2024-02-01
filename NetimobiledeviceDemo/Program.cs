@@ -1,6 +1,7 @@
 ﻿using Netimobiledevice.Afc;
 using Netimobiledevice.Backup;
 using Netimobiledevice.Diagnostics;
+using Netimobiledevice.Exceptions;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Misagent;
@@ -59,10 +60,15 @@ public class Program
 
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
             using (DiagnosticsService diagnosticsService = new DiagnosticsService(lockdown)) {
-                Dictionary<string, ulong> storageInfo = diagnosticsService.GetStorageDetails();
-                ulong totalDiskValue = 0;
-                storageInfo?.TryGetValue("TotalDiskCapacity", out totalDiskValue);
-                Console.WriteLine($"Total disk capacity in bytes: {totalDiskValue} bytes");
+                try {
+                    Dictionary<string, ulong> storageInfo = diagnosticsService.GetStorageDetails();
+                    ulong totalDiskValue = 0;
+                    storageInfo?.TryGetValue("TotalDiskCapacity", out totalDiskValue);
+                    Console.WriteLine($"Total disk capacity in bytes: {totalDiskValue} bytes");
+                }
+                catch (DeprecatedException) {
+                    Console.WriteLine("This functionality has been deprecated as of iOS 17.4 (beta)");
+                }
             }
         }
 
