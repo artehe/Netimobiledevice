@@ -1,5 +1,4 @@
 using Netimobiledevice.EndianBitConversion;
-using Netimobiledevice.Exceptions;
 using System;
 using System.Globalization;
 using System.IO;
@@ -174,7 +173,10 @@ namespace Netimobiledevice.Plist
         /// </returns>
         internal override string ToXmlString()
         {
-            return Value.ToString(CultureInfo.InvariantCulture);
+            if (Unsigned) {
+                return Value.ToString(CultureInfo.InvariantCulture);
+            }
+            return ((long) Value).ToString(CultureInfo.InvariantCulture);
         }
 
         /// <summary>
@@ -217,9 +219,7 @@ namespace Netimobiledevice.Plist
             if (Unsigned) {
                 return $"<{XmlTag}>: {Value}";
             }
-            else {
-                return $"<{XmlTag}>: {(long) Value}";
-            }
+            return $"<{XmlTag}>: {(long) Value}";
         }
     }
 }

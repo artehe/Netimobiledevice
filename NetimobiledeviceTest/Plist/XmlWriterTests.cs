@@ -127,4 +127,36 @@ public class XmlWriterTests
             }
         }
     }
+
+
+    [TestMethod]
+    public void ConvertsPlistDictionaryCorrectly()
+    {
+        string request = "StartActivity";
+        int messageFilter = 65535;
+        int pid = -1;
+
+        DictionaryNode dictNode = new DictionaryNode() {
+            { "Request", new StringNode(request) },
+            { "MessageFilter", new IntegerNode(messageFilter) },
+            { "Pid", new IntegerNode(pid) },
+        };
+
+        using (var outStream = new MemoryStream()) {
+            // save and reset stream
+            PropertyList.Save(dictNode, outStream, PlistFormat.Xml);
+            outStream.Seek(0, SeekOrigin.Begin);
+
+            using (var reader = new StreamReader(outStream)) {
+                string contents = reader.ReadToEnd();
+                Assert.IsTrue(contents.Contains($"<integer>{pid}</integer>"));
+            }
+        }
+
+        byte[] plistBytes = PropertyList.SaveAsByteArray(dictNode, PlistFormat.Xml);
+        DictionaryNode reReadNode = PropertyList.LoadFromByteArray(plistBytes).AsDictionaryNode();
+        Assert.AreEqual(request, reReadNode["Request"].AsStringNode().Value);
+        Assert.AreEqual(messageFilter, (int) reReadNode["MessageFilter"].AsIntegerNode().Value);
+        Assert.AreEqual(pid, (int) reReadNode["Pid"].AsIntegerNode().Value);
+    }
 }
