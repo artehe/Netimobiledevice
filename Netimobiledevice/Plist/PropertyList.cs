@@ -133,7 +133,8 @@ namespace Netimobiledevice.Plist
                     // whereas the Apple parser can't deal with the space and expects <true/>
                     tmpStream.Seek(0, SeekOrigin.Begin);
                     using (StreamReader reader = new StreamReader(tmpStream)) {
-                        using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8, 4096, true)) {
+                        // Prevent the output of the BOM by creating a UTF8Encoding that doesn't emit the UTF8 identifier at the start
+                        using (StreamWriter writer = new StreamWriter(stream, new UTF8Encoding(false), 4096, true)) {
                             writer.NewLine = newLine;
                             for (string? line = reader.ReadLine(); line != null; line = reader.ReadLine()) {
                                 if (line.Trim() == "<true />") {

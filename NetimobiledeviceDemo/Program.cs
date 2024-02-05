@@ -43,8 +43,6 @@ public class Program
 
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
             using (OsTraceService osTrace = new OsTraceService(lockdown)) {
-                osTrace.CreateArchive("output");
-
                 int counter = 0;
                 foreach (SyslogEntry entry in osTrace.WatchSyslog()) {
                     Console.WriteLine($"[{entry.Level}] {entry.Timestamp} {entry.Label?.Subsystem} - {entry.Message}");
