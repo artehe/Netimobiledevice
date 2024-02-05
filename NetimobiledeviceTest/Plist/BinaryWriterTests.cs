@@ -52,4 +52,26 @@ public class BinaryWriterTests
         Assert.AreEqual(arrayNode[1].AsStringNode().Value, reReadNode[1].AsStringNode().Value);
         Assert.AreEqual(arrayNode[2].AsIntegerNode().Value, reReadNode[2].AsIntegerNode().Value);
     }
+
+    [TestMethod]
+    public void ConvertsPlistDictionaryCorrectly()
+    {
+        string request = "StartActivity";
+        int messageFilter = 65535;
+        int pid = -1;
+
+        DictionaryNode dictNode = new DictionaryNode() {
+            { "Request", new StringNode(request) },
+            { "MessageFilter", new IntegerNode(messageFilter) },
+            { "Pid", new IntegerNode(pid) },
+        };
+
+        byte[] plistBytes = PropertyList.SaveAsByteArray(dictNode, PlistFormat.Binary);
+
+        DictionaryNode reReadNode = PropertyList.LoadFromByteArray(plistBytes).AsDictionaryNode();
+
+        Assert.AreEqual(request, reReadNode["Request"].AsStringNode().Value);
+        Assert.AreEqual(messageFilter, (int) reReadNode["MessageFilter"].AsIntegerNode().Value);
+        Assert.AreEqual(pid, (int) reReadNode["Pid"].AsIntegerNode().Value);
+    }
 }

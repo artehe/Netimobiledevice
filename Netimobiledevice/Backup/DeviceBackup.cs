@@ -685,10 +685,6 @@ namespace Netimobiledevice.Backup
             }
 
             if (!IsStopping) {
-                // If there are leftovers to read, finish up cleanly.
-                if (--nlen > 0) {
-                    mobilebackup2Service?.ReceiveRaw(nlen);
-                }
                 mobilebackup2Service?.SendStatusReport(errorCode, errorDescription);
             }
         }

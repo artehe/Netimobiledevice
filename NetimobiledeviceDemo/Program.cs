@@ -2,6 +2,7 @@
 using Netimobiledevice.Afc;
 using Netimobiledevice.Backup;
 using Netimobiledevice.Diagnostics;
+using Netimobiledevice.Exceptions;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Misagent;
@@ -47,12 +48,10 @@ public class Program
 
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, logger: factory.CreateLogger("NetimobiledeviceDemo"))) {
             using (OsTraceService osTrace = new OsTraceService(lockdown)) {
-                osTrace.CreateArchive("output");
-
                 int counter = 0;
                 foreach (SyslogEntry entry in osTrace.WatchSyslog()) {
                     Console.WriteLine($"[{entry.Level}] {entry.Timestamp} {entry.Label?.Subsystem} - {entry.Message}");
-                    if (counter == 1000) {
+                    if (counter >= 100) {
                         break;
                     }
                     counter++;
@@ -64,10 +63,15 @@ public class Program
 
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, logger: factory.CreateLogger("NetimobiledeviceDemo"))) {
             using (DiagnosticsService diagnosticsService = new DiagnosticsService(lockdown)) {
-                Dictionary<string, ulong> storageInfo = diagnosticsService.GetStorageDetails();
-                ulong totalDiskValue = 0;
-                storageInfo?.TryGetValue("TotalDiskCapacity", out totalDiskValue);
-                Console.WriteLine($"Total disk capacity in bytes: {totalDiskValue} bytes");
+                try {
+                    Dictionary<string, ulong> storageInfo = diagnosticsService.GetStorageDetails();
+                    ulong totalDiskValue = 0;
+                    storageInfo?.TryGetValue("TotalDiskCapacity", out totalDiskValue);
+                    Console.WriteLine($"Total disk capacity in bytes: {totalDiskValue} bytes");
+                }
+                catch (DeprecatedException) {
+                    Console.WriteLine("This functionality has been deprecated as of iOS 17.4 (beta)");
+                }
             }
         }
 
@@ -145,8 +149,13 @@ public class Program
             }
 
             using (SyslogService syslog = new SyslogService(lockdown)) {
+                int counter = 0;
                 foreach (string line in syslog.Watch()) {
                     Console.WriteLine(line);
+                    if (counter >= 100) {
+                        break;
+                    }
+                    counter++;
                 }
             }
 
