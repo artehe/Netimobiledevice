@@ -42,6 +42,11 @@ public class Program
         }
 
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+            using (HeartbeatService heartbeatService = new HeartbeatService(lockdown)) {
+                heartbeatService.Start();
+                await Task.Delay(10000);
+            }
+
             using (OsTraceService osTrace = new OsTraceService(lockdown)) {
                 int counter = 0;
                 foreach (SyslogEntry entry in osTrace.WatchSyslog()) {
@@ -52,11 +57,9 @@ public class Program
                     counter++;
                 }
             }
-        }
 
-        await Task.Delay(1000);
+            await Task.Delay(1000);
 
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
             using (DiagnosticsService diagnosticsService = new DiagnosticsService(lockdown)) {
                 try {
                     Dictionary<string, ulong> storageInfo = diagnosticsService.GetStorageDetails();
