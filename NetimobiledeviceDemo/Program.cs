@@ -43,7 +43,7 @@ public class Program
 
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
             using (HeartbeatService heartbeatService = new HeartbeatService(lockdown)) {
-                heartbeatService.Start(1, false);
+                heartbeatService.Start();
                 await Task.Delay(10000);
             }
 
@@ -57,11 +57,9 @@ public class Program
                     counter++;
                 }
             }
-        }
 
-        await Task.Delay(1000);
+            await Task.Delay(1000);
 
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
             using (DiagnosticsService diagnosticsService = new DiagnosticsService(lockdown)) {
                 try {
                     Dictionary<string, ulong> storageInfo = diagnosticsService.GetStorageDetails();

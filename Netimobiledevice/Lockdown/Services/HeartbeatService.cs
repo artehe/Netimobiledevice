@@ -1,6 +1,10 @@
 ﻿using Netimobiledevice.Plist;
+using System;
+using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown.Services
 {
@@ -9,56 +13,81 @@ namespace Netimobiledevice.Lockdown.Services
     /// </summary>
     public sealed class HeartbeatService : BaseService
     {
-        private readonly Timer timer;
+        private readonly BackgroundWorker heartbeatWorker;
+        // Have the interval be 10 seconds as default
+        private int interval = 10 * 1000;
 
         protected override string ServiceName => "com.apple.mobile.heartbeat";
 
         public HeartbeatService(LockdownClient client) : base(client)
         {
-            timer = new Timer(Timer_Callback, this, Timeout.Infinite, Timeout.Infinite);
+            heartbeatWorker = new BackgroundWorker {
+                WorkerSupportsCancellation = true
+            };
+            heartbeatWorker.DoWork += HeartbeatWorker_DoWork;
         }
 
-        private static async void Timer_Callback(object? state)
+        private async void HeartbeatWorker_DoWork(object? sender, DoWorkEventArgs e)
         {
-            if (state is null or not HeartbeatService) {
-                return;
-            }
-            HeartbeatService heartbeatService = (HeartbeatService) state;
+            Service.SetTimeout(500);
+            do {
+                try {
+                    PropertyNode? response = await Service.ReceivePlistAsync(CancellationToken.None);
+                    DictionaryNode responseDict = response?.AsDictionaryNode() ?? new DictionaryNode();
 
-            PropertyNode? response = await heartbeatService.Service.ReceivePlistAsync(CancellationToken.None);
-            // TODO log this response to debug
-            Debug.WriteLine(response);
+                    Debug.WriteLine(PropertyList.SaveAsString(responseDict, PlistFormat.Xml));
 
-            await heartbeatService.Service.SendPlistAsync(new DictionaryNode() {
-                { "Command", new StringNode("Polo") }
-            }, CancellationToken.None);
+                    // Update the interval adding an extra second to be certain we have waited long enough
+                    interval = ((int) responseDict["Interval"].AsIntegerNode().Value + 1) * 1000;
 
+                    await Service.SendPlistAsync(new DictionaryNode() {
+                        { "Command", new StringNode("Polo") }
+                    }, CancellationToken.None);
+                }
+                catch (IOException) {
+                    // If there is an IO exception we also have to assume that the service is closed so we abort the listener
+                    break;
+                }
+                catch (ObjectDisposedException) {
+                    // If the object is disposed the most likely reason is that the service is closed
+                    break;
+                }
+                catch (TimeoutException) {
+                    Debug.WriteLine("No heartbeat received, trying again");
+                }
+                catch (Exception ex) {
+                    if (!heartbeatWorker.CancellationPending) {
+                        Debug.WriteLine("======================== EXCEPTION ==============");
+                        Debug.WriteLine($"Heartbeat service has an error: {ex}");
+                        throw;
+                    }
+                }
+                await Task.Delay(interval);
+            } while (!heartbeatWorker.CancellationPending);
         }
 
         public override void Dispose()
         {
+            if (heartbeatWorker.IsBusy) {
+                heartbeatWorker.CancelAsync();
+            }
+            heartbeatWorker.Dispose();
             base.Dispose();
-            timer.Dispose();
         }
 
         /// <summary>
-        /// Start the heartbeat service checking in on the specified period
+        /// Start the heartbeat service
         /// </summary>
-        /// <param name="interval">How many seconds between heatbeats</param>
-        /// <param name="skipFirst">Run imedietly or wait until the next heartbeat</param>
-        public void Start(int interval, bool skipFirst = false)
+        public void Start()
         {
-            if (skipFirst) {
-                timer.Change(interval * 1000, interval * 1000);
-            }
-            else {
-                timer.Change(0, interval * 1000);
+            if (!heartbeatWorker.IsBusy) {
+                heartbeatWorker.RunWorkerAsync();
             }
         }
 
         public void Stop()
         {
-            timer.Change(Timeout.Infinite, Timeout.Infinite);
+            heartbeatWorker.CancelAsync();
         }
     }
 }
