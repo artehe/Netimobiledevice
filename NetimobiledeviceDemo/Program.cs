@@ -51,7 +51,7 @@ public class Program
                 int counter = 0;
                 foreach (SyslogEntry entry in osTrace.WatchSyslog()) {
                     Console.WriteLine($"[{entry.Level}] {entry.Timestamp} {entry.Label?.Subsystem} - {entry.Message}");
-                    if (counter == 1000) {
+                    if (counter >= 100) {
                         break;
                     }
                     counter++;
@@ -147,8 +147,13 @@ public class Program
             }
 
             using (SyslogService syslog = new SyslogService(lockdown)) {
+                int counter = 0;
                 foreach (string line in syslog.Watch()) {
                     Console.WriteLine(line);
+                    if (counter >= 100) {
+                        break;
+                    }
+                    counter++;
                 }
             }
 
