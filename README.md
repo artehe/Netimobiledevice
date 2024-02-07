@@ -112,6 +112,8 @@ The list of all the services from lockdownd which have been implemented and the 
 
 - [com.apple.afc](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Afc/AfcService.cs)
   * Interact with the publicly available directories and files
+- [com.apple.mobile.heartbeat](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/HeartbeatService.cs)
+  * A regular ping to used to keep an active connection with lockdownd
 - [com.apple.misagent](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Misagent/MisagentService.cs)
   * Management for provisioning profiles 
 - [com.apple.mobile.diagnostics_relay](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/DiagnosticsService.cs)
