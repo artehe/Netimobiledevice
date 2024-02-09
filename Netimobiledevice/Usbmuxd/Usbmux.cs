@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using System;
 using System.Collections.Generic;
 
@@ -48,9 +50,10 @@ namespace Netimobiledevice.Usbmuxd
         /// <returns>
         /// A list of connected Usbmux devices
         /// </returns>
-        public static List<UsbmuxdDevice> GetDeviceList()
+        public static List<UsbmuxdDevice> GetDeviceList(ILogger? logger = null)
         {
-            var muxConnection = UsbmuxConnection.Create();
+            logger ??= NullLogger.Instance;
+            UsbmuxConnection muxConnection = UsbmuxConnection.Create(logger);
             muxConnection.UpdateDeviceList(100);
             List<UsbmuxdDevice> devices = muxConnection.Devices;
             muxConnection.Close();
@@ -71,9 +74,10 @@ namespace Netimobiledevice.Usbmuxd
         /// usbmux.
         /// </summary>
         /// <param name="callback">A callback function that is executed when an event occurs.</param>
-        public static void Subscribe(Action<UsbmuxdDevice, UsbmuxdConnectionEventType> callback)
+        public static void Subscribe(Action<UsbmuxdDevice, UsbmuxdConnectionEventType> callback, ILogger? logger = null)
         {
-            connectionMonitor = new UsbmuxdConnectionMonitor(callback);
+            logger ??= NullLogger.Instance;
+            connectionMonitor = new UsbmuxdConnectionMonitor(logger, callback);
             connectionMonitor.Start();
         }
 
@@ -83,9 +87,10 @@ namespace Netimobiledevice.Usbmuxd
         /// </summary>
         /// <param name="callback">A callback function that is executed when an event occurs.</param>
         /// <param name="errorCallback">A callback function which is excecuted when an exception occurs</param>
-        public static void Subscribe(Action<UsbmuxdDevice, UsbmuxdConnectionEventType> callback, Action<Exception> errorCallback)
+        public static void Subscribe(Action<UsbmuxdDevice, UsbmuxdConnectionEventType> callback, Action<Exception> errorCallback, ILogger? logger = null)
         {
-            connectionMonitor = new UsbmuxdConnectionMonitor(callback, errorCallback);
+            logger ??= NullLogger.Instance;
+            connectionMonitor = new UsbmuxdConnectionMonitor(logger, callback, errorCallback);
             connectionMonitor.Start();
         }
 

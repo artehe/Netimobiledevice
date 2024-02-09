@@ -1,10 +1,10 @@
-﻿using Netimobiledevice.Exceptions;
+﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.Exceptions;
 using Netimobiledevice.Extentions;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd.Responses;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 
@@ -20,6 +20,11 @@ namespace Netimobiledevice.Usbmuxd
         /// usbmux on same socket
         /// </summary>
         private bool connected;
+        /// <summary>
+        /// The internal logger
+        /// </summary>
+        private readonly ILogger logger;
+
         protected int connectionTimeout = DEFAULT_CONNECTION_TIMEOUT;
 
         protected UsbmuxdSocket Sock { get; }
@@ -30,8 +35,10 @@ namespace Netimobiledevice.Usbmuxd
         public UsbmuxdVersion ProtocolVersion { get; }
         public List<UsbmuxdDevice> Devices { get; private set; } = new List<UsbmuxdDevice>();
 
-        protected UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion protocolVersion)
+        protected UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion protocolVersion, ILogger logger)
         {
+            this.logger = logger;
+
             ProtocolVersion = protocolVersion;
             Sock = socket;
             Tag = 1;
@@ -53,11 +60,11 @@ namespace Netimobiledevice.Usbmuxd
             byte[] headerBuffer = Sock.Receive(Marshal.SizeOf(header));
             int recievedLength = headerBuffer.Length;
             if (recievedLength < 0) {
-                Debug.WriteLine($"Error receiving packet: {recievedLength}");
+                logger.LogError($"Error receiving packet: {recievedLength}");
                 return recievedLength;
             }
             if (recievedLength < Marshal.SizeOf(header)) {
-                Debug.WriteLine($"Received packet is too small, got {recievedLength} bytes!");
+                logger.LogError($"Received packet is too small, got {recievedLength} bytes!");
                 return recievedLength;
             }
 
@@ -77,7 +84,7 @@ namespace Netimobiledevice.Usbmuxd
                     rsize += (uint) res;
                 } while (rsize < payloadSize);
                 if (rsize != payloadSize) {
-                    Debug.WriteLine($"Error receiving payload of size {payloadSize} (bytes received: {rsize})");
+                    logger.LogError($"Error receiving payload of size {payloadSize} (bytes received: {rsize})");
                     throw new UsbmuxException("Bad Message");
                 }
             }
@@ -129,7 +136,7 @@ namespace Netimobiledevice.Usbmuxd
 
             int sent = Sock.Send(header.GetBytes());
             if (sent != Marshal.SizeOf(header)) {
-                Debug.WriteLine($"ERROR: could not send packet header");
+                logger.LogError($"ERROR: could not send packet header");
                 return -1;
             }
 
@@ -138,7 +145,7 @@ namespace Netimobiledevice.Usbmuxd
                 sent += res;
             }
             if (sent != header.Length) {
-                Debug.WriteLine($"ERROR: could not send whole packet (sent {sent} of {header.Length})");
+                logger.LogError($"ERROR: could not send whole packet (sent {sent} of {header.Length})");
                 Sock.Close();
                 return -1;
             }
@@ -168,11 +175,11 @@ namespace Netimobiledevice.Usbmuxd
             return Sock.GetInternalSocket();
         }
 
-        public static UsbmuxConnection Create()
+        public static UsbmuxConnection Create(ILogger logger)
         {
             // First attempt to connect with possibly the wrong version header (using Plist protocol)
             UsbmuxdSocket sock = new UsbmuxdSocket();
-            PlistMuxConnection conn = new PlistMuxConnection(sock);
+            PlistMuxConnection conn = new PlistMuxConnection(sock, logger);
             int tag = 1;
 
             PropertyNode plistMessage = new StringNode("ReadBUID");
@@ -184,10 +191,10 @@ namespace Netimobiledevice.Usbmuxd
 
             sock = new UsbmuxdSocket();
             if (response.Header.Version == UsbmuxdVersion.Binary) {
-                return new BinaryUsbmuxConnection(sock);
+                return new BinaryUsbmuxConnection(sock, logger);
             }
             else if (response.Header.Version == UsbmuxdVersion.Plist) {
-                return new PlistMuxConnection(sock);
+                return new PlistMuxConnection(sock, logger);
             }
             throw new UsbmuxVersionException($"Usbmuxd returned unsupported version: {response.Header.Version}");
         }

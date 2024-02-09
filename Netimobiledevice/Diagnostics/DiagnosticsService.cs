@@ -1,10 +1,10 @@
-﻿using Netimobiledevice.Exceptions;
+﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.Exceptions;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 
 namespace Netimobiledevice.Diagnostics
@@ -114,7 +114,7 @@ namespace Netimobiledevice.Diagnostics
                 service = client.StartService(SERVICE_NAME_NEW);
             }
             catch (Exception ex) {
-                Debug.WriteLine(ex);
+                client.Logger.LogWarning($"Failed to star the new service, falling back to the old service: {ex.Message}");
                 service = client.StartService(SERVICE_NAME_OLD);
             }
 

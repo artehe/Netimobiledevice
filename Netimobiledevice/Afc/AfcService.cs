@@ -1,10 +1,10 @@
-﻿using Netimobiledevice.Extentions;
+﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.Extentions;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -24,7 +24,7 @@ namespace Netimobiledevice.Afc
             { "a+", AfcFileOpenMode.ReadAppend},
         };
 
-        private ulong packetNumber = 0;
+        private ulong packetNumber;
 
         protected override string ServiceName => "com.apple.afc";
 
@@ -168,7 +168,7 @@ namespace Netimobiledevice.Afc
                 data = Service.Receive(length);
                 if (header.Operation == AfcOpCode.Status) {
                     if (length != 8) {
-                        Debug.WriteLine("Status length is not 8 bytes long");
+                        Lockdown.Logger.LogWarning("Status length is not 8 bytes long");
                     }
                     ulong statusValue = BitConverter.ToUInt64(data, 0);
                     status = (AfcError) statusValue;
@@ -249,8 +249,8 @@ namespace Netimobiledevice.Afc
                 byte[] response = RunOperation(AfcOpCode.ReadDir, request.GetBytes());
                 directoryList = ParseFileInfoResponseForMessage(response);
             }
-            catch (Exception e) {
-                Console.WriteLine(e.Message);
+            catch (Exception ex) {
+                Lockdown.Logger.LogError($"Error trying to get directory list: {ex.Message}");
             }
             return directoryList;
         }

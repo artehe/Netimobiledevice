@@ -1,10 +1,10 @@
-﻿using Netimobiledevice.EndianBitConversion;
+﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -34,7 +34,7 @@ namespace Netimobiledevice.Backup
 
             DictionaryNode backupDomain = Lockdown.GetValue("com.apple.mobile.backup", null)?.AsDictionaryNode() ?? new DictionaryNode();
             if (flag == BackupEncryptionFlags.ChangePassword && backupDomain.ContainsKey("WillEncrypt") && !backupDomain["WillEncrypt"].AsBooleanNode().Value) {
-                Debug.WriteLine("Error Backup encryption is not enabled so can't change password. Aborting");
+                Lockdown.Logger.LogError("Error Backup encryption is not enabled so can't change password. Aborting");
                 throw new InvalidOperationException("Backup encryption isn't enabled so can't change password");
             }
 
@@ -238,12 +238,12 @@ namespace Netimobiledevice.Backup
         {
             DictionaryNode backupDomain = Lockdown.GetValue("com.apple.mobile.backup", null)?.AsDictionaryNode() ?? new DictionaryNode();
             if (backupDomain.ContainsKey("WillEncrypt") && backupDomain["WillEncrypt"].AsBooleanNode().Value) {
-                Debug.WriteLine("ERROR Backup encryption is already enabled. Aborting.");
+                Lockdown.Logger.LogError("ERROR Backup encryption is already enabled. Aborting.");
                 throw new InvalidOperationException("Can't set backup password as one already exists");
             }
 
             if (password == null || password == string.Empty) {
-                Debug.WriteLine("No backup password given. Aborting.");
+                Lockdown.Logger.LogError("No backup password given. Aborting.");
                 throw new ArgumentException("password can't be null or empty");
             }
 

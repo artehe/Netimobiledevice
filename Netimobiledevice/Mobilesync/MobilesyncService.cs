@@ -1,9 +1,9 @@
-﻿using Netimobiledevice.Lockdown;
+﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -109,7 +109,7 @@ namespace Netimobiledevice.Mobilesync
 
                     if (responseType == "SDMessageCancelSession") {
                         string reason = msg[2].AsStringNode().Value;
-                        Debug.WriteLine($"mobilesync cancelled by device: {reason}");
+                        Lockdown.Logger.LogWarning($"mobilesync cancelled by device: {reason}");
                         yield break;
                     }
 

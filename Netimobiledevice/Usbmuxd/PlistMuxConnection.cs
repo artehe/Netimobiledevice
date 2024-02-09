@@ -1,4 +1,5 @@
-﻿using Netimobiledevice.EndianBitConversion;
+﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd.Responses;
@@ -14,7 +15,7 @@ namespace Netimobiledevice.Usbmuxd
         private const string PLIST_CLIENT_VERSION_STRING = "1.0.0.0";
         private const int PLIST_USBMUX_VERSION = 3;
 
-        public PlistMuxConnection(UsbmuxdSocket sock) : base(sock, UsbmuxdVersion.Plist) { }
+        public PlistMuxConnection(UsbmuxdSocket sock, ILogger logger) : base(sock, UsbmuxdVersion.Plist, logger) { }
 
         private static PropertyNode CreatePlistMessage(string messageType)
         {

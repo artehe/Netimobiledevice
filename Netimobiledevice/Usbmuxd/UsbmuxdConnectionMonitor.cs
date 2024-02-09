@@ -1,10 +1,10 @@
-﻿using Netimobiledevice.Exceptions;
+﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.Exceptions;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd.Responses;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 
@@ -15,11 +15,17 @@ namespace Netimobiledevice.Usbmuxd
         private readonly BackgroundWorker bw;
         private readonly Action<UsbmuxdDevice, UsbmuxdConnectionEventType> callback;
         private readonly Action<Exception>? errorCallback;
+        /// <summary>
+        /// The internal logger
+        /// </summary>
+        private readonly ILogger logger;
 
         private List<UsbmuxdDevice> Devices { get; set; } = new List<UsbmuxdDevice>();
 
-        public UsbmuxdConnectionMonitor(Action<UsbmuxdDevice, UsbmuxdConnectionEventType> callback, Action<Exception>? errorCallback = null)
+        public UsbmuxdConnectionMonitor(ILogger logger, Action<UsbmuxdDevice, UsbmuxdConnectionEventType> callback, Action<Exception>? errorCallback = null)
         {
+            this.logger = logger;
+
             bw = new BackgroundWorker {
                 WorkerSupportsCancellation = true
             };
@@ -40,11 +46,11 @@ namespace Netimobiledevice.Usbmuxd
             do {
                 UsbmuxConnection muxConnection;
                 try {
-                    muxConnection = UsbmuxConnection.Create();
+                    muxConnection = UsbmuxConnection.Create(logger);
                 }
                 catch (UsbmuxConnectionException ex) {
                     errorCallback?.Invoke(ex);
-                    Debug.WriteLine($"Issue trying to create UsbmuxConnection {ex.Message}");
+                    logger.LogWarning($"Issue trying to create UsbmuxConnection {ex.Message}");
 
                     // Put a delay here so that it doesn't immedietly retry creating the UsbmuxConnection
                     Thread.Sleep(500);
@@ -75,7 +81,7 @@ namespace Netimobiledevice.Usbmuxd
             (UsbmuxdHeader header, byte[] payload) = connection.Receive();
             if (header.Length <= 0) {
                 if (!bw.CancellationPending) {
-                    Debug.WriteLine($"Error in usbmuxd connection, disconnecting all devices!");
+                    logger.LogError($"Error in usbmuxd connection, disconnecting all devices!");
                 }
 
                 // When then usbmuxd connection fails, generate remove events for every device that
@@ -88,7 +94,7 @@ namespace Netimobiledevice.Usbmuxd
             }
 
             if (header.Length > Marshal.SizeOf(header) && payload.Length == 0) {
-                Debug.WriteLine($"Invalid packet received, payload is missing");
+                logger.LogError($"Invalid packet received, payload is missing");
                 return UsbmuxdResult.UnknownError;
             }
 
@@ -132,7 +138,7 @@ namespace Netimobiledevice.Usbmuxd
                 }
                 default: {
                     if (header.Length > 0) {
-                        Debug.WriteLine($"Unexpected message type {header.Message} with length {header.Length}");
+                        logger.LogWarning($"Unexpected message type {header.Message} with length {header.Length}");
                     }
                     break;
                 }
@@ -150,7 +156,7 @@ namespace Netimobiledevice.Usbmuxd
                 }
             }
             else {
-                Debug.WriteLine($"WARNING: got device paired message for id {deviceId}, but couldn't find the corresponding device in the list. This event will be ignored.");
+                logger.LogWarning($"Got device paired message for id {deviceId}, but couldn't find the corresponding device in the list. This event will be ignored.");
             }
         }
 
@@ -164,7 +170,7 @@ namespace Netimobiledevice.Usbmuxd
                 }
             }
             else {
-                Debug.WriteLine($"WARNING: got device remove message for id {deviceId}, but couldn't find the corresponding device in the list. This event will be ignored.");
+                logger.LogWarning($"Got device remove message for id {deviceId}, but couldn't find the corresponding device in the list. This event will be ignored.");
             }
         }
 

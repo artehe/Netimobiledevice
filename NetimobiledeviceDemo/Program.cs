@@ -1,4 +1,5 @@
-﻿using Netimobiledevice.Afc;
+﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.Afc;
 using Netimobiledevice.Backup;
 using Netimobiledevice.Diagnostics;
 using Netimobiledevice.Exceptions;
@@ -19,6 +20,10 @@ public class Program
 
     internal static async Task Main()
     {
+        using ILoggerFactory factory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Debug).AddConsole());
+        ILogger logger = factory.CreateLogger("NetimobiledeviceDemo");
+        logger.LogInformation("Hello World! Logging is {Description}.", "fun");
+
         TaskScheduler.UnobservedTaskException += (sender, args) => {
             Console.WriteLine($"UnobservedTaskException error: {args.Exception}");
         };
@@ -33,7 +38,7 @@ public class Program
             }
         }
 
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, logger: factory.CreateLogger("NetimobiledeviceDemo"))) {
             Progress<PairingState> progress = new();
             progress.ProgressChanged += Progress_ProgressChanged;
             if (!lockdown.IsPaired) {
@@ -41,7 +46,7 @@ public class Program
             }
         }
 
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, logger: factory.CreateLogger("NetimobiledeviceDemo"))) {
             using (HeartbeatService heartbeatService = new HeartbeatService(lockdown)) {
                 heartbeatService.Start();
                 await Task.Delay(10000);
@@ -73,13 +78,13 @@ public class Program
             }
         }
 
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, logger: factory.CreateLogger("NetimobiledeviceDemo"))) {
             string product = lockdown.Product;
             string productName = lockdown.ProductFriendlyName;
             Console.WriteLine($"Connected device is a {productName} ({product})");
         }
 
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, logger: factory.CreateLogger("NetimobiledeviceDemo"))) {
             PropertyNode? val = lockdown.GetValue("com.apple.mobile.tethered_sync", null);
             DictionaryNode tetherValue = new DictionaryNode() {
                 { "DisableTethered", new BooleanNode(false) },
@@ -119,7 +124,7 @@ public class Program
 
         timer.Change(15 * 1000, Timeout.Infinite);
 
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, logger: factory.CreateLogger("NetimobiledeviceDemo"))) {
             string path = "backups";
             if (Directory.Exists(path)) {
                 Directory.Delete(path, true);
@@ -129,7 +134,7 @@ public class Program
             }
         }
 
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, logger: factory.CreateLogger("NetimobiledeviceDemo"))) {
             using (MisagentService misagentService = new MisagentService(lockdown)) {
                 await misagentService.GetInstalledProvisioningProfiles();
             }
@@ -157,7 +162,7 @@ public class Program
                 }
             }
 
-            //Get the list of directories in the Connected iOS device.
+            // Get the list of directories in the Connected iOS device.
             using (AfcService afcService = new AfcService(lockdown)) {
                 List<string> pathList = afcService.GetDirectoryList();
                 Console.WriteLine("Path's available in the connected iOS device are as below." + Environment.NewLine);

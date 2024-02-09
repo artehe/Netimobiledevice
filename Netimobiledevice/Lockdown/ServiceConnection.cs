@@ -1,10 +1,10 @@
-﻿using Netimobiledevice.EndianBitConversion;
+﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Security;
@@ -24,25 +24,31 @@ namespace Netimobiledevice.Lockdown
     {
         private const int MAX_READ_SIZE = 4096;
 
-        private readonly byte[] receiveBuffer = new byte[MAX_READ_SIZE];
+        /// <summary>
+        /// The internal logger
+        /// </summary>
+        private readonly ILogger logger;
         private readonly UsbmuxdDevice? muxDevice;
         private Stream networkStream;
+        private readonly byte[] receiveBuffer = new byte[MAX_READ_SIZE];
 
-        private ServiceConnection(Socket sock, UsbmuxdDevice? muxDevice = null)
+        private ServiceConnection(Socket sock, ILogger logger, UsbmuxdDevice? muxDevice = null)
         {
+            this.logger = logger;
+
             networkStream = new NetworkStream(sock, true);
             // Usbmux connections contain additional information associated with the current connection
             this.muxDevice = muxDevice;
         }
 
-        private static ServiceConnection CreateUsingTcp(string hostname, ushort port)
+        private static ServiceConnection CreateUsingTcp(string hostname, ushort port, ILogger logger)
         {
             Socket sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.IP);
             sock.Connect(hostname, port);
-            return new ServiceConnection(sock);
+            return new ServiceConnection(sock, logger);
         }
 
-        private static ServiceConnection CreateUsingUsbmux(string udid, ushort port, UsbmuxdConnectionType? usbmuxdConnectionType = null)
+        private static ServiceConnection CreateUsingUsbmux(string udid, ushort port, ILogger logger, UsbmuxdConnectionType? usbmuxdConnectionType = null)
         {
             UsbmuxdDevice? targetDevice = Usbmux.GetDevice(udid, usbmuxdConnectionType);
             if (targetDevice == null) {
@@ -51,8 +57,8 @@ namespace Netimobiledevice.Lockdown
                 }
                 throw new NoDeviceConnectedException();
             }
-            Socket sock = targetDevice.Connect(port);
-            return new ServiceConnection(sock, targetDevice);
+            Socket sock = targetDevice.Connect(port, logger);
+            return new ServiceConnection(sock, logger, targetDevice);
         }
 
 
@@ -66,13 +72,13 @@ namespace Netimobiledevice.Lockdown
             networkStream.Close();
         }
 
-        public static ServiceConnection Create(ConnectionMedium medium, string identifier, ushort port, UsbmuxdConnectionType? usbmuxdConnectionType = null)
+        public static ServiceConnection Create(ConnectionMedium medium, string identifier, ushort port, ILogger logger, UsbmuxdConnectionType? usbmuxdConnectionType = null)
         {
             if (medium == ConnectionMedium.TCP) {
-                return CreateUsingTcp(identifier, port);
+                return CreateUsingTcp(identifier, port, logger);
             }
             else {
-                return CreateUsingUsbmux(identifier, port, usbmuxdConnectionType);
+                return CreateUsingUsbmux(identifier, port, logger, usbmuxdConnectionType);
             }
         }
 
@@ -269,8 +275,7 @@ namespace Netimobiledevice.Lockdown
                 sslStream.AuthenticateAsClient(string.Empty, new X509CertificateCollection() { new X509Certificate2(cert.Export(X509ContentType.Pkcs12)) }, SslProtocols.None, false);
             }
             catch (AuthenticationException ex) {
-                Debug.WriteLine(ex);
-                Debug.WriteLine("SSL authentication failed");
+                logger.LogError($"SSL authentication failed: {ex}");
             }
 
             networkStream = sslStream;

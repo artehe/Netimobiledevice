@@ -1,7 +1,5 @@
 ﻿using Netimobiledevice.EndianBitConversion;
-using Netimobiledevice.Exceptions;
 using System;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 
@@ -41,8 +39,6 @@ namespace Netimobiledevice.Plist
         /// </summary>
         internal override void ReadBinary(Stream stream, int nodeLength)
         {
-            Debug.WriteLine("Unverified");
-
             byte[] buf = new byte[1 << nodeLength];
             if (stream.Read(buf, 0, buf.Length) != buf.Length) {
                 throw new PlistFormatException();
@@ -88,7 +84,6 @@ namespace Netimobiledevice.Plist
         /// </summary>
         internal override void WriteBinary(Stream stream)
         {
-            Debug.WriteLine("Unverified");
             TimeSpan ts = Value - MacEpoch;
             byte[] buf = EndianBitConverter.BigEndian.GetBytes(ts.TotalSeconds);
             stream.Write(buf, 0, buf.Length);

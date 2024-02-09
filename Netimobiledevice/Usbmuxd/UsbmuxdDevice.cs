@@ -1,4 +1,5 @@
-﻿using Netimobiledevice.Plist;
+﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.Plist;
 using System;
 using System.Net.Sockets;
 
@@ -37,13 +38,14 @@ namespace Netimobiledevice.Usbmuxd
             ConnectionType = connectionType;
         }
 
-        public Socket Connect(ushort port)
+        public Socket Connect(ushort port, ILogger logger)
         {
-            var muxConnection = UsbmuxConnection.Create();
+            var muxConnection = UsbmuxConnection.Create(logger);
             try {
                 return muxConnection.Connect(this, port);
             }
-            catch {
+            catch (Exception ex) {
+                logger.LogWarning($"Couldn't connect to port {port}: {ex}");
                 muxConnection.Close();
                 throw;
             }

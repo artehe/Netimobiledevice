@@ -1,7 +1,7 @@
-﻿using Netimobiledevice.Plist;
+﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.Plist;
 using System;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -35,8 +35,6 @@ namespace Netimobiledevice.Lockdown.Services
                     PropertyNode? response = await Service.ReceivePlistAsync(CancellationToken.None);
                     DictionaryNode responseDict = response?.AsDictionaryNode() ?? new DictionaryNode();
 
-                    Debug.WriteLine(PropertyList.SaveAsString(responseDict, PlistFormat.Xml));
-
                     // Update the interval adding an extra second to be certain we have waited long enough
                     interval = ((int) responseDict["Interval"].AsIntegerNode().Value + 1) * 1000;
 
@@ -53,12 +51,11 @@ namespace Netimobiledevice.Lockdown.Services
                     break;
                 }
                 catch (TimeoutException) {
-                    Debug.WriteLine("No heartbeat received, trying again");
+                    Lockdown.Logger.LogDebug("No heartbeat received, trying again");
                 }
                 catch (Exception ex) {
                     if (!heartbeatWorker.CancellationPending) {
-                        Debug.WriteLine("======================== EXCEPTION ==============");
-                        Debug.WriteLine($"Heartbeat service has an error: {ex}");
+                        Lockdown.Logger.LogError($"Heartbeat service has an error: {ex}");
                         throw;
                     }
                 }

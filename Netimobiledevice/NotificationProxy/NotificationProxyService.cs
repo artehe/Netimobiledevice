@@ -1,10 +1,10 @@
-﻿using Netimobiledevice.Lockdown;
+﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -89,21 +89,21 @@ namespace Netimobiledevice.NotificationProxy
                     if (dict.ContainsKey("Command") && dict["Command"].AsStringNode().Value == "RelayNotification") {
                         if (dict.ContainsKey("Name")) {
                             string notificationName = dict["Name"].AsStringNode().Value;
-                            Debug.WriteLine($"Got notification {notificationName}");
+                            Lockdown.Logger.LogDebug($"Got notification {notificationName}");
                             return notificationName;
                         }
                     }
                     else if (dict.ContainsKey("Command") && dict["Command"].AsStringNode().Value == "ProxyDeath") {
-                        Debug.WriteLine("NotificationProxy died");
+                        Lockdown.Logger.LogError("NotificationProxy died");
                         throw new Exception("Notification proxy died, can't listen to notifications anymore");
                     }
                     else if (dict.ContainsKey("Command")) {
-                        Debug.WriteLine($"Unknown NotificationProxy command {dict["Command"]}");
+                        Lockdown.Logger.LogWarning($"Unknown NotificationProxy command {dict["Command"]}");
                     }
                 }
             }
             catch (ArgumentException ex) {
-                Debug.WriteLine(ex);
+                Lockdown.Logger.LogError($"Error: {ex}");
             }
             finally {
                 serviceLockSemaphoreSlim.Release();
@@ -144,12 +144,11 @@ namespace Netimobiledevice.NotificationProxy
                     break;
                 }
                 catch (TimeoutException) {
-                    Debug.WriteLine("No notifications received yet, trying again");
+                    Lockdown.Logger.LogDebug("No notifications received yet, trying again");
                 }
                 catch (Exception ex) {
                     if (!notificationListener.CancellationPending) {
-                        Debug.WriteLine("======================== EXCEPTION ==============");
-                        Debug.WriteLine($"Notification proxy listener has an error: {ex}");
+                        Lockdown.Logger.LogError($"Notification proxy listener has an error: {ex}");
                         throw;
                     }
                 }

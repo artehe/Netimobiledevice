@@ -1,6 +1,7 @@
-﻿using Netimobiledevice.Plist;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Netimobiledevice.Plist;
 using System;
-using System.Diagnostics;
 using System.Globalization;
 
 namespace Netimobiledevice.Backup
@@ -39,8 +40,10 @@ namespace Netimobiledevice.Backup
         /// Creates an instance of BackupStatus.
         /// </summary>
         /// <param name="status">The dictionary from the Status.plist file.</param>
-        public BackupStatus(DictionaryNode status)
+        public BackupStatus(DictionaryNode status, ILogger? logger = null)
         {
+            logger ??= NullLogger.Instance;
+
             UUID = status["UUID"].AsStringNode().Value;
             Date = status["Date"].AsDateNode().Value;
             Version = Version.Parse(status["Version"].AsStringNode().Value);
@@ -54,7 +57,7 @@ namespace Netimobiledevice.Backup
                 BackupState = state;
             }
             else {
-                Debug.WriteLine($"WARNING: New Backup state found: {backupStateString}");
+                logger.LogWarning($"WARNING: New Backup state found: {backupStateString}");
             }
 
             string snapshotStateString = textInfo.ToTitleCase(status["SnapshotState"].AsStringNode().Value);
@@ -62,7 +65,7 @@ namespace Netimobiledevice.Backup
                 SnapshotState = snapshotState;
             }
             else {
-                Debug.WriteLine($"WARNING: New Snapshot state found: {snapshotStateString}");
+                logger.LogWarning($"WARNING: New Snapshot state found: {snapshotStateString}");
             }
         }
     }
