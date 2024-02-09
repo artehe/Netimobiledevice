@@ -29,7 +29,13 @@ public class Program
         };
 
         List<UsbmuxdDevice> devices = Usbmux.GetDeviceList();
-        Console.WriteLine($"There's {devices.Count} devices connected");
+
+        if (!devices.Any()) {
+            logger.LogError("No device is connected to the system.");
+            return;
+        }
+
+        logger.LogDebug($"There's {devices.Count} devices connected");
         UsbmuxdDevice? testDevice = null;
         foreach (UsbmuxdDevice device in devices) {
             Console.WriteLine($"Device found: {device.DeviceId} - {device.Serial}");
@@ -70,10 +76,10 @@ public class Program
                     Dictionary<string, ulong> storageInfo = diagnosticsService.GetStorageDetails();
                     ulong totalDiskValue = 0;
                     storageInfo?.TryGetValue("TotalDiskCapacity", out totalDiskValue);
-                    Console.WriteLine($"Total disk capacity in bytes: {totalDiskValue} bytes");
+                    logger.LogInformation($"Total disk capacity in bytes: {totalDiskValue} bytes");
                 }
                 catch (DeprecatedException) {
-                    Console.WriteLine("This functionality has been deprecated as of iOS 17.4 (beta)");
+                    logger.LogError("This functionality has been deprecated as of iOS 17.4 (beta)");
                 }
             }
         }
@@ -81,7 +87,7 @@ public class Program
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, logger: factory.CreateLogger("NetimobiledeviceDemo"))) {
             string product = lockdown.Product;
             string productName = lockdown.ProductFriendlyName;
-            Console.WriteLine($"Connected device is a {productName} ({product})");
+            logger.LogInformation($"Connected device is a {productName} ({product})");
         }
 
         using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, logger: factory.CreateLogger("NetimobiledeviceDemo"))) {
@@ -154,7 +160,7 @@ public class Program
             using (SyslogService syslog = new SyslogService(lockdown)) {
                 int counter = 0;
                 foreach (string line in syslog.Watch()) {
-                    Console.WriteLine(line);
+                    logger.LogDebug(line);
                     if (counter >= 100) {
                         break;
                     }
@@ -165,8 +171,8 @@ public class Program
             // Get the list of directories in the Connected iOS device.
             using (AfcService afcService = new AfcService(lockdown)) {
                 List<string> pathList = afcService.GetDirectoryList();
-                Console.WriteLine("Path's available in the connected iOS device are as below." + Environment.NewLine);
-                Console.WriteLine(string.Join(", " + Environment.NewLine, pathList));
+                logger.LogInformation("Path's available in the connected iOS device are as below." + Environment.NewLine);
+                logger.LogInformation(string.Join(", " + Environment.NewLine, pathList));
             }
         }
 
