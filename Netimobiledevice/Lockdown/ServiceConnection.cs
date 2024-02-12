@@ -135,9 +135,17 @@ namespace Netimobiledevice.Lockdown
 
                 int bytesRead;
                 if (networkStream.ReadTimeout != -1) {
-                    Task<int> result = networkStream.ReadAsync(receiveBuffer, 0, readSize, cancellationToken);
-                    await Task.WhenAny(result, Task.Delay(networkStream.ReadTimeout, cancellationToken));
-                    if (!result.IsCompleted) {
+                    CancellationTokenSource localTaskComplete = new CancellationTokenSource();
+
+                    Task<int> result = networkStream.ReadAsync(receiveBuffer, 0, readSize, localTaskComplete.Token);
+                    Task delay = Task.Delay(networkStream.ReadTimeout, localTaskComplete.Token);
+
+                    await Task.WhenAny(result, delay).WaitAsync(cancellationToken);
+                    if (cancellationToken.IsCancellationRequested) {
+                        localTaskComplete.Cancel();
+                    }
+                    else if (!result.IsCompleted) {
+                        localTaskComplete.Cancel();
                         throw new TimeoutException("Timeout waiting for message from service");
                     }
                     bytesRead = await result;
