@@ -194,10 +194,10 @@ namespace Netimobiledevice.Plist
         }
 
         /// <summary>
-        /// Determines whether the specified <see cref="System.Object"/> is equal to the current PropertyNode.
+        /// Determines whether the specified <see cref="object"/> is equal to the current PropertyNode.
         /// </summary>
-        /// <param name="obj">The <see cref="System.Object"/> to compare with the current PropertyNode.</param>
-        /// <returns>true if the specified <see cref="System.Object"/> is equal to the current
+        /// <param name="obj">The <see cref="object"/> to compare with the current PropertyNode.</param>
+        /// <returns>true if the specified <see cref="object"/> is equal to the current
         /// PropertyNode, otherwise false</returns>
         public override bool Equals(object? obj)
         {

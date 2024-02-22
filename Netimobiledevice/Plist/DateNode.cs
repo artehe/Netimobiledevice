@@ -76,7 +76,7 @@ namespace Netimobiledevice.Plist
         /// </returns>
         internal override string ToXmlString()
         {
-            return Value.ToUniversalTime().ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss.ffffffZ");
+            return Value.ToUniversalTime().ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss.ffffffZ", CultureInfo.InvariantCulture);
         }
 
         /// <summary>
