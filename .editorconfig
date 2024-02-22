@@ -224,8 +224,8 @@ csharp_style_prefer_method_group_conversion = true:silent
 csharp_style_prefer_top_level_statements = true:silent
 csharp_style_prefer_primary_constructors = true:suggestion
 dotnet_diagnostic.CA1805.severity = suggestion
-dotnet_diagnostic.CA1309.severity = suggestion
-dotnet_diagnostic.CA1311.severity = suggestion
+dotnet_diagnostic.CA1309.severity = warning
+dotnet_diagnostic.CA1311.severity = warning
 
 [*.{cs,vb}]
 end_of_line= crlf
@@ -268,7 +268,8 @@ dotnet_diagnostic.CA1838.severity = suggestion
 dotnet_diagnostic.CA1848.severity = suggestion
 dotnet_diagnostic.CA1852.severity = suggestion
 dotnet_diagnostic.CA1863.severity = suggestion
-dotnet_diagnostic.CA1304.severity = suggestion
-dotnet_diagnostic.CA1305.severity = suggestion
-dotnet_diagnostic.CA1310.severity = suggestion
+dotnet_diagnostic.CA1304.severity = warning
+dotnet_diagnostic.CA1305.severity = warning
+dotnet_diagnostic.CA1310.severity = warning
 dotnet_diagnostic.CA2201.severity = suggestion
+dotnet_diagnostic.CA2101.severity = warning
