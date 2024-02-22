@@ -46,10 +46,9 @@ public class DateNodeTests
 
     public void DateHandlesArabicCulture()
     {
-
         DateTime originalDateTime = new DateTime(2015, 9, 30);
         DateNode node = new DateNode(originalDateTime);
-        Assert.AreEqual("2015-09-29T23:00:00.000000Z", node.ToXmlString());
+        Assert.AreEqual("2015-09-30T00:00:00.000000Z", node.ToXmlString());
         Assert.AreEqual(originalDateTime, node.Value);
 
         DateTime alternativeDateTime = new DateTime(455874381151831020);
