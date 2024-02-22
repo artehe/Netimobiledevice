@@ -53,7 +53,7 @@ public class DateNodeTests
 
         DateTime alternativeDateTime = new DateTime(455874381151831020);
         DateNode alternativeNode = new DateNode(alternativeDateTime);
-        Assert.AreEqual("1445-08-11T08:15:15.183102Z", alternativeNode.ToXmlString());
+        Assert.AreEqual("1445-08-11T09:15:15.183102Z", alternativeNode.ToXmlString());
         Assert.AreEqual(alternativeDateTime, alternativeNode.Value);
     }
 
