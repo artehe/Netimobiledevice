@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.HelperFiles;
 using Netimobiledevice.NotificationProxy;
@@ -13,10 +12,10 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown
 {
-    public class LockdownClient : IDisposable
+    public class LockdownClient : LockdownServiceProvider, IDisposable
     {
-        private const string DEFAULT_CLIENT_NAME = "Netimobiledevice";
-        private const ushort SERVICE_PORT = 62078;
+        public const string DEFAULT_CLIENT_NAME = "Netimobiledevice";
+        public const ushort SERVICE_PORT = 62078;
 
         private byte[] devicePublicKey = Array.Empty<byte>();
         /// <summary>
@@ -24,6 +23,7 @@ namespace Netimobiledevice.Lockdown
         /// </summary>
         private readonly string label = DEFAULT_CLIENT_NAME;
         private string hostId = string.Empty;
+        private Version _iOSVersion = new Version();
         /// <summary>
         /// The internal logger
         /// </summary>
@@ -48,8 +48,6 @@ namespace Netimobiledevice.Lockdown
             set => SetValue("com.apple.mobile.wireless_lockdown", "EnableWifiConnections", new BooleanNode(value));
         }
 
-        public Version IOSVersion { get; private set; } = new Version();
-
         /// <summary>
         /// Is the connected iOS trusted/paired with this device.
         /// </summary>
@@ -70,6 +68,8 @@ namespace Netimobiledevice.Lockdown
 
         public string WifiMacAddress => GetValue("WiFiAddress")?.AsStringNode().Value ?? string.Empty;
 
+        public override Version OsVersion => _iOSVersion;
+
         private LockdownClient(string udid, string? pairRecordCacheDir, ConnectionMedium connectionMedium, ILogger logger)
         {
             this.logger = logger;
@@ -79,6 +79,45 @@ namespace Netimobiledevice.Lockdown
             usbmuxdConnectionType = UsbmuxdConnectionType.Usb;
             this.pairRecordCacheDir = pairRecordCacheDir;
         }
+
+        /* TODO
+def __init__(self, service: ServiceConnection, host_id: str, identifier: str = None,
+                 label: str = DEFAULT_LABEL, system_buid: str = SYSTEM_BUID, pair_record: Mapping = None,
+                 pairing_records_cache_folder: Path = None, port: int = SERVICE_PORT):
+        """
+        Create a LockdownClient instance
+
+        :param service: lockdownd connection handler
+        :param host_id: Used as the host identifier for the handshake
+        :param identifier: Used as an identifier to look for the device pair record
+        :param label: lockdownd user-agent
+        :param system_buid: System's unique identifier
+        :param pair_record: Use this pair record instead of the default behavior (search in host/create our own)
+        :param pairing_records_cache_folder: Use the following location to search and save pair records
+        :param port: lockdownd service port
+        """
+        super().__init__()
+        self.logger = logging.getLogger(__name__)
+        self.service = service
+        self.identifier = identifier
+        self.label = label
+        self.host_id = host_id
+        self.system_buid = system_buid
+        self.pair_record = pair_record
+        self.paired = False
+        self.session_id = None
+        self.pairing_records_cache_folder = pairing_records_cache_folder
+        self.port = port
+
+        if self.query_type() != 'com.apple.mobile.lockdown':
+            raise IncorrectModeError()
+
+        self.all_values = self.get_value()
+        self.udid = self.all_values.get('UniqueDeviceID')
+        self.unique_chip_id = self.all_values.get('UniqueChipID')
+        self.device_public_key = self.all_values.get('DevicePublicKey')
+        self.product_type = self.all_values.get('ProductType')
+        */
 
         private ServiceConnection CreateServiceConnection(ushort port)
         {
@@ -326,7 +365,7 @@ namespace Netimobiledevice.Lockdown
                 return false;
             }
 
-            if (IOSVersion < new Version("7.0") && DeviceClass != LockdownDeviceClass.WATCH) {
+            if (_iOSVersion < new Version("7.0") && DeviceClass != LockdownDeviceClass.WATCH) {
                 try {
                     DictionaryNode options = new DictionaryNode {
                         { "PairRecord", pairRecord }
@@ -556,20 +595,6 @@ namespace Netimobiledevice.Lockdown
             return Request("SetValue", options);
         }
 
-        public ServiceConnection StartService(string serviceName, bool useEscrowBag = false, bool useTrustedConnection = true)
-        {
-            DictionaryNode attr = GetServiceConnectionAttributes(serviceName, useEscrowBag, useTrustedConnection).AsDictionaryNode();
-            ServiceConnection serviceConnection = CreateServiceConnection((ushort) attr["Port"].AsIntegerNode().Value);
-
-            if (attr.ContainsKey("EnableServiceSSL") && attr["EnableServiceSSL"].AsBooleanNode().Value) {
-                if (pairRecord == null) {
-                    throw new Exception("Pair Record is null when it shouldn't be");
-                }
-                serviceConnection.StartSSL(pairRecord["HostCertificate"].AsDataNode().Value, pairRecord["HostPrivateKey"].AsDataNode().Value);
-            }
-            return serviceConnection;
-        }
-
         /// <summary>
         /// Try to unpair the device.
         /// </summary>
@@ -586,6 +611,44 @@ namespace Netimobiledevice.Lockdown
             }
         }
 
+        /// <summary>
+        /// Create a LockdownClient instance
+        /// </summary>
+        /// <param name="service">lockdownd connection handler</param>
+        /// <param name="identifier">Used as an identifier to look for the device pair record</param>
+        /// <param name="systemBuid">System's unique identifier</param>
+        /// <param name="label">lockdownd user-agent</param>
+        /// <param name="autopair">Attempt to pair with device (blocking) if not already paired</param>
+        /// <param name="pairTimeout">Timeout for autopair</param>
+        /// <param name="localHostname">Used as a seed to generate the HostID</param>
+        /// <param name="pairRecord">Use this pair record instead of the default behavior (search in host/create our own)</param>
+        /// <param name="pairingRecordsCacheDirectory">Use the following location to search and save pair records</param>
+        /// <param name="port">lockdownd service port</param>
+        /// <param name=""></param>
+        /// <param name=""></param>
+        /// <param name=""></param>
+        /// <param name=""></param>
+        /// <param name=""></param>
+        /// <param name=""></param>
+        /// <param name=""></param>
+        /// <param name=""></param>
+        /// <param name=""></param>
+        /// <param name=""></param>
+        /// <param name=""></param>
+        /// <returns>A new LockdownClient instance</returns>
+        public static LockdownClient Create(ServiceConnection service, string identifier = "", string systemBuid = SYSTEM_BUID, string label = DEFAULT_LABEL, bool autopair = true,
+            float? pairTimeout = null, string localHostname = "", DictionaryNode? pairRecord = null, string pairingRecordsCacheDirectory = "", ushort port = SERVICE_PORT)
+        {
+            host_id = generate_host_id(local_hostname);
+            pairing_records_cache_folder = create_pairing_records_cache_folder(pairing_records_cache_folder);
+
+            LockdownClient lockdownClient = cls(service, host_id = host_id, identifier = identifier, label = label, system_buid = system_buid, pair_record = pair_record, pairing_records_cache_folder = pairing_records_cache_folder, port = port, **cls_specific_args);
+
+            lockdownClient._handle_autopair(autopair, pair_timeout);
+            return lockdownClient;
+        }
+
+        /* TODO
         /// <summary>
         /// Create the LockdownClient
         /// </summary>
@@ -605,7 +668,7 @@ namespace Netimobiledevice.Lockdown
 
             client.allValues = client.GetValue()?.AsDictionaryNode() ?? new DictionaryNode();
             client.UDID = client.allValues["UniqueDeviceID"].AsStringNode().Value;
-            client.IOSVersion = new Version(client.allValues["ProductVersion"].AsStringNode().Value);
+            client._iOSVersion = new Version(client.allValues["ProductVersion"].AsStringNode().Value);
 
             try {
                 client.DeviceClass = LockdownDeviceClass.GetDeviceClass(client.allValues["DeviceClass"]);
@@ -632,6 +695,35 @@ namespace Netimobiledevice.Lockdown
             }
 
             return client;
+        }
+        */
+
+        public ServiceConnection StartService(string serviceName, bool useEscrowBag = false, bool useTrustedConnection = true)
+        {
+            DictionaryNode attr = GetServiceConnectionAttributes(serviceName, useEscrowBag, useTrustedConnection).AsDictionaryNode();
+            ServiceConnection serviceConnection = CreateServiceConnection((ushort) attr["Port"].AsIntegerNode().Value);
+
+            if (attr.ContainsKey("EnableServiceSSL") && attr["EnableServiceSSL"].AsBooleanNode().Value) {
+                if (pairRecord == null) {
+                    throw new Exception("Pair Record is null when it shouldn't be");
+                }
+                serviceConnection.StartSSL(pairRecord["HostCertificate"].AsDataNode().Value, pairRecord["HostPrivateKey"].AsDataNode().Value);
+            }
+            return serviceConnection;
+        }
+
+        public override ServiceConnection StartLockdownService(string name, bool useEscrowBag = false, bool useTrustedConnection = true)
+        {
+            DictionaryNode attr = GetServiceConnectionAttributes(name, useEscrowBag, useTrustedConnection).AsDictionaryNode();
+            ServiceConnection serviceConnection = CreateServiceConnection((ushort) attr["Port"].AsIntegerNode().Value);
+
+            if (attr.ContainsKey("EnableServiceSSL") && attr["EnableServiceSSL"].AsBooleanNode().Value) {
+                if (pairRecord == null) {
+                    throw new Exception("Pair Record is null when it shouldn't be");
+                }
+                serviceConnection.StartSSL(pairRecord["HostCertificate"].AsDataNode().Value, pairRecord["HostPrivateKey"].AsDataNode().Value);
+            }
+            return serviceConnection;
         }
     }
 }

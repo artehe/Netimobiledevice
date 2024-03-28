@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice.Extentions;
 using Netimobiledevice.Lockdown;
-using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
@@ -11,31 +10,51 @@ using System.Text;
 
 namespace Netimobiledevice.Afc
 {
-    public sealed class AfcService : BaseService
+    public sealed class AfcService : LockdownService
     {
+        private const string LOCKDOWN_SERVICE_NAME = "com.apple.afc";
+        private const string RSD_SERVICE_NAME = "com.apple.afc.shim.remote";
+
         private const int MAXIMUM_READ_SIZE = 1024 ^ 2; // 1 MB
 
         private static readonly Dictionary<string, AfcFileOpenMode> FileOpenModes = new Dictionary<string, AfcFileOpenMode>() {
             { "r", AfcFileOpenMode.ReadOnly },
             { "r+", AfcFileOpenMode.ReadWrite },
-            {"w", AfcFileOpenMode.WriteOnly },
-            {"w+", AfcFileOpenMode.WriteReadTruncate },
+            { "w", AfcFileOpenMode.WriteOnly },
+            { "w+", AfcFileOpenMode.WriteReadTruncate },
             { "a", AfcFileOpenMode.Append},
             { "a+", AfcFileOpenMode.ReadAppend},
         };
 
-        private ulong packetNumber;
+        private ulong _packetNumber;
 
-        protected override string ServiceName => "com.apple.afc";
+        public AfcService(LockdownServiceProvider lockdown, string serviceName, ILogger? logger = null) : base(lockdown, GetServiceName(lockdown, serviceName), logger: logger)
+        {
+            _packetNumber = 0;
+        }
 
-        public AfcService(LockdownClient client) : base(client) { }
+        public AfcService(LockdownServiceProvider client) : this(client, string.Empty) { }
+
+        private static string GetServiceName(LockdownServiceProvider lockdown, string providedServiceName)
+        {
+            string serviceName = providedServiceName;
+            if (string.IsNullOrEmpty(serviceName)) {
+                if (lockdown is LockdownClient) {
+                    serviceName = LOCKDOWN_SERVICE_NAME;
+                }
+                else {
+                    serviceName = RSD_SERVICE_NAME;
+                }
+            }
+            return serviceName;
+        }
 
         private void DispatchPacket(AfcOpCode opCode, byte[] data, ulong? thisLength = null)
         {
             AfcHeader header = new AfcHeader() {
                 EntireLength = (ulong) data.Length,
                 Length = (ulong) data.Length,
-                PacketNumber = packetNumber,
+                PacketNumber = _packetNumber,
                 Operation = opCode
             };
             header.EntireLength = (ulong) (header.GetBytes().Length + data.Length);
@@ -45,7 +64,7 @@ namespace Netimobiledevice.Afc
                 header.Length = (ulong) thisLength;
             }
 
-            packetNumber++;
+            _packetNumber++;
 
             List<byte> packet = new List<byte>();
             packet.AddRange(header.GetBytes());
@@ -128,7 +147,7 @@ namespace Netimobiledevice.Afc
 
             seperatedData.RemoveAt(seperatedData.Count - 1);
             if (seperatedData.Count % 2 != 0) {
-                throw new Exception("Received data not balanced, unable to parse to dictionary");
+                throw new AfcException("Received data not balanced, unable to parse to dictionary");
             }
 
             for (int i = 0; i < seperatedData.Count; i += 2) {
@@ -146,7 +165,7 @@ namespace Netimobiledevice.Afc
                 if (status == AfcError.ObjectNotFound) {
                     throw new AfcFileNotFoundException(AfcError.ObjectNotFound);
                 }
-                throw new Exception($"Afc opcode {opCode} failed with status: {status}");
+                throw new AfcException($"Afc opcode {opCode} failed with status: {status}");
             }
 
             return recievedData;
@@ -168,7 +187,7 @@ namespace Netimobiledevice.Afc
                 data = Service.Receive(length);
                 if (header.Operation == AfcOpCode.Status) {
                     if (length != 8) {
-                        Lockdown.Logger.LogWarning("Status length is not 8 bytes long");
+                        Logger?.LogWarning("Status length is not 8 bytes long");
                     }
                     ulong statusValue = BitConverter.ToUInt64(data, 0);
                     status = (AfcError) statusValue;
@@ -183,7 +202,7 @@ namespace Netimobiledevice.Afc
             DictionaryNode info = GetFileInfo(filename);
             if (info.ContainsKey("st_ifmt") && info["st_ifmt"].AsStringNode().Value == "S_IFLNK") {
                 string target = info["LinkTarget"].AsStringNode().Value;
-                if (!target.StartsWith("/")) {
+                if (!target.StartsWith("/", StringComparison.InvariantCulture)) {
                     // Relative path
                     string filePath = Path.GetDirectoryName(filename) ?? string.Empty;
                     filename = Path.Combine(filePath, target);
@@ -250,9 +269,71 @@ namespace Netimobiledevice.Afc
                 directoryList = ParseFileInfoResponseForMessage(response);
             }
             catch (Exception ex) {
-                Lockdown.Logger.LogError($"Error trying to get directory list: {ex.Message}");
+                Logger?.LogError($"Error trying to get directory list: {ex.Message}");
             }
             return directoryList;
+        }
+
+        private List<string> ListDirectory(string filename)
+        {
+            byte[] data = RunOperation(AfcOpCode.ReadDir, new AfcReadDirectoryRequest(filename).GetBytes());
+            // Make sure to skip "." and ".."
+            return AfcReadDirectoryResponse.Parse(data).Filenames.Skip(2).ToList();
+        }
+
+        private IEnumerable<Tuple<string, List<string>, List<string>>> Walk(string directory)
+        {
+            List<string> directories = new List<string>();
+            List<string> files = new List<string>();
+
+            foreach (string fd in ListDirectory(directory)) {
+                if (new string[] { ".", "..", "" }.Contains(fd)) {
+                    continue;
+                }
+
+                DictionaryNode fileInfo = GetFileInfo(Path.Combine(directory, fd));
+                if (fileInfo != null && fileInfo.TryGetValue("st_ifmt", out PropertyNode? value)) {
+                    if (value is StringNode node && node.Value == "S_IFDIR") {
+                        directories.Add(fd);
+                    }
+                }
+                else {
+                    files.Add(fd);
+                }
+            }
+            yield return Tuple.Create(directory, directories, files);
+
+            foreach (string dir in directories) {
+                foreach (Tuple<string, List<string>, List<string>> result in Walk(Path.Combine(directory, dir))) {
+                    yield return result;
+                }
+            }
+        }
+
+        /// <summary>
+        /// List the files and folders in the given directory
+        /// </summary>
+        /// <param name="path">Path to list</param>
+        /// <param name="depth">Listing depth, -1 to list infinite depth</param>
+        /// <returns>List of files found</returns>
+        public IEnumerable<string> LsDirectory(string path, int depth = -1)
+        {
+            foreach ((string folder, List<string> dirs, List<string> files) in Walk(path)) {
+                if (folder == path) {
+                    yield return folder;
+                    if (depth == 0) {
+                        break;
+                    }
+                }
+                if (folder != path && depth != -1 && folder.Count(x => x == Path.DirectorySeparatorChar) >= depth) {
+                    continue;
+                }
+
+                dirs.AddRange(files);
+                foreach (string entry in dirs) {
+                    yield return Path.Combine(folder, entry);
+                }
+            }
         }
 
         private static List<string> ParseFileInfoResponseForMessage(byte[] data)

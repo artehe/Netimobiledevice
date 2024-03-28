@@ -105,6 +105,19 @@ namespace Netimobiledevice.Usbmuxd
             }
         }
 
+        /// <summary>
+        /// get SystemBUID
+        /// </summary>
+        /// <returns></returns>
+        public string GetBuid()
+        {
+            DictionaryNode msg = new DictionaryNode() {
+                { "MessageType", new StringNode("ReadBUID") }
+            };
+            Send(msg);
+            return ReceivePlist(Tag - 1).Plist.AsDictionaryNode()["BUID"].AsStringNode().Value;
+        }
+
         public override UsbmuxdResult Listen()
         {
             connectionTimeout = -1;
