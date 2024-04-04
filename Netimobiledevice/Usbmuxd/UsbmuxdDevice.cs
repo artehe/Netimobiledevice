@@ -38,14 +38,14 @@ namespace Netimobiledevice.Usbmuxd
             ConnectionType = connectionType;
         }
 
-        public Socket Connect(ushort port, ILogger logger)
+        public Socket Connect(ushort port, string usbmuxAddress = "", ILogger? logger = null)
         {
-            var muxConnection = UsbmuxConnection.Create(logger);
+            UsbmuxConnection muxConnection = UsbmuxConnection.Create(usbmuxAddress, logger);
             try {
                 return muxConnection.Connect(this, port);
             }
             catch (Exception ex) {
-                logger.LogWarning($"Couldn't connect to port {port}: {ex}");
+                logger?.LogWarning($"Couldn't connect to port {port}: {ex}");
                 muxConnection.Close();
                 throw;
             }

@@ -9,7 +9,7 @@ namespace Netimobiledevice.Lockdown
         /// <summary>
         /// The internal device model identifier
         /// </summary>
-        public string ProductType { get; private set; } = string.Empty;
+        public string ProductType { get; protected set; } = string.Empty;
 
         /// <summary>
         /// The iOS version attached to this lockdown service provider

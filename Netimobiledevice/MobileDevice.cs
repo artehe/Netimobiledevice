@@ -7,17 +7,6 @@ namespace Netimobiledevice
 {
     public static class MobileDevice
     {
-        /* TODO
-    :param connection_type: Force a specific type of usbmux connection (USB/Network)
-    :param pair_timeout: Timeout for autopair
-    :param local_hostname: Used as a seed to generate the HostID
-    :param pair_record: Use this pair record instead of the default behavior (search in host/create our own)
-    :param pairing_records_cache_folder: Use the following location to search and save pair records
-    :param port: lockdownd service port
-    :param usbmux_address: usbmuxd address
-    :return: UsbmuxLockdownClient instance
-        */
-
         /// <summary>
         /// Create a UsbmuxLockdownClient
         /// </summary>
@@ -25,9 +14,16 @@ namespace Netimobiledevice
         /// <param name="identifier">Used as an identifier to look for the device pair record</param>
         /// <param name="label">lockdownd user-agent</param>
         /// <param name="autoPair">Attempt to pair with device (blocking) if not already paired</param>
+        /// <param name="connectionType">Force a specific type of usbmux connection (USB/Network)</param>
+        /// <param name="pairTimeout">Timeout for autopair</param>
+        /// <param name="localHostname">Used as a seed to generate the HostID</param>
+        /// <param name="pairRecord">Use this pair record instead of the default behavior (search in host/create our own)</param>
+        /// <param name="pairingRecordsCacheDir">Use the following location to search and save pair records</param>
+        /// <param name="port">lockdownd service port</param>
+        /// <param name="usbmuxAddress">usbmuxd address</param>
         /// <returns></returns>
         public static UsbmuxLockdownClient CreateUsingUsbmux(string serial = "", string identifier = "", string label = LockdownClient.DEFAULT_CLIENT_NAME,
-            bool autoPair = true, UsbmuxdConnectionType? connectionType = null, float? pairTimeout = null, string localHostname = "", DictionaryNode? pairRecord = null,
+            bool autopair = true, UsbmuxdConnectionType? connectionType = null, float? pairTimeout = null, string localHostname = "", DictionaryNode? pairRecord = null,
             string pairingRecordsCacheDir = "", ushort port = LockdownClient.SERVICE_PORT, string usbmuxAddress = "", ILogger? logger = null)
         {
             ServiceConnection service = ServiceConnection.CreateUsingUsbmux(serial, port, connectionType: connectionType, usbmuxAddress: usbmuxAddress, logger);
@@ -45,13 +41,17 @@ namespace Netimobiledevice
 
             if (string.IsNullOrEmpty(identifier)) {
                 // Attempt to get identifier from mux device serial
-                identifier = service.GetUsbmuxdDevice()?.Serial ?? string.Empty;
+                identifier = service.MuxDevice?.Serial ?? string.Empty;
             }
 
             if (usePlistUsbmuxLockdownClient) {
-                return PlistUsbmuxLockdownClient.Create(service, identifier: identifier, label: label, system_buid = system_buid, local_hostname = local_hostname, pair_record = pair_record, pairing_records_cache_folder = pairing_records_cache_folder, pair_timeout = pair_timeout, autopair = autopair, usbmux_address = usbmux_address);
+                return PlistUsbmuxLockdownClient.Create(service, identifier: identifier, label: label, systemBuid: systemBuid, localHostname: localHostname,
+                    pairRecord: pairRecord, pairingRecordsCacheFolder: pairingRecordsCacheDir, pairTimeout: pairTimeout, autopair: autopair, usbmuxAddress: usbmuxAddress,
+                    logger: logger);
             }
-            return UsbmuxLockdownClient.Create(service, identifier: identifier, label: label, system_buid = system_buid, local_hostname = local_hostname, pair_record = pair_record, pairing_records_cache_folder = pairing_records_cache_folder, pair_timeout = pair_timeout, autopair = autopair, usbmux_address = usbmux_address);
+            return UsbmuxLockdownClient.Create(service, identifier: identifier, label: label, systemBuid: systemBuid, localHostname: localHostname,
+                pairRecord: pairRecord, pairingRecordsCacheFolder: pairingRecordsCacheDir, pairTimeout: pairTimeout, autopair: autopair, usbmuxAddress: usbmuxAddress,
+                logger: logger);
         }
     }
 }

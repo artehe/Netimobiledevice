@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice;
 using Netimobiledevice.Diagnostics;
+using Netimobiledevice.Lockdown;
 
 namespace NetimobiledeviceDemo;
 
@@ -17,8 +18,8 @@ public class Program
         };
 
         // Connect via usbmuxd
-        var lockdown = MobileDevice.CreateUsingUsbmux();
-        foreach (string line in new SyslogService(serviceProvider = lockdown).Watch()) {
+        UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux();
+        foreach (string line in new SyslogService(lockdown).Watch()) {
             // Print all syslog lines as is
             Console.WriteLine(line);
         }

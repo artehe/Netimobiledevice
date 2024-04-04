@@ -28,9 +28,10 @@ namespace Netimobiledevice.Lockdown
         /// The internal logger
         /// </summary>
         private readonly ILogger logger;
-        private readonly UsbmuxdDevice? muxDevice;
         private Stream networkStream;
         private readonly byte[] receiveBuffer = new byte[MAX_READ_SIZE];
+
+        public UsbmuxdDevice? MuxDevice { get; private set; }
 
         private ServiceConnection(Socket sock, ILogger logger, UsbmuxdDevice? muxDevice = null)
         {
@@ -38,7 +39,7 @@ namespace Netimobiledevice.Lockdown
 
             networkStream = new NetworkStream(sock, true);
             // Usbmux connections contain additional information associated with the current connection
-            this.muxDevice = muxDevice;
+            MuxDevice = muxDevice;
         }
 
         private static ServiceConnection CreateUsingTcp(string hostname, ushort port, ILogger logger)
@@ -76,11 +77,6 @@ namespace Netimobiledevice.Lockdown
             Close();
             networkStream.Dispose();
             GC.SuppressFinalize(this);
-        }
-
-        public UsbmuxdDevice? GetUsbmuxdDevice()
-        {
-            return muxDevice;
         }
 
         public byte[] Receive(int length = 4096)

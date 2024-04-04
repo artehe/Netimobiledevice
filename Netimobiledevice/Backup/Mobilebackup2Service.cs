@@ -50,7 +50,7 @@ namespace Netimobiledevice.Backup
 
         private static ServiceConnection GetServiceConnection(LockdownClient client)
         {
-            return client.StartService(SERVICE_NAME, useEscrowBag: true);
+            return client.StartLockdownService(SERVICE_NAME, useEscrowBag: true);
         }
 
         private void SendMessage(string message, DictionaryNode options)

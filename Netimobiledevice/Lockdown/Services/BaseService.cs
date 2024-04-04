@@ -21,7 +21,7 @@ namespace Netimobiledevice.Lockdown.Services
         {
             Lockdown = lockdown;
             if (serviceConnection == null) {
-                Service = Lockdown.StartService(ServiceName);
+                Service = Lockdown.StartLockdownService(ServiceName);
             }
             else {
                 Service = serviceConnection;

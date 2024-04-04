@@ -246,7 +246,7 @@ namespace Netimobiledevice.Backup
         /// </summary>
         private async Task CreateBackup(CancellationToken cancellationToken)
         {
-            LockdownClient.Logger.LogInformation($"Starting backup of device {LockdownClient.GetValue("ProductType")?.AsStringNode().Value} v{LockdownClient.IOSVersion}");
+            LockdownClient.Logger.LogInformation($"Starting backup of device {LockdownClient.GetValue("ProductType")?.AsStringNode().Value} v{LockdownClient.OsVersion}");
 
             // Reset everything in case we have called this more than once.
             lastStatus = null;
@@ -439,8 +439,8 @@ namespace Netimobiledevice.Backup
         {
             // iOS versions 15.7.1 and anything 16.1 or newer will require you to input a passcode before
             // it can start a backup so we make sure to notify the user about this.
-            if ((LockdownClient.IOSVersion >= new Version(15, 7, 1) && LockdownClient.IOSVersion < new Version(16, 0)) ||
-                LockdownClient.IOSVersion >= new Version(16, 1)) {
+            if ((LockdownClient.OsVersion >= new Version(15, 7, 1) && LockdownClient.OsVersion < new Version(16, 0)) ||
+                LockdownClient.OsVersion >= new Version(16, 1)) {
                 using (DiagnosticsService diagnosticsService = new DiagnosticsService(LockdownClient)) {
                     string queryString = "PasswordConfigured";
                     try {
@@ -1234,7 +1234,7 @@ namespace Netimobiledevice.Backup
                     }
 
                     // iOS 17 beta devices seem to give RemoteError for a fair number of file now?
-                        LockdownClient.Logger.LogWarning($"Failed to fully upload {file.LocalPath}. Device file name {file.DevicePath}. Reason: {msg}");
+                    LockdownClient.Logger.LogWarning($"Failed to fully upload {file.LocalPath}. Device file name {file.DevicePath}. Reason: {msg}");
 
                     OnFileTransferError(file);
                     return code;
