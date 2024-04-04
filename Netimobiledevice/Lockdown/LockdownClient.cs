@@ -104,9 +104,16 @@ namespace Netimobiledevice.Lockdown
             }
 
             _allValues = GetValue()?.AsDictionaryNode() ?? new DictionaryNode();
+
             UDID = _allValues["UniqueDeviceID"].AsStringNode().Value;
-            _devicePublicKey = _allValues["DevicePublicKey"].AsDataNode().Value;
             ProductType = _allValues["ProductType"].AsStringNode().Value;
+
+            if (_allValues.TryGetValue("DevicePublicKey", out PropertyNode? devicePublicKeyNode)) {
+                _devicePublicKey = devicePublicKeyNode.AsDataNode().Value;
+            }
+            else {
+                _devicePublicKey = Array.Empty<byte>();
+            }
         }
 
         private DictionaryNode? GetItunesPairingRecord()
@@ -612,10 +619,12 @@ namespace Netimobiledevice.Lockdown
 
         public virtual void SavePairRecord()
         {
-            /* TODO
-        pair_record_file = self.pairing_records_cache_folder / f'{self.identifier}.plist'
-        pair_record_file.write_bytes(plistlib.dumps(self.pair_record))
-            */
+            if (_pairingRecordsCacheDirectory != null) {
+                string pairRecordFilePath = Path.Combine(_pairingRecordsCacheDirectory.FullName, $"{Identifier}.plist");
+                if (_pairRecord != null) {
+                    File.WriteAllBytes(pairRecordFilePath, PropertyList.SaveAsByteArray(_pairRecord, PlistFormat.Xml));
+                }
+            }
         }
 
         public PropertyNode SetValue(string? domain, string? key, PropertyNode value)

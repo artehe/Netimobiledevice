@@ -18,7 +18,7 @@ public class Program
         };
 
         // Connect via usbmuxd
-        UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux();
+        UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger);
         foreach (string line in new SyslogService(lockdown).Watch()) {
             // Print all syslog lines as is
             Console.WriteLine(line);
