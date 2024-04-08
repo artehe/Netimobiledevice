@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice.Lockdown.Pairing;
 using Netimobiledevice.Plist;
+using Netimobiledevice.Usbmuxd;
 using System.IO;
 
 namespace Netimobiledevice.Lockdown
@@ -16,11 +17,14 @@ namespace Netimobiledevice.Lockdown
         public override void SavePairRecord()
         {
             base.SavePairRecord();
-            /* TODO
-            record_data = plistlib.dumps(self.pair_record);
-            with usbmux.create_mux() as client:
-                client.save_pair_record(self.identifier, self.service.mux_device.devid, record_data)
-            */
+
+            ulong? deviceId = _service?.MuxDevice?.DeviceId;
+            if (deviceId != null && _pairRecord != null) {
+                byte[] recordData = PropertyList.SaveAsByteArray(_pairRecord, PlistFormat.Xml);
+                using (PlistMuxConnection muxConnection = (PlistMuxConnection) UsbmuxConnection.Create(logger: Logger)) {
+                    muxConnection.SavePairRecord(Identifier, (ulong) deviceId, recordData);
+                }
+            }
         }
 
         /// <summary>

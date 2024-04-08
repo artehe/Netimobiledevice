@@ -23,7 +23,6 @@ namespace Netimobiledevice.Lockdown
         private DictionaryNode _allValues;
         private byte[] _devicePublicKey;
         private string _hostId;
-        private readonly Version _iosVersion;
         /// <summary>
         /// User agent to use when identifying for lockdownd
         /// </summary>
@@ -33,16 +32,16 @@ namespace Netimobiledevice.Lockdown
         /// </summary>
         private readonly ILogger _logger;
         private readonly ConnectionMedium _medium;
-        private readonly DirectoryInfo? _pairingRecordsCacheDirectory;
-        /// <summary>
-        /// The pairing record for the connected device
-        /// </summary>
-        private DictionaryNode? _pairRecord;
         private ushort _port;
         private string _sessionId;
         private string _systemBuid;
         private readonly UsbmuxdConnectionType _usbmuxdConnectionType;
 
+        protected readonly DirectoryInfo? _pairingRecordsCacheDirectory;
+        /// <summary>
+        /// The pairing record for the connected device
+        /// </summary>
+        protected DictionaryNode? _pairRecord;
         protected readonly ServiceConnection? _service;
 
         public string DeviceClass { get; private set; } = LockdownDeviceClass.UNKNOWN;
@@ -67,11 +66,9 @@ namespace Netimobiledevice.Lockdown
 
         public string SerialNumber { get; private set; }
 
-        public string UDID { get; private set; }
-
         public string WifiMacAddress => GetValue("WiFiAddress")?.AsStringNode().Value ?? string.Empty;
 
-        public override Version OsVersion => _iosVersion;
+        public override Version OsVersion => Version.Parse(_allValues["ProductVersion"].AsStringNode().Value);
 
         /// <summary>
         /// Create a LockdownClient instance
@@ -105,7 +102,7 @@ namespace Netimobiledevice.Lockdown
 
             _allValues = GetValue()?.AsDictionaryNode() ?? new DictionaryNode();
 
-            UDID = _allValues["UniqueDeviceID"].AsStringNode().Value;
+            Udid = _allValues["UniqueDeviceID"].AsStringNode().Value;
             ProductType = _allValues["ProductType"].AsStringNode().Value;
 
             if (_allValues.TryGetValue("DevicePublicKey", out PropertyNode? devicePublicKeyNode)) {
@@ -113,54 +110,6 @@ namespace Netimobiledevice.Lockdown
             }
             else {
                 _devicePublicKey = Array.Empty<byte>();
-            }
-        }
-
-        private DictionaryNode? GetItunesPairingRecord()
-        {
-            string filePath = $"{UDID}.plist";
-            if (OperatingSystem.IsMacOS()) {
-                filePath = Path.Combine("/var/db/lockdown/", filePath);
-            }
-            else if (OperatingSystem.IsLinux()) {
-                filePath = Path.Combine("/var/lib/lockdown/", filePath);
-            }
-            else if (OperatingSystem.IsWindows()) {
-                filePath = Path.Combine("C:\\ProgramData\\Apple\\Lockdown", filePath);
-            }
-            else {
-                throw new NotSupportedException("Getting paring record for this OS is not supported.");
-            }
-
-            try {
-                if (File.Exists(filePath)) {
-                    using (FileStream fs = File.OpenRead(filePath)) {
-                        return PropertyList.Load(fs).AsDictionaryNode();
-                    }
-                }
-            }
-            catch (UnauthorizedAccessException ex) {
-                _logger.LogWarning(ex, "Warning unauthorised access excpetion when trying to access itunes plist");
-            }
-            return null;
-        }
-
-        private DictionaryNode? GetLocalPairingRecord()
-        {
-            _logger.LogDebug("Looking for Netimobiledevice pairing record");
-            string filePath = $"{UDID}.plist";
-            if (_pairingRecordsCacheDirectory != null) {
-                filePath = Path.Combine(_pairingRecordsCacheDirectory.FullName, filePath);
-            }
-
-            if (File.Exists(filePath)) {
-                using (FileStream fs = File.OpenRead(filePath)) {
-                    return PropertyList.Load(fs).AsDictionaryNode();
-                }
-            }
-            else {
-                _logger.LogDebug($"No Netimobiledevice pairing record found for device {UDID}");
-                return null;
             }
         }
 
@@ -188,44 +137,6 @@ namespace Netimobiledevice.Lockdown
                 }
             }
             return response;
-        }
-
-        /// <summary>
-        /// Looks for an existing pair record for the connected device in the following order:
-        ///  - iTunes
-        ///  - Usbmuxd
-        ///  - Local Storage
-        /// </summary>
-        private void InitPreferredPairRecord()
-        {
-            if (_pairRecord != null) {
-                // If we already have on then use that
-                return;
-            }
-
-            // First look for an iTunes pair record
-            _pairRecord = GetItunesPairingRecord();
-            if (_pairRecord != null) {
-                _logger.LogDebug("Using iTunes pair record");
-                return;
-            }
-
-            // Second look for the usbmuxd pair record
-            UsbmuxConnection mux = UsbmuxConnection.Create(logger: _logger);
-            if (_medium == ConnectionMedium.USBMUX && mux is PlistMuxConnection plistMuxConnection) {
-                _pairRecord = plistMuxConnection.GetPairRecord(UDID);
-            }
-            mux.Close();
-            if (_pairRecord != null) {
-                _logger.LogDebug($"Using usbmuxd pair record for identifier: {UDID}");
-                return;
-            }
-
-            // Lastly look for a local pair record
-            _pairRecord = GetLocalPairingRecord();
-            if (_pairRecord != null) {
-                _logger.LogDebug($"Using local pair record: {UDID}.plist");
-            }
         }
 
         private PropertyNode Request(string request, DictionaryNode? options = null, bool verifyRequest = true)
@@ -322,15 +233,15 @@ namespace Netimobiledevice.Lockdown
             }
 
             _pairRecord = newPairRecord;
-            WriteStorageFile($"{UDID}.plist", PropertyList.SaveAsByteArray(_pairRecord, PlistFormat.Xml));
+            WriteStorageFile($"{Udid}.plist", PropertyList.SaveAsByteArray(_pairRecord, PlistFormat.Xml));
 
             if (_medium == ConnectionMedium.USBMUX) {
                 byte[] recordData = PropertyList.SaveAsByteArray(_pairRecord, PlistFormat.Xml);
 
                 UsbmuxConnection mux = UsbmuxConnection.Create(logger: Logger);
                 if (mux is PlistMuxConnection plistMuxConnection) {
-                    int deviceId = (int) (_service?.MuxDevice?.DeviceId ?? 0);
-                    plistMuxConnection.SavePairRecord(UDID, deviceId, recordData);
+                    ulong deviceId = _service?.MuxDevice?.DeviceId ?? 0;
+                    plistMuxConnection.SavePairRecord(Udid, deviceId, recordData);
                 }
                 mux.Close();
             }
@@ -346,26 +257,28 @@ namespace Netimobiledevice.Lockdown
 
         private bool ValidatePairing()
         {
-            try {
-                InitPreferredPairRecord();
-            }
-            catch (NotPairedException) {
-                return false;
+            if (_pairRecord == null && !string.IsNullOrEmpty(Identifier)) {
+                try {
+                    FetchPairRecord();
+                }
+                catch (NotPairedException) {
+                    IsPaired = false;
+                    return IsPaired;
+                }
             }
 
             if (_pairRecord == null) {
-                return false;
+                IsPaired = false;
+                return IsPaired;
             }
 
-            if (_iosVersion < new Version("7.0") && DeviceClass != LockdownDeviceClass.WATCH) {
+            if (OsVersion < new Version("7.0") && DeviceClass != LockdownDeviceClass.WATCH) {
                 try {
-                    DictionaryNode options = new DictionaryNode {
-                        { "PairRecord", _pairRecord }
-                    };
-                    Request("ValidatePair", options);
+                    Request("ValidatePair", new DictionaryNode { { "PairRecord", _pairRecord } });
                 }
                 catch (Exception) {
-                    return false;
+                    IsPaired = false;
+                    return IsPaired;
                 }
             }
 
@@ -383,7 +296,8 @@ namespace Netimobiledevice.Lockdown
             catch (LockdownException ex) {
                 if (ex.LockdownError == LockdownError.InvalidHostID) {
                     // No HostID means there is no such pairing record
-                    return false;
+                    IsPaired = false;
+                    return IsPaired;
                 }
                 else {
                     throw;
@@ -395,6 +309,11 @@ namespace Netimobiledevice.Lockdown
             }
 
             IsPaired = true;
+
+            // Reload data after pairing
+            _allValues = GetValue()?.AsDictionaryNode() ?? new DictionaryNode();
+            Udid = _allValues["UniqueDeviceID"].AsStringNode().Value;
+
             return IsPaired;
         }
 
@@ -408,19 +327,26 @@ namespace Netimobiledevice.Lockdown
 
         protected void HandleAutoPair(bool autoPair, float timeout)
         {
-            /* TODO
-        if self.validate_pairing():
-            return
+            if (ValidatePairing()) {
+                return;
+            }
 
-        # device is not paired yet
-        if not autopair:
-            # but pairing by default was not requested
-            return
-        self.pair(timeout=timeout)
-        # get session_id
-        if not self.validate_pairing():
-            raise FatalPairingError() 
-            */
+            // The device is not paired yet
+            if (!autoPair) {
+                // pairing automatically was not requested
+                return;
+            }
+
+            // TODO self.pair(timeout = timeout);
+
+            if (!ValidatePairing()) {
+                throw new FatalPairingException();
+            }
+        }
+
+        protected virtual void FetchPairRecord()
+        {
+            _pairRecord = PairRecords.GetPreferredPairRecord(Identifier, _pairingRecordsCacheDirectory, logger: Logger);
         }
 
         /// <summary>
@@ -613,7 +539,7 @@ namespace Netimobiledevice.Lockdown
 
             // Now we are paied, reload data
             _allValues = GetValue()?.AsDictionaryNode() ?? new DictionaryNode();
-            UDID = _allValues["UniqueDeviceID"].AsStringNode().Value;
+            Udid = _allValues["UniqueDeviceID"].AsStringNode().Value;
             return IsPaired;
         }
 
@@ -645,7 +571,7 @@ namespace Netimobiledevice.Lockdown
         /// </summary>
         /// <param name="port"></param>
         /// <returns></returns>
-        protected virtual ServiceConnection CreateServiceConnection(ushort port)
+        public virtual ServiceConnection CreateServiceConnection(ushort port)
         {
             throw new NotImplementedException();
         }

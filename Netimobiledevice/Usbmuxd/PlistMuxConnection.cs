@@ -138,12 +138,12 @@ namespace Netimobiledevice.Usbmuxd
             return response;
         }
 
-        public void SavePairRecord(string serial, int deviceId, byte[] recordData)
+        public void SavePairRecord(string identifier, ulong deviceId, byte[] recordData)
         {
             // Serials are saved inside usbmuxd without '-'
             DictionaryNode message = new DictionaryNode {
                 { "MessageType", new StringNode("SavePairRecord") },
-                { "PairRecordID", new StringNode(serial) },
+                { "PairRecordID", new StringNode(identifier) },
                 { "PairRecordData", new DataNode(recordData) },
                 { "DeviceID", new IntegerNode(deviceId) }
             };

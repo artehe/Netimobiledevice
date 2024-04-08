@@ -166,7 +166,7 @@ namespace Netimobiledevice.Backup
         {
             LockdownClient = lockdown;
             BackupDirectory = backupFolder;
-            DeviceBackupPath = Path.Combine(BackupDirectory, lockdown.UDID);
+            DeviceBackupPath = Path.Combine(BackupDirectory, lockdown.Udid);
         }
 
         /// <summary>
@@ -274,7 +274,7 @@ namespace Netimobiledevice.Backup
 
                 OnStatus("Initializing backup ...");
                 DictionaryNode options = CreateBackupOptions();
-                mobilebackup2Service.SendRequest("Backup", LockdownClient.UDID, LockdownClient.UDID, options);
+                mobilebackup2Service.SendRequest("Backup", LockdownClient.Udid, LockdownClient.Udid, options);
 
                 if (IsPasscodeRequiredBeforeBackup()) {
                     PasscodeRequiredForBackup?.Invoke(this, EventArgs.Empty);
@@ -355,9 +355,9 @@ namespace Netimobiledevice.Backup
                 info.Add("Product Version", rootNode["ProductVersion"]);
                 info.Add("Serial Number", rootNode["SerialNumber"]);
 
-                info.Add("Target Identifier", new StringNode(LockdownClient.UDID.ToUpperInvariant()));
+                info.Add("Target Identifier", new StringNode(LockdownClient.Udid.ToUpperInvariant()));
                 info.Add("Target Type", new StringNode("Device"));
-                info.Add("Unique Identifier", new StringNode(LockdownClient.UDID.ToUpperInvariant()));
+                info.Add("Unique Identifier", new StringNode(LockdownClient.Udid.ToUpperInvariant()));
             }
 
             try {
@@ -494,7 +494,7 @@ namespace Netimobiledevice.Backup
                                 OnError(ex);
                             }
                         }
-                        else if (!Usbmux.IsDeviceConnected(LockdownClient.UDID)) {
+                        else if (!Usbmux.IsDeviceConnected(LockdownClient.Udid)) {
                             throw new DeviceDisconnectedException();
                         }
                     }
@@ -512,7 +512,7 @@ namespace Netimobiledevice.Backup
             }
 
             // Check if the execution arrived here due to a device disconnection.
-            if (terminatingException == null && !Usbmux.IsDeviceConnected(LockdownClient.UDID)) {
+            if (terminatingException == null && !Usbmux.IsDeviceConnected(LockdownClient.Udid)) {
                 throw new DeviceDisconnectedException();
             }
 
@@ -676,7 +676,7 @@ namespace Netimobiledevice.Backup
                     }
                     fileCount++;
                 }
-                else if (Usbmux.IsDeviceConnected(LockdownClient.UDID, UsbmuxdConnectionType.Usb)) {
+                else if (Usbmux.IsDeviceConnected(LockdownClient.Udid, UsbmuxdConnectionType.Usb)) {
                     break;
                 }
                 else {
@@ -980,7 +980,7 @@ namespace Netimobiledevice.Backup
         protected virtual void OnError(Exception ex)
         {
             IsCancelling = true;
-            deviceDisconnected = Usbmux.IsDeviceConnected(LockdownClient.UDID);
+            deviceDisconnected = Usbmux.IsDeviceConnected(LockdownClient.Udid);
             LockdownClient.Logger.LogError($"Error in backup job: {ex.Message}");
             terminatingException = deviceDisconnected ? ex : new DeviceDisconnectedException();
             Error?.Invoke(this, new ErrorEventArgs(terminatingException));

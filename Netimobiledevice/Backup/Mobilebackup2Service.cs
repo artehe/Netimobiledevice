@@ -29,7 +29,7 @@ namespace Netimobiledevice.Backup
             }
 
             DictionaryNode opts = new DictionaryNode {
-                { "TargetIdentifier", new StringNode(Lockdown.UDID) }
+                { "TargetIdentifier", new StringNode(Lockdown.Udid) }
             };
 
             DictionaryNode backupDomain = Lockdown.GetValue("com.apple.mobile.backup", null)?.AsDictionaryNode() ?? new DictionaryNode();

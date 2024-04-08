@@ -4,7 +4,7 @@ namespace Netimobiledevice.Lockdown
 {
     public abstract class LockdownServiceProvider
     {
-        public string Udid { get; private set; } = string.Empty;
+        public string Udid { get; protected set; } = string.Empty;
 
         /// <summary>
         /// The internal device model identifier

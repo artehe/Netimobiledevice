@@ -16,7 +16,7 @@ namespace Netimobiledevice.Lockdown
             _usbmuxAddress = usbmuxAddress;
         }
 
-        public new ServiceConnection CreateServiceConnection(ushort port)
+        public override ServiceConnection CreateServiceConnection(ushort port)
         {
             return ServiceConnection.CreateUsingUsbmux(Identifier, port, _service?.MuxDevice?.ConnectionType, _usbmuxAddress, Logger);
         }
@@ -49,17 +49,18 @@ namespace Netimobiledevice.Lockdown
             return lockdownClient;
         }
 
+
+        protected override void FetchPairRecord()
+        {
+            _pairRecord = PairRecords.GetPreferredPairRecord(Identifier, _pairingRecordsCacheDirectory, usbmuxAddress: _usbmuxAddress, logger: Logger);
+        }
+
         /* TODO
     @property
     def short_info(self) -> Dict:
         short_info = super().short_info
         short_info['ConnectionType'] = self.service.mux_device.connection_type
         return short_info
-
-    def fetch_pair_record(self) -> None:
-        if self.identifier is not None:
-            self.pair_record = get_preferred_pair_record(self.identifier, self.pairing_records_cache_folder,
-                                                         usbmux_address=self.usbmux_address)
         */
     }
 }
