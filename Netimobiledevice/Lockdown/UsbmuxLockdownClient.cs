@@ -54,13 +54,5 @@ namespace Netimobiledevice.Lockdown
         {
             _pairRecord = PairRecords.GetPreferredPairRecord(Identifier, _pairingRecordsCacheDirectory, usbmuxAddress: _usbmuxAddress, logger: Logger);
         }
-
-        /* TODO
-    @property
-    def short_info(self) -> Dict:
-        short_info = super().short_info
-        short_info['ConnectionType'] = self.service.mux_device.connection_type
-        return short_info
-        */
     }
 }

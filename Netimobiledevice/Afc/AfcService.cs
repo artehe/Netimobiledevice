@@ -291,20 +291,20 @@ namespace Netimobiledevice.Afc
                     continue;
                 }
 
-                DictionaryNode fileInfo = GetFileInfo(Path.Combine(directory, fd));
+                DictionaryNode fileInfo = GetFileInfo($"{directory}/{fd}");
                 if (fileInfo != null && fileInfo.TryGetValue("st_ifmt", out PropertyNode? value)) {
                     if (value is StringNode node && node.Value == "S_IFDIR") {
                         directories.Add(fd);
                     }
-                }
-                else {
-                    files.Add(fd);
+                    else {
+                        files.Add(fd);
+                    }
                 }
             }
             yield return Tuple.Create(directory, directories, files);
 
             foreach (string dir in directories) {
-                foreach (Tuple<string, List<string>, List<string>> result in Walk(Path.Combine(directory, dir))) {
+                foreach (Tuple<string, List<string>, List<string>> result in Walk($"{directory}/{dir}")) {
                     yield return result;
                 }
             }
@@ -329,11 +329,111 @@ namespace Netimobiledevice.Afc
                     continue;
                 }
 
-                dirs.AddRange(files);
-                foreach (string entry in dirs) {
-                    yield return Path.Combine(folder, entry);
+                List<string> results = new List<string>();
+                results.AddRange(dirs.ToArray());
+                results.AddRange(files.ToArray());
+                foreach (string entry in results) {
+                    yield return $"{folder}/{entry}";
                 }
             }
+        }
+
+        public void Pull(string relativeSrc, string dst, string srcDir = "")
+        {
+            string src = $"{srcDir}/{relativeSrc}";
+            Logger?.LogInformation("{src} --> {dst}", src, dst);
+
+            src = ResolvePath(src);
+
+            if (!IsDir(src)) {
+                // Normal file
+                /* TODO
+                if os.path.isdir(dst):
+                    dst = os.path.join(dst, os.path.basename(relative_src))
+                with open(dst, 'wb') as f:
+                    f.write(self.get_file_contents(src))
+                */
+            }
+            else {
+                // Directory
+                /* TODO
+                dst_path = pathlib.Path(dst) / os.path.basename(relative_src)
+                dst_path.mkdir(parents=True, exist_ok=True)
+
+                for filename in self.listdir(src):
+                    src_filename = posixpath.join(src, filename)
+                    dst_filename = dst_path / filename
+
+                    src_filename = self.resolve_path(src_filename)
+
+                    if self.isdir(src_filename):
+                        dst_filename.mkdir(exist_ok=True)
+                        self.pull(src_filename, str(dst_path), callback=callback)
+                        continue
+
+                    self.pull(src_filename, str(dst_path), callback=callback)
+
+                 */
+            }
+        }
+
+        /// <summary>
+        /// Recursive removal of a directory or a file, if any did not succeed then return list of undeleted filenames or raise exception depending on force parameter.
+        /// </summary>
+        /// <param name="filename">path to directory or a file</param>
+        /// <param name="force">True for ignore exception and return list of undeleted paths</param>
+        /// <returns>A list of undeleted paths</returns>
+        public List<string> Rm(string filename, bool force = false)
+        {
+            if (!Exists(filename)) {
+                if (!RmSingle(filename, force: force)) {
+                    return new List<string>() { filename };
+                }
+            }
+
+            // Single file
+            if (!IsDir(filename)) {
+                if (RmSingle(filename, force: force)) {
+                    return new List<string>();
+                }
+                return new List<string>() { filename };
+            }
+
+            // Directory Content
+            List<string> undeletedItems = new List<string>();
+            foreach (string entry in ListDirectory(filename)) {
+                /* TODO
+            current_filename = posixpath.join(filename, entry)
+            if self.isdir(current_filename):
+                ret_undeleted_items = self.rm(current_filename, force=True)
+                undeleted_items.extend(ret_undeleted_items)
+            else:
+                if not self._rm_single(current_filename, force=True):
+                    undeleted_items.append(current_filename)
+                 */
+            }
+
+            // Directory Path
+            try {
+                if (!RmSingle(filename, force: force)) {
+                    undeletedItems.Add(filename);
+                    return undeletedItems;
+                }
+            }
+            catch (AfcException) {
+                if (undeletedItems.Count > 0) {
+                    undeletedItems.Add(filename);
+                }
+                else {
+                    throw;
+                }
+            }
+
+            if (undeletedItems.Count > 0) {
+                throw new AfcException($"Failed to delete paths: {string.Join(", ", undeletedItems)}");
+            }
+
+            return new List<string>();
         }
 
         private static List<string> ParseFileInfoResponseForMessage(byte[] data)

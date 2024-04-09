@@ -337,7 +337,7 @@ namespace Netimobiledevice.Lockdown
                 return;
             }
 
-            // TODO self.pair(timeout = timeout);
+            PairDevice();
 
             if (!ValidatePairing()) {
                 throw new FatalPairingException();
