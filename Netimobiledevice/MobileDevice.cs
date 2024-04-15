@@ -70,16 +70,12 @@ namespace Netimobiledevice
         /// <returns></returns>
         public static TcpLockdownClient CreateUsingTcp(string hostname, string identifier = "", string label = LockdownClient.DEFAULT_CLIENT_NAME, bool autopair = true,
             float? pairTimeout = null, string localHostname = "", DictionaryNode? pairRecord = null, string pairingRecordsCacheDir = "",
-            ushort port = LockdownClient.SERVICE_PORT, bool keepAlive = false)
+            ushort port = LockdownClient.SERVICE_PORT, ILogger? logger = null)
         {
-            /* TODO
-    service = ServiceConnection.create_using_tcp(hostname, port, keep_alive=keep_alive)
-    client = TcpLockdownClient.create(
-        service, identifier=identifier, label=label, local_hostname=local_hostname, pair_record=pair_record,
-        pairing_records_cache_folder=pairing_records_cache_folder, pair_timeout=pair_timeout, autopair=autopair,
-        port=port, hostname=hostname, keep_alive=keep_alive)
-    return client             
-            */
+            ServiceConnection service = ServiceConnection.CreateUsingTcp(hostname, port, logger);
+            TcpLockdownClient client = TcpLockdownClient.Create(service, identifier: identifier, label: label, localHostname: localHostname, pairRecord: pairRecord,
+                pairingRecordsCacheFolder: pairingRecordsCacheDir, pairTimeout: pairTimeout, autopair: autopair, port: port, hostname: hostname);
+            return client;
         }
     }
 }

@@ -42,14 +42,14 @@ namespace Netimobiledevice.Lockdown
             MuxDevice = muxDevice;
         }
 
-        private static ServiceConnection CreateUsingTcp(string hostname, ushort port, ILogger logger)
+        internal static ServiceConnection CreateUsingTcp(string hostname, ushort port, ILogger? logger = null)
         {
             Socket sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.IP);
             sock.Connect(hostname, port);
             return new ServiceConnection(sock, logger);
         }
 
-        public static ServiceConnection CreateUsingUsbmux(string udid, ushort port, UsbmuxdConnectionType? connectionType = null, string usbmuxAddress = "", ILogger? logger = null)
+        internal static ServiceConnection CreateUsingUsbmux(string udid, ushort port, UsbmuxdConnectionType? connectionType = null, string usbmuxAddress = "", ILogger? logger = null)
         {
             UsbmuxdDevice? targetDevice = Usbmux.GetDevice(udid, connectionType: connectionType, usbmuxAddress: usbmuxAddress);
             if (targetDevice == null) {

@@ -214,6 +214,44 @@ namespace Netimobiledevice.Afc
             return filename;
         }
 
+        /// <summary>
+        /// return true if succeess or raise an exception depending on force parameter.
+        /// </summary>
+        /// <param name="filename">path to directory or a file</param>
+        /// <param name="force">True for ignore exception and return False</param>
+        /// <returns></returns>
+        private bool RmSingle(string filename, bool force = false)
+        {
+            try {
+                RunOperation(AfcOpCode.RemovePath, new AfcRmRequest(new CString(filename, Encoding.UTF8)).GetBytes());
+                return true;
+            }
+            catch (AfcException) {
+                if (force) {
+                    return false;
+                }
+                else {
+                    throw;
+                }
+            }
+        }
+
+        public bool Exists(string filename)
+        {
+            try {
+                GetFileInfo(filename);
+                return true;
+            }
+            catch (AfcException ex) {
+                if (ex.AfcError == AfcError.ObjectNotFound) {
+                    return false;
+                }
+                else {
+                    throw;
+                }
+            }
+        }
+
         public byte[]? GetFileContents(string filename)
         {
             filename = ResolvePath(filename);
@@ -269,7 +307,7 @@ namespace Netimobiledevice.Afc
                 directoryList = ParseFileInfoResponseForMessage(response);
             }
             catch (Exception ex) {
-                Logger?.LogError($"Error trying to get directory list: {ex.Message}");
+                Logger?.LogError(ex, "Error trying to get directory list");
             }
             return directoryList;
         }
@@ -310,6 +348,15 @@ namespace Netimobiledevice.Afc
             }
         }
 
+        public bool IsDir(string filename)
+        {
+            DictionaryNode stat = GetFileInfo(filename);
+            if (stat.TryGetValue("st_ifmt", out PropertyNode? value)) {
+                return value.AsStringNode().Value == "S_IFDIR";
+            }
+            return false;
+        }
+
         /// <summary>
         /// List the files and folders in the given directory
         /// </summary>
@@ -340,40 +387,45 @@ namespace Netimobiledevice.Afc
 
         public void Pull(string relativeSrc, string dst, string srcDir = "")
         {
-            string src = $"{srcDir}/{relativeSrc}";
+            string src = srcDir;
+            if (string.IsNullOrEmpty(src)) {
+                src = relativeSrc;
+            }
+            else {
+                src = $"{src}/{relativeSrc}";
+            }
+
             Logger?.LogInformation("{src} --> {dst}", src, dst);
 
             src = ResolvePath(src);
 
             if (!IsDir(src)) {
                 // Normal file
-                /* TODO
-                if os.path.isdir(dst):
-                    dst = os.path.join(dst, os.path.basename(relative_src))
-                with open(dst, 'wb') as f:
-                    f.write(self.get_file_contents(src))
-                */
+                if (Path.EndsInDirectorySeparator(dst)) {
+                    string[] splitSrc = relativeSrc.Split('/');
+                    string filename = splitSrc[splitSrc.Length - 1];
+                    dst = Path.Combine(dst, filename);
+                }
+                using (FileStream fs = new FileStream(dst, FileMode.Create)) {
+                    fs.Write(GetFileContents(src));
+                }
             }
             else {
                 // Directory
-                /* TODO
-                dst_path = pathlib.Path(dst) / os.path.basename(relative_src)
-                dst_path.mkdir(parents=True, exist_ok=True)
+                string dstPath = $"{dst}/{Path.GetDirectoryName(relativeSrc)}";
+                Directory.CreateDirectory(dstPath);
 
-                for filename in self.listdir(src):
-                    src_filename = posixpath.join(src, filename)
-                    dst_filename = dst_path / filename
+                foreach (string filename in ListDirectory(src)) {
+                    string srcFilename = $"{src}/{filename}";
+                    string dstFilename = Path.Combine(dstPath, filename);
 
-                    src_filename = self.resolve_path(src_filename)
+                    srcFilename = ResolvePath(srcFilename);
 
-                    if self.isdir(src_filename):
-                        dst_filename.mkdir(exist_ok=True)
-                        self.pull(src_filename, str(dst_path), callback=callback)
-                        continue
-
-                    self.pull(src_filename, str(dst_path), callback=callback)
-
-                 */
+                    if (IsDir(srcFilename)) {
+                        Directory.CreateDirectory(dstFilename);
+                    }
+                    Pull(srcFilename, dstPath);
+                }
             }
         }
 
@@ -402,15 +454,17 @@ namespace Netimobiledevice.Afc
             // Directory Content
             List<string> undeletedItems = new List<string>();
             foreach (string entry in ListDirectory(filename)) {
-                /* TODO
-            current_filename = posixpath.join(filename, entry)
-            if self.isdir(current_filename):
-                ret_undeleted_items = self.rm(current_filename, force=True)
-                undeleted_items.extend(ret_undeleted_items)
-            else:
-                if not self._rm_single(current_filename, force=True):
-                    undeleted_items.append(current_filename)
-                 */
+                string currentFile = $"{filename}/{entry}";
+                if (IsDir(currentFile)) {
+                    List<string> retUndeletedItems = Rm(currentFile, force: true);
+                    undeletedItems.AddRange(retUndeletedItems);
+                }
+                else {
+                    if (!RmSingle(currentFile, force: true)) {
+                        undeletedItems.Add(currentFile);
+                    }
+                }
+
             }
 
             // Directory Path

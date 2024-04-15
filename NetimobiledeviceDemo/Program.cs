@@ -45,15 +45,12 @@ public class Program
         // Connect via usbmuxd
         using (UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
             using (CrashReportsManager crm = new CrashReportsManager(lockdown)) {
-                List<string> crashList = crm.GetCrashReportsList();
-            }
-        }
+                if (Directory.Exists("CrashDir")) {
+                    Directory.Delete("CrashDir", true);
+                }
 
-        // Connect via usbmuxd
-        using (UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
-            foreach (string line in new SyslogService(lockdown).Watch()) {
-                // Print all syslog lines as is
-                Console.WriteLine(line);
+                List<string> crashList = crm.GetCrashReportsList();
+                crm.GetCrashReport("CrashDir");
             }
         }
 
@@ -189,6 +186,14 @@ public class Program
             }
         }
 
+        // Connect via usbmuxd
+        using (UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
+            foreach (string line in new SyslogService(lockdown).Watch()) {
+                // Print all syslog lines as is
+                Console.WriteLine(line);
+            }
+        }
+
         Console.ReadLine();
     }
 
@@ -212,6 +217,6 @@ public class Program
 
     private static void Timer_Callback(object? state)
     {
-        tokenSource.Cancel();
+        //tokenSource.Cancel();
     }
 }
