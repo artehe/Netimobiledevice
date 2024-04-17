@@ -1,9 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice;
 using Netimobiledevice.Afc;
 using Netimobiledevice.Backup;
 using Netimobiledevice.Diagnostics;
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.Lockdown;
+using Netimobiledevice.Lockdown.Pairing;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Misagent;
 using Netimobiledevice.Mobilesync;
@@ -36,15 +38,23 @@ public class Program
         }
 
         logger.LogDebug($"There's {devices.Count} devices connected");
-        UsbmuxdDevice? testDevice = null;
         foreach (UsbmuxdDevice device in devices) {
             Console.WriteLine($"Device found: {device.DeviceId} - {device.Serial}");
-            if (device.ConnectionType == UsbmuxdConnectionType.Usb) {
-                testDevice = device;
+        }
+
+        // Connect via usbmuxd
+        using (UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
+            using (CrashReportsManager crm = new CrashReportsManager(lockdown)) {
+                if (Directory.Exists("CrashDir")) {
+                    Directory.Delete("CrashDir", true);
+                }
+
+                List<string> crashList = crm.GetCrashReportsList();
+                crm.GetCrashReport("CrashDir");
             }
         }
 
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, logger: factory.CreateLogger("NetimobiledeviceDemo"))) {
+        using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
             Progress<PairingState> progress = new();
             progress.ProgressChanged += Progress_ProgressChanged;
             if (!lockdown.IsPaired) {
@@ -52,7 +62,7 @@ public class Program
             }
         }
 
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, logger: factory.CreateLogger("NetimobiledeviceDemo"))) {
+        using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
             using (HeartbeatService heartbeatService = new HeartbeatService(lockdown)) {
                 heartbeatService.Start();
                 await Task.Delay(10000);
@@ -84,13 +94,13 @@ public class Program
             }
         }
 
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, logger: factory.CreateLogger("NetimobiledeviceDemo"))) {
-            string product = lockdown.Product;
+        using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
+            string product = lockdown.ProductType;
             string productName = lockdown.ProductFriendlyName;
             logger.LogInformation($"Connected device is a {productName} ({product})");
         }
 
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, logger: factory.CreateLogger("NetimobiledeviceDemo"))) {
+        using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
             PropertyNode? val = lockdown.GetValue("com.apple.mobile.tethered_sync", null);
             DictionaryNode tetherValue = new DictionaryNode() {
                 { "DisableTethered", new BooleanNode(false) },
@@ -130,7 +140,7 @@ public class Program
 
         timer.Change(15 * 1000, Timeout.Infinite);
 
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, logger: factory.CreateLogger("NetimobiledeviceDemo"))) {
+        using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
             string path = "backups";
             if (Directory.Exists(path)) {
                 Directory.Delete(path, true);
@@ -140,7 +150,7 @@ public class Program
             }
         }
 
-        using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, logger: factory.CreateLogger("NetimobiledeviceDemo"))) {
+        using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
             using (MisagentService misagentService = new MisagentService(lockdown)) {
                 await misagentService.GetInstalledProvisioningProfiles();
             }
@@ -176,6 +186,14 @@ public class Program
             }
         }
 
+        // Connect via usbmuxd
+        using (UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
+            foreach (string line in new SyslogService(lockdown).Watch()) {
+                // Print all syslog lines as is
+                Console.WriteLine(line);
+            }
+        }
+
         Console.ReadLine();
     }
 
@@ -199,6 +217,6 @@ public class Program
 
     private static void Timer_Callback(object? state)
     {
-        tokenSource.Cancel();
+        //tokenSource.Cancel();
     }
 }

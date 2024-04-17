@@ -19,10 +19,10 @@ namespace Netimobiledevice.Usbmuxd
         /// USB connections
         /// </param>
         /// <returns>The device info.</returns>
-        public static UsbmuxdDevice? GetDevice(string udid, UsbmuxdConnectionType? connectionType = null)
+        public static UsbmuxdDevice? GetDevice(string udid, UsbmuxdConnectionType? connectionType = null, string usbmuxAddress = "")
         {
             UsbmuxdDevice? tmp = null;
-            foreach (UsbmuxdDevice device in GetDeviceList()) {
+            foreach (UsbmuxdDevice device in GetDeviceList(usbmuxAddress: usbmuxAddress)) {
                 if (connectionType != null && device.ConnectionType != connectionType) {
                     // If a specific connectionType was desired and not of this one then skip
                     continue;
@@ -50,10 +50,10 @@ namespace Netimobiledevice.Usbmuxd
         /// <returns>
         /// A list of connected Usbmux devices
         /// </returns>
-        public static List<UsbmuxdDevice> GetDeviceList(ILogger? logger = null)
+        public static List<UsbmuxdDevice> GetDeviceList(string usbmuxAddress = "", ILogger? logger = null)
         {
             logger ??= NullLogger.Instance;
-            UsbmuxConnection muxConnection = UsbmuxConnection.Create(logger);
+            UsbmuxConnection muxConnection = UsbmuxConnection.Create(usbmuxAddress, logger);
             muxConnection.UpdateDeviceList(100);
             List<UsbmuxdDevice> devices = muxConnection.Devices;
             muxConnection.Close();

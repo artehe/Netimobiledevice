@@ -17,19 +17,38 @@ namespace Netimobiledevice.Usbmuxd
 
         private readonly Socket socket;
 
-        public UsbmuxdSocket()
+        public UsbmuxdSocket(string usbmuxAddress = "")
         {
             try {
-                if (OperatingSystem.IsWindows()) {
-                    EndPoint windowsSocketAddress = new IPEndPoint(IPAddress.Parse(USBMUXD_SOCKET_IP), USBMUXD_SOCKET_PORT);
-                    socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.IP);
-                    socket.Connect(windowsSocketAddress);
+                EndPoint endpoint;
+                AddressFamily family;
+                if (!string.IsNullOrEmpty(usbmuxAddress)) {
+                    if (usbmuxAddress.Contains(':')) {
+                        // Assume a TCP address
+                        string hostname = usbmuxAddress.Split(":")[0];
+                        string port = usbmuxAddress.Split(":")[1];
+                        endpoint = new IPEndPoint(IPAddress.Parse(hostname), Convert.ToUInt16(port));
+                        family = AddressFamily.InterNetwork;
+                    }
+                    else {
+                        // Assume a Unix domain address
+                        endpoint = new UnixDomainSocketEndPoint(usbmuxAddress);
+                        family = AddressFamily.Unix;
+                    }
                 }
                 else {
-                    UnixDomainSocketEndPoint unixSocketAddress = new UnixDomainSocketEndPoint(USBMUXD_SOCKET_FILE);
-                    socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.IP);
-                    socket.Connect(unixSocketAddress);
+                    if (OperatingSystem.IsWindows()) {
+                        endpoint = new IPEndPoint(IPAddress.Parse(USBMUXD_SOCKET_IP), USBMUXD_SOCKET_PORT);
+                        family = AddressFamily.InterNetwork;
+                    }
+                    else {
+                        endpoint = new UnixDomainSocketEndPoint(USBMUXD_SOCKET_FILE);
+                        family = AddressFamily.Unix;
+                    }
                 }
+
+                socket = new Socket(family, SocketType.Stream, ProtocolType.IP);
+                socket.Connect(endpoint);
             }
             catch (SocketException ex) {
                 throw new UsbmuxConnectionException("Can't create and/or connect to Usbmux socket", ex);

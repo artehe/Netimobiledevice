@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 
 namespace Netimobiledevice.Usbmuxd
 {
-    internal abstract class UsbmuxConnection
+    internal abstract class UsbmuxConnection : IDisposable
     {
         protected const int DEFAULT_CONNECTION_TIMEOUT = 5000;
 
@@ -42,6 +42,11 @@ namespace Netimobiledevice.Usbmuxd
             ProtocolVersion = protocolVersion;
             Sock = socket;
             Tag = 1;
+        }
+
+        public void Dispose()
+        {
+            Sock.Close();
         }
 
         private int ReceivePacket(out UsbmuxdHeader header, out byte[] payload)
@@ -145,7 +150,7 @@ namespace Netimobiledevice.Usbmuxd
                 sent += res;
             }
             if (sent != header.Length) {
-                logger.LogError($"ERROR: could not send whole packet (sent {sent} of {header.Length})");
+                logger.LogError("ERROR: could not send whole packet (sent {sent} of {length})", sent, header.Length);
                 Sock.Close();
                 return -1;
             }
@@ -175,10 +180,11 @@ namespace Netimobiledevice.Usbmuxd
             return Sock.GetInternalSocket();
         }
 
-        public static UsbmuxConnection Create(ILogger logger)
+        public static UsbmuxConnection Create(string usbmuxAddress = "", ILogger? logger = null)
         {
             // First attempt to connect with possibly the wrong version header (using Plist protocol)
-            UsbmuxdSocket sock = new UsbmuxdSocket();
+            UsbmuxdSocket sock = new UsbmuxdSocket(usbmuxAddress: usbmuxAddress);
+
             PlistMuxConnection conn = new PlistMuxConnection(sock, logger);
             int tag = 1;
 
@@ -189,7 +195,7 @@ namespace Netimobiledevice.Usbmuxd
             // If we sent a bad request, we should re-create the socket in the correct version this time
             sock.Close();
 
-            sock = new UsbmuxdSocket();
+            sock = new UsbmuxdSocket(usbmuxAddress: usbmuxAddress);
             if (response.Header.Version == UsbmuxdVersion.Binary) {
                 return new BinaryUsbmuxConnection(sock, logger);
             }

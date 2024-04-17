@@ -46,7 +46,7 @@ namespace Netimobiledevice.Usbmuxd
             do {
                 UsbmuxConnection muxConnection;
                 try {
-                    muxConnection = UsbmuxConnection.Create(logger);
+                    muxConnection = UsbmuxConnection.Create(logger: logger);
                 }
                 catch (UsbmuxConnectionException ex) {
                     errorCallback?.Invoke(ex);

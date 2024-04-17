@@ -1,4 +1,4 @@
-﻿namespace Netimobiledevice.Lockdown
+﻿namespace Netimobiledevice.Lockdown.Pairing
 {
     /// <summary>
     /// Represent the different possible state for the pairing status.

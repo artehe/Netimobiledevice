@@ -166,7 +166,7 @@ namespace Netimobiledevice.Backup
         {
             LockdownClient = lockdown;
             BackupDirectory = backupFolder;
-            DeviceBackupPath = Path.Combine(BackupDirectory, lockdown.UDID);
+            DeviceBackupPath = Path.Combine(BackupDirectory, lockdown.Udid);
         }
 
         /// <summary>
@@ -246,7 +246,7 @@ namespace Netimobiledevice.Backup
         /// </summary>
         private async Task CreateBackup(CancellationToken cancellationToken)
         {
-            LockdownClient.Logger.LogInformation($"Starting backup of device {LockdownClient.GetValue("ProductType")?.AsStringNode().Value} v{LockdownClient.IOSVersion}");
+            LockdownClient.Logger.LogInformation($"Starting backup of device {LockdownClient.GetValue("ProductType")?.AsStringNode().Value} v{LockdownClient.OsVersion}");
 
             // Reset everything in case we have called this more than once.
             lastStatus = null;
@@ -274,7 +274,7 @@ namespace Netimobiledevice.Backup
 
                 OnStatus("Initializing backup ...");
                 DictionaryNode options = CreateBackupOptions();
-                mobilebackup2Service.SendRequest("Backup", LockdownClient.UDID, LockdownClient.UDID, options);
+                mobilebackup2Service.SendRequest("Backup", LockdownClient.Udid, LockdownClient.Udid, options);
 
                 if (IsPasscodeRequiredBeforeBackup()) {
                     PasscodeRequiredForBackup?.Invoke(this, EventArgs.Empty);
@@ -355,9 +355,9 @@ namespace Netimobiledevice.Backup
                 info.Add("Product Version", rootNode["ProductVersion"]);
                 info.Add("Serial Number", rootNode["SerialNumber"]);
 
-                info.Add("Target Identifier", new StringNode(LockdownClient.UDID.ToUpperInvariant()));
+                info.Add("Target Identifier", new StringNode(LockdownClient.Udid.ToUpperInvariant()));
                 info.Add("Target Type", new StringNode("Device"));
-                info.Add("Unique Identifier", new StringNode(LockdownClient.UDID.ToUpperInvariant()));
+                info.Add("Unique Identifier", new StringNode(LockdownClient.Udid.ToUpperInvariant()));
             }
 
             try {
@@ -439,8 +439,8 @@ namespace Netimobiledevice.Backup
         {
             // iOS versions 15.7.1 and anything 16.1 or newer will require you to input a passcode before
             // it can start a backup so we make sure to notify the user about this.
-            if ((LockdownClient.IOSVersion >= new Version(15, 7, 1) && LockdownClient.IOSVersion < new Version(16, 0)) ||
-                LockdownClient.IOSVersion >= new Version(16, 1)) {
+            if ((LockdownClient.OsVersion >= new Version(15, 7, 1) && LockdownClient.OsVersion < new Version(16, 0)) ||
+                LockdownClient.OsVersion >= new Version(16, 1)) {
                 using (DiagnosticsService diagnosticsService = new DiagnosticsService(LockdownClient)) {
                     string queryString = "PasswordConfigured";
                     try {
@@ -494,7 +494,7 @@ namespace Netimobiledevice.Backup
                                 OnError(ex);
                             }
                         }
-                        else if (!Usbmux.IsDeviceConnected(LockdownClient.UDID)) {
+                        else if (!Usbmux.IsDeviceConnected(LockdownClient.Udid)) {
                             throw new DeviceDisconnectedException();
                         }
                     }
@@ -512,7 +512,7 @@ namespace Netimobiledevice.Backup
             }
 
             // Check if the execution arrived here due to a device disconnection.
-            if (terminatingException == null && !Usbmux.IsDeviceConnected(LockdownClient.UDID)) {
+            if (terminatingException == null && !Usbmux.IsDeviceConnected(LockdownClient.Udid)) {
                 throw new DeviceDisconnectedException();
             }
 
@@ -676,7 +676,7 @@ namespace Netimobiledevice.Backup
                     }
                     fileCount++;
                 }
-                else if (Usbmux.IsDeviceConnected(LockdownClient.UDID, UsbmuxdConnectionType.Usb)) {
+                else if (Usbmux.IsDeviceConnected(LockdownClient.Udid, UsbmuxdConnectionType.Usb)) {
                     break;
                 }
                 else {
@@ -980,7 +980,7 @@ namespace Netimobiledevice.Backup
         protected virtual void OnError(Exception ex)
         {
             IsCancelling = true;
-            deviceDisconnected = Usbmux.IsDeviceConnected(LockdownClient.UDID);
+            deviceDisconnected = Usbmux.IsDeviceConnected(LockdownClient.Udid);
             LockdownClient.Logger.LogError($"Error in backup job: {ex.Message}");
             terminatingException = deviceDisconnected ? ex : new DeviceDisconnectedException();
             Error?.Invoke(this, new ErrorEventArgs(terminatingException));
@@ -1234,7 +1234,7 @@ namespace Netimobiledevice.Backup
                     }
 
                     // iOS 17 beta devices seem to give RemoteError for a fair number of file now?
-                        LockdownClient.Logger.LogWarning($"Failed to fully upload {file.LocalPath}. Device file name {file.DevicePath}. Reason: {msg}");
+                    LockdownClient.Logger.LogWarning($"Failed to fully upload {file.LocalPath}. Device file name {file.DevicePath}. Reason: {msg}");
 
                     OnFileTransferError(file);
                     return code;

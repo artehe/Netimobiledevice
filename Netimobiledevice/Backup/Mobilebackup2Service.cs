@@ -29,7 +29,7 @@ namespace Netimobiledevice.Backup
             }
 
             DictionaryNode opts = new DictionaryNode {
-                { "TargetIdentifier", new StringNode(Lockdown.UDID) }
+                { "TargetIdentifier", new StringNode(Lockdown.Udid) }
             };
 
             DictionaryNode backupDomain = Lockdown.GetValue("com.apple.mobile.backup", null)?.AsDictionaryNode() ?? new DictionaryNode();
@@ -50,7 +50,7 @@ namespace Netimobiledevice.Backup
 
         private static ServiceConnection GetServiceConnection(LockdownClient client)
         {
-            return client.StartService(SERVICE_NAME, useEscrowBag: true);
+            return client.StartLockdownService(SERVICE_NAME, useEscrowBag: true);
         }
 
         private void SendMessage(string message, DictionaryNode options)

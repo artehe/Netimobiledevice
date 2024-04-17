@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.HelperFiles;
+using Netimobiledevice.Lockdown.Pairing;
 using Netimobiledevice.NotificationProxy;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd;
@@ -13,31 +14,35 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown
 {
-    public class LockdownClient : IDisposable
+    public class LockdownClient : LockdownServiceProvider, IDisposable
     {
-        private const string DEFAULT_CLIENT_NAME = "Netimobiledevice";
-        private const ushort SERVICE_PORT = 62078;
+        public const string DEFAULT_CLIENT_NAME = "Netimobiledevice";
+        public const ushort SERVICE_PORT = 62078;
+        public const string SYSTEM_BUID = "30142955-444094379208051516";
 
-        private byte[] devicePublicKey = Array.Empty<byte>();
+        private DictionaryNode _allValues;
+        private byte[] _devicePublicKey;
+        private string _hostId;
         /// <summary>
         /// User agent to use when identifying for lockdownd
         /// </summary>
-        private readonly string label = DEFAULT_CLIENT_NAME;
-        private string hostId = string.Empty;
+        private readonly string _label;
         /// <summary>
         /// The internal logger
         /// </summary>
-        private readonly ILogger logger;
-        private readonly ConnectionMedium medium;
-        private readonly string? pairRecordCacheDir;
+        private readonly ILogger _logger;
+        private readonly ConnectionMedium _medium;
+        private ushort _port;
+        private string _sessionId;
+        private string _systemBuid;
+        private readonly UsbmuxdConnectionType _usbmuxdConnectionType;
+
+        protected readonly DirectoryInfo? _pairingRecordsCacheDirectory;
         /// <summary>
         /// The pairing record for the connected device
         /// </summary>
-        private DictionaryNode? pairRecord;
-        private ServiceConnection? service;
-        private string systemBUID = string.Empty;
-        private DictionaryNode allValues = new DictionaryNode();
-        private readonly UsbmuxdConnectionType usbmuxdConnectionType;
+        protected DictionaryNode? _pairRecord;
+        protected readonly ServiceConnection? _service;
 
         public string DeviceClass { get; private set; } = LockdownDeviceClass.UNKNOWN;
 
@@ -48,88 +53,63 @@ namespace Netimobiledevice.Lockdown
             set => SetValue("com.apple.mobile.wireless_lockdown", "EnableWifiConnections", new BooleanNode(value));
         }
 
-        public Version IOSVersion { get; private set; } = new Version();
+        public string Identifier { get; private set; }
 
         /// <summary>
         /// Is the connected iOS trusted/paired with this device.
         /// </summary>
         public bool IsPaired { get; private set; }
 
-        public ILogger Logger => logger;
+        public ILogger Logger => _logger;
 
-        /// <summary>
-        /// Get the internal device model identifier
-        /// </summary>
-        public string Product => GetValue("ProductType")?.AsStringNode().Value ?? string.Empty;
+        public string ProductFriendlyName => ModelIdentifier.GetDeviceModelName(ProductType);
 
-        public string ProductFriendlyName => ModelIdentifier.GetDeviceModelName(Product);
-
-        public string SerialNumber { get; private set; } = string.Empty;
-
-        public string UDID { get; private set; } = string.Empty;
+        public string SerialNumber { get; private set; }
 
         public string WifiMacAddress => GetValue("WiFiAddress")?.AsStringNode().Value ?? string.Empty;
 
-        private LockdownClient(string udid, string? pairRecordCacheDir, ConnectionMedium connectionMedium, ILogger logger)
-        {
-            this.logger = logger;
+        public override Version OsVersion => Version.Parse(_allValues["ProductVersion"].AsStringNode().Value);
 
-            UDID = udid;
-            medium = connectionMedium;
-            usbmuxdConnectionType = UsbmuxdConnectionType.Usb;
-            this.pairRecordCacheDir = pairRecordCacheDir;
-        }
-
-        private ServiceConnection CreateServiceConnection(ushort port)
+        /// <summary>
+        /// Create a LockdownClient instance
+        /// </summary>
+        /// <param name="service">lockdownd connection handler</param>
+        /// <param name="hostId">Used as the host identifier for the handshake</param>
+        /// <param name="identifier">Used as an identifier to look for the device pair record</param>
+        /// <param name="label">lockdownd user-agent</param>
+        /// <param name="systemBuid">System's unique identifier</param>
+        /// <param name="pair_record">Use this pair record instead of the default behavior (search in host/create our own)</param>
+        /// <param name="pairingRecordsCacheDirectory">Use the following location to search and save pair records</param>
+        /// <param name="port">lockdownd service port</param>
+        protected LockdownClient(ServiceConnection service, string hostId, string identifier = "", string label = DEFAULT_CLIENT_NAME, string systemBuid = SYSTEM_BUID,
+            DictionaryNode? pairRecord = null, DirectoryInfo? pairingRecordsCacheDirectory = null, ushort port = SERVICE_PORT, ILogger? logger = null) : base()
         {
-            return ServiceConnection.Create(medium, UDID, port, logger, usbmuxdConnectionType);
-        }
+            _logger = logger ?? NullLogger.Instance;
+            _service = service;
+            Identifier = identifier;
+            _label = label;
+            _hostId = hostId;
+            _systemBuid = systemBuid;
+            _pairRecord = pairRecord;
+            IsPaired = false;
+            _sessionId = string.Empty;
+            _pairingRecordsCacheDirectory = pairingRecordsCacheDirectory;
+            _port = port;
 
-        private DictionaryNode? GetItunesPairingRecord()
-        {
-            string filePath = $"{UDID}.plist";
-            if (OperatingSystem.IsMacOS()) {
-                filePath = Path.Combine("/var/db/lockdown/", filePath);
+            if (QueryType() != "com.apple.mobile.lockdown") {
+                throw new IncorrectModeException();
             }
-            else if (OperatingSystem.IsLinux()) {
-                filePath = Path.Combine("/var/lib/lockdown/", filePath);
-            }
-            else if (OperatingSystem.IsWindows()) {
-                filePath = Path.Combine("C:\\ProgramData\\Apple\\Lockdown", filePath);
+
+            _allValues = GetValue()?.AsDictionaryNode() ?? new DictionaryNode();
+
+            Udid = _allValues["UniqueDeviceID"].AsStringNode().Value;
+            ProductType = _allValues["ProductType"].AsStringNode().Value;
+
+            if (_allValues.TryGetValue("DevicePublicKey", out PropertyNode? devicePublicKeyNode)) {
+                _devicePublicKey = devicePublicKeyNode.AsDataNode().Value;
             }
             else {
-                throw new NotSupportedException("Getting paring record for this OS is not supported.");
-            }
-
-            try {
-                if (File.Exists(filePath)) {
-                    using (FileStream fs = File.OpenRead(filePath)) {
-                        return PropertyList.Load(fs).AsDictionaryNode();
-                    }
-                }
-            }
-            catch (UnauthorizedAccessException ex) {
-                logger.LogWarning($"Warning unauthorised access excpetion when trying to access itunes plist: {ex}");
-            }
-            return null;
-        }
-
-        private DictionaryNode? GetLocalPairingRecord()
-        {
-            logger.LogDebug("Looking for Netimobiledevice pairing record");
-            string filePath = $"{UDID}.plist";
-            if (!string.IsNullOrEmpty(pairRecordCacheDir)) {
-                filePath = Path.Combine(pairRecordCacheDir, filePath);
-            }
-
-            if (File.Exists(filePath)) {
-                using (FileStream fs = File.OpenRead(filePath)) {
-                    return PropertyList.Load(fs).AsDictionaryNode();
-                }
-            }
-            else {
-                logger.LogDebug($"No Netimobiledevice pairing record found for device {UDID}");
-                return null;
+                _devicePublicKey = Array.Empty<byte>();
             }
         }
 
@@ -142,8 +122,8 @@ namespace Netimobiledevice.Lockdown
             DictionaryNode options = new DictionaryNode {
                 { "Service", new StringNode(name) }
             };
-            if (useEscrowBag && pairRecord != null) {
-                options.Add("EscrowBag", pairRecord["EscrowBag"]);
+            if (useEscrowBag && _pairRecord != null) {
+                options.Add("EscrowBag", _pairRecord["EscrowBag"]);
             }
 
             DictionaryNode response = Request("StartService", options).AsDictionaryNode();
@@ -159,48 +139,10 @@ namespace Netimobiledevice.Lockdown
             return response;
         }
 
-        /// <summary>
-        /// Looks for an existing pair record for the connected device in the following order:
-        ///  - iTunes
-        ///  - Usbmuxd
-        ///  - Local Storage
-        /// </summary>
-        private void InitPreferredPairRecord()
-        {
-            if (pairRecord != null) {
-                // If we already have on then use that
-                return;
-            }
-
-            // First look for an iTunes pair record
-            pairRecord = GetItunesPairingRecord();
-            if (pairRecord != null) {
-                logger.LogDebug("Using iTunes pair record");
-                return;
-            }
-
-            // Second look for the usbmuxd pair record
-            UsbmuxConnection mux = UsbmuxConnection.Create(logger);
-            if (medium == ConnectionMedium.USBMUX && mux is PlistMuxConnection plistMuxConnection) {
-                pairRecord = plistMuxConnection.GetPairRecord(UDID);
-            }
-            mux.Close();
-            if (pairRecord != null) {
-                logger.LogDebug($"Using usbmuxd pair record for identifier: {UDID}");
-                return;
-            }
-
-            // Lastly look for a local pair record
-            pairRecord = GetLocalPairingRecord();
-            if (pairRecord != null) {
-                logger.LogDebug($"Using local pair record: {UDID}.plist");
-            }
-        }
-
         private PropertyNode Request(string request, DictionaryNode? options = null, bool verifyRequest = true)
         {
             DictionaryNode message = new DictionaryNode {
-                { "Label", new StringNode(label) },
+                { "Label", new StringNode(_label) },
                 { "Request", new StringNode(request) }
             };
             if (options != null) {
@@ -209,7 +151,7 @@ namespace Netimobiledevice.Lockdown
                 }
             }
 
-            DictionaryNode response = service?.SendReceivePlist(message)?.AsDictionaryNode() ?? new DictionaryNode();
+            DictionaryNode response = _service?.SendReceivePlist(message)?.AsDictionaryNode() ?? new DictionaryNode();
 
             if (verifyRequest && response["Request"].AsStringNode().Value != request) {
                 throw new LockdownException($"Incorrect response returned, as got {response["Request"].AsStringNode().Value} instead of {request}");
@@ -239,7 +181,7 @@ namespace Netimobiledevice.Lockdown
             }
             catch (LockdownException ex) {
                 if (ex.LockdownError == LockdownError.PairingDialogResponsePending) {
-                    logger.LogDebug("Waiting for user pairing dialog...");
+                    _logger.LogDebug("Waiting for user pairing dialog...");
                 }
                 throw;
             }
@@ -247,24 +189,24 @@ namespace Netimobiledevice.Lockdown
 
         private LockdownError Pair()
         {
-            devicePublicKey = GetValue(null, "DevicePublicKey")?.AsDataNode().Value ?? Array.Empty<byte>();
-            if (devicePublicKey == null || devicePublicKey.Length == 0) {
-                logger.LogDebug("Unable to retrieve DevicePublicKey");
-                service?.Close();
+            _devicePublicKey = GetValue(null, "DevicePublicKey")?.AsDataNode().Value ?? Array.Empty<byte>();
+            if (_devicePublicKey == null || _devicePublicKey.Length == 0) {
+                _logger.LogDebug("Unable to retrieve DevicePublicKey");
+                _service?.Close();
                 throw new FatalPairingException();
             }
 
-            logger.LogDebug("Creating host key & certificate");
-            (byte[] rootCertPem, byte[] privateKeyPem, byte[] deviceCertPem) = CertificateGenerator.GeneratePairingCertificates(devicePublicKey);
+            _logger.LogDebug("Creating host key & certificate");
+            (byte[] rootCertPem, byte[] privateKeyPem, byte[] deviceCertPem) = CertificateGenerator.GeneratePairingCertificates(_devicePublicKey);
 
             DictionaryNode newPairRecord = new DictionaryNode {
-                { "DevicePublicKey", new DataNode(devicePublicKey) },
+                { "DevicePublicKey", new DataNode(_devicePublicKey) },
                 { "DeviceCertificate", new DataNode(deviceCertPem) },
                 { "HostCertificate", new DataNode(rootCertPem) },
-                { "HostID", new StringNode(hostId) },
+                { "HostID", new StringNode(_hostId) },
                 { "RootCertificate", new DataNode(rootCertPem) },
                 { "WiFiMACAddress", new StringNode(WifiMacAddress) },
-                { "SystemBUID", new StringNode(systemBUID) }
+                { "SystemBUID", new StringNode(_systemBuid) }
             };
 
             DictionaryNode pairOptions = new DictionaryNode {
@@ -290,16 +232,16 @@ namespace Netimobiledevice.Lockdown
                 newPairRecord.Add("EscrowBag", pair["EscrowBag"]);
             }
 
-            pairRecord = newPairRecord;
-            WriteStorageFile($"{UDID}.plist", PropertyList.SaveAsByteArray(pairRecord, PlistFormat.Xml));
+            _pairRecord = newPairRecord;
+            WriteStorageFile($"{Udid}.plist", PropertyList.SaveAsByteArray(_pairRecord, PlistFormat.Xml));
 
-            if (medium == ConnectionMedium.USBMUX) {
-                byte[] recordData = PropertyList.SaveAsByteArray(pairRecord, PlistFormat.Xml);
+            if (_medium == ConnectionMedium.USBMUX) {
+                byte[] recordData = PropertyList.SaveAsByteArray(_pairRecord, PlistFormat.Xml);
 
-                UsbmuxConnection mux = UsbmuxConnection.Create(Logger);
+                UsbmuxConnection mux = UsbmuxConnection.Create(logger: Logger);
                 if (mux is PlistMuxConnection plistMuxConnection) {
-                    int deviceId = (int) (service?.GetUsbmuxdDevice()?.DeviceId ?? 0);
-                    plistMuxConnection.SavePairRecord(UDID, deviceId, recordData);
+                    ulong deviceId = _service?.MuxDevice?.DeviceId ?? 0;
+                    plistMuxConnection.SavePairRecord(Udid, deviceId, recordData);
                 }
                 mux.Close();
             }
@@ -315,44 +257,47 @@ namespace Netimobiledevice.Lockdown
 
         private bool ValidatePairing()
         {
-            try {
-                InitPreferredPairRecord();
-            }
-            catch (NotPairedException) {
-                return false;
-            }
-
-            if (pairRecord == null) {
-                return false;
-            }
-
-            if (IOSVersion < new Version("7.0") && DeviceClass != LockdownDeviceClass.WATCH) {
+            if (_pairRecord == null && !string.IsNullOrEmpty(Identifier)) {
                 try {
-                    DictionaryNode options = new DictionaryNode {
-                        { "PairRecord", pairRecord }
-                    };
-                    Request("ValidatePair", options);
+                    FetchPairRecord();
+                }
+                catch (NotPairedException) {
+                    IsPaired = false;
+                    return IsPaired;
+                }
+            }
+
+            if (_pairRecord == null) {
+                IsPaired = false;
+                return IsPaired;
+            }
+
+            if (OsVersion < new Version("7.0") && DeviceClass != LockdownDeviceClass.WATCH) {
+                try {
+                    Request("ValidatePair", new DictionaryNode { { "PairRecord", _pairRecord } });
                 }
                 catch (Exception) {
-                    return false;
+                    IsPaired = false;
+                    return IsPaired;
                 }
             }
 
-            hostId = pairRecord["HostID"].AsStringNode().Value;
-            systemBUID = pairRecord["SystemBUID"].AsStringNode().Value;
+            _hostId = _pairRecord["HostID"].AsStringNode().Value;
+            _systemBuid = _pairRecord["SystemBUID"].AsStringNode().Value;
 
             DictionaryNode startSession;
             try {
                 DictionaryNode options = new DictionaryNode {
-                    { "HostID", new StringNode(hostId) },
-                    { "SystemBUID", new StringNode(systemBUID) }
+                    { "HostID", new StringNode(_hostId) },
+                    { "SystemBUID", new StringNode(_systemBuid) }
                 };
                 startSession = Request("StartSession", options).AsDictionaryNode();
             }
             catch (LockdownException ex) {
                 if (ex.LockdownError == LockdownError.InvalidHostID) {
                     // No HostID means there is no such pairing record
-                    return false;
+                    IsPaired = false;
+                    return IsPaired;
                 }
                 else {
                     throw;
@@ -360,24 +305,82 @@ namespace Netimobiledevice.Lockdown
             }
 
             if (startSession.ContainsKey("EnableSessionSSL") && startSession["EnableSessionSSL"].AsBooleanNode().Value) {
-                service?.StartSSL(pairRecord["HostCertificate"].AsDataNode().Value, pairRecord["HostPrivateKey"].AsDataNode().Value);
+                _service?.StartSSL(_pairRecord["HostCertificate"].AsDataNode().Value, _pairRecord["HostPrivateKey"].AsDataNode().Value);
             }
 
             IsPaired = true;
+
+            // Reload data after pairing
+            _allValues = GetValue()?.AsDictionaryNode() ?? new DictionaryNode();
+            Udid = _allValues["UniqueDeviceID"].AsStringNode().Value;
+
             return IsPaired;
         }
 
         private void WriteStorageFile(string filename, byte[] data)
         {
-            if (pairRecordCacheDir != null) {
-                string file = Path.Combine(pairRecordCacheDir, filename);
+            if (_pairingRecordsCacheDirectory != null) {
+                string file = Path.Combine(_pairingRecordsCacheDirectory.FullName, filename);
                 File.WriteAllBytes(file, data);
             }
         }
 
+        protected void HandleAutoPair(bool autoPair, float timeout)
+        {
+            if (ValidatePairing()) {
+                return;
+            }
+
+            // The device is not paired yet
+            if (!autoPair) {
+                // pairing automatically was not requested
+                return;
+            }
+
+            PairDevice();
+
+            if (!ValidatePairing()) {
+                throw new FatalPairingException();
+            }
+        }
+
+        protected virtual void FetchPairRecord()
+        {
+            _pairRecord = PairRecords.GetPreferredPairRecord(Identifier, _pairingRecordsCacheDirectory, logger: Logger);
+        }
+
+        /// <summary>
+        /// Create a LockdownClient instance
+        /// </summary>
+        /// <param name="service">lockdownd connection handler</param>
+        /// <param name="identifier">Used as an identifier to look for the device pair record</param>
+        /// <param name="systemBuid">System's unique identifier</param>
+        /// <param name="label">lockdownd user-agent</param>
+        /// <param name="autopair">Attempt to pair with device (blocking) if not already paired</param>
+        /// <param name="pairTimeout">Timeout for autopair</param>
+        /// <param name="localHostname">Used as a seed to generate the HostID</param>
+        /// <param name="pairRecord">Use this pair record instead of the default behavior (search in host/create our own)</param>
+        /// <param name="pairingRecordsCacheFolder">Use the following location to search and save pair records</param>
+        /// <param name="port">lockdownd service port</param>
+        /// <returns>A new LockdownClient instance</returns>
+        public static LockdownClient Create(ServiceConnection service, string identifier = "", string systemBuid = SYSTEM_BUID, string label = DEFAULT_CLIENT_NAME,
+            bool autopair = true, float? pairTimeout = null, string localHostname = "", DictionaryNode? pairRecord = null, string pairingRecordsCacheFolder = "",
+            ushort port = SERVICE_PORT, ILogger? logger = null)
+        {
+            string hostId = PairRecords.GenerateHostId(localHostname);
+            DirectoryInfo pairingRecordsCacheDirectory = PairRecords.CreatePairingRecordsCacheFolder(pairingRecordsCacheFolder);
+
+            LockdownClient lockdownClient = new(service, hostId: hostId, identifier: identifier, label: label, systemBuid: systemBuid, pairRecord: pairRecord,
+                pairingRecordsCacheDirectory: pairingRecordsCacheDirectory, port: port, logger: logger);
+
+            lockdownClient.HandleAutoPair(autopair, pairTimeout ?? -1);
+            return lockdownClient;
+        }
+
+
         public void Dispose()
         {
-            service?.Dispose();
+            _service?.Dispose();
             GC.SuppressFinalize(this);
         }
 
@@ -535,37 +538,54 @@ namespace Netimobiledevice.Lockdown
             }
 
             // Now we are paied, reload data
-            allValues = GetValue()?.AsDictionaryNode() ?? new DictionaryNode();
-            UDID = allValues["UniqueDeviceID"].AsStringNode().Value;
+            _allValues = GetValue()?.AsDictionaryNode() ?? new DictionaryNode();
+            Udid = _allValues["UniqueDeviceID"].AsStringNode().Value;
             return IsPaired;
+        }
+
+        public virtual void SavePairRecord()
+        {
+            if (_pairingRecordsCacheDirectory != null) {
+                string pairRecordFilePath = Path.Combine(_pairingRecordsCacheDirectory.FullName, $"{Identifier}.plist");
+                if (_pairRecord != null) {
+                    File.WriteAllBytes(pairRecordFilePath, PropertyList.SaveAsByteArray(_pairRecord, PlistFormat.Xml));
+                }
+            }
         }
 
         public PropertyNode SetValue(string? domain, string? key, PropertyNode value)
         {
             DictionaryNode options = new DictionaryNode();
-
             if (!string.IsNullOrWhiteSpace(domain)) {
                 options.Add("Domain", new StringNode(domain));
             }
             if (!string.IsNullOrWhiteSpace(key)) {
                 options.Add("Key", new StringNode(key));
             }
-
             options.Add("Value", value);
-
             return Request("SetValue", options);
         }
 
-        public ServiceConnection StartService(string serviceName, bool useEscrowBag = false, bool useTrustedConnection = true)
+        /// <summary>
+        /// Used to establish a new ServiceConnection to a given port
+        /// </summary>
+        /// <param name="port"></param>
+        /// <returns></returns>
+        public virtual ServiceConnection CreateServiceConnection(ushort port)
         {
-            DictionaryNode attr = GetServiceConnectionAttributes(serviceName, useEscrowBag, useTrustedConnection).AsDictionaryNode();
+            throw new NotImplementedException();
+        }
+
+        public override ServiceConnection StartLockdownService(string name, bool useEscrowBag = false, bool useTrustedConnection = true)
+        {
+            DictionaryNode attr = GetServiceConnectionAttributes(name, useEscrowBag, useTrustedConnection).AsDictionaryNode();
             ServiceConnection serviceConnection = CreateServiceConnection((ushort) attr["Port"].AsIntegerNode().Value);
 
-            if (attr.ContainsKey("EnableServiceSSL") && attr["EnableServiceSSL"].AsBooleanNode().Value) {
-                if (pairRecord == null) {
-                    throw new Exception("Pair Record is null when it shouldn't be");
+            if (attr.TryGetValue("EnableServiceSSL", out PropertyNode? enableServiceSsl) && enableServiceSsl?.AsBooleanNode().Value == true) {
+                if (_pairRecord == null) {
+                    throw new FatalPairingException("Pair Record is null when it shouldn't be");
                 }
-                serviceConnection.StartSSL(pairRecord["HostCertificate"].AsDataNode().Value, pairRecord["HostPrivateKey"].AsDataNode().Value);
+                serviceConnection.StartSSL(_pairRecord["HostCertificate"].AsDataNode().Value, _pairRecord["HostPrivateKey"].AsDataNode().Value);
             }
             return serviceConnection;
         }
@@ -575,63 +595,15 @@ namespace Netimobiledevice.Lockdown
         /// </summary>
         public void Unpair()
         {
-            if (pairRecord != null) {
+            if (_pairRecord != null) {
                 DictionaryNode options = new DictionaryNode() {
-                    { "PairRecord", pairRecord },
+                    { "PairRecord", _pairRecord },
                     { "ProtocolVersion", new StringNode("2")}
                 };
                 Request("Unpair", options, true);
                 IsPaired = false;
-                pairRecord = null;
+                _pairRecord = null;
             }
-        }
-
-        /// <summary>
-        /// Create the LockdownClient
-        /// </summary>
-        /// <param name="udid">UDID of the device to connect to (over usbmux)</param>
-        /// <param name="autoPair">Should pairing with the device be automatically attempted</param>
-        /// <param name="connectionMedium">What medium should be used to connect to the lockdown client</param>
-        /// <param name="pairRecordCacheDir">Where local pair records are created and read from if needed</param>
-        public static LockdownClient CreateLockdownClient(string udid, bool autoPair = false, ConnectionMedium connectionMedium = ConnectionMedium.USBMUX, string? pairRecordCacheDir = null, ILogger? logger = null)
-        {
-            logger ??= NullLogger.Instance;
-            LockdownClient client = new LockdownClient(udid, pairRecordCacheDir, connectionMedium, logger);
-            client.service = ServiceConnection.Create(client.medium, client.UDID, SERVICE_PORT, logger, client.usbmuxdConnectionType);
-
-            if (client.QueryType() != "com.apple.mobile.lockdown") {
-                throw new IncorrectModeException();
-            }
-
-            client.allValues = client.GetValue()?.AsDictionaryNode() ?? new DictionaryNode();
-            client.UDID = client.allValues["UniqueDeviceID"].AsStringNode().Value;
-            client.IOSVersion = new Version(client.allValues["ProductVersion"].AsStringNode().Value);
-
-            try {
-                client.DeviceClass = LockdownDeviceClass.GetDeviceClass(client.allValues["DeviceClass"]);
-            }
-            catch (Exception) {
-                client.DeviceClass = LockdownDeviceClass.UNKNOWN;
-            }
-
-            if (string.IsNullOrEmpty(client.UDID) && client.medium == ConnectionMedium.USBMUX) {
-                // Attempt get identifier from mux device serial
-                client.UDID = client.service.GetUsbmuxdDevice()?.Serial ?? string.Empty;
-            }
-            if (string.IsNullOrEmpty(client.UDID) && !string.IsNullOrEmpty(udid)) {
-                // Attempt get identifier from queried udid
-                client.UDID = udid;
-            }
-
-            // If autoPair is true then attempt to pair with the device otherwise just check the status of pairing.
-            if (autoPair) {
-                client.PairDevice();
-            }
-            else {
-                client.ValidatePairing();
-            }
-
-            return client;
         }
     }
 }

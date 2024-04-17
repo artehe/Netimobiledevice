@@ -28,9 +28,10 @@ namespace Netimobiledevice.Lockdown
         /// The internal logger
         /// </summary>
         private readonly ILogger logger;
-        private readonly UsbmuxdDevice? muxDevice;
         private Stream networkStream;
         private readonly byte[] receiveBuffer = new byte[MAX_READ_SIZE];
+
+        public UsbmuxdDevice? MuxDevice { get; private set; }
 
         private ServiceConnection(Socket sock, ILogger logger, UsbmuxdDevice? muxDevice = null)
         {
@@ -38,29 +39,28 @@ namespace Netimobiledevice.Lockdown
 
             networkStream = new NetworkStream(sock, true);
             // Usbmux connections contain additional information associated with the current connection
-            this.muxDevice = muxDevice;
+            MuxDevice = muxDevice;
         }
 
-        private static ServiceConnection CreateUsingTcp(string hostname, ushort port, ILogger logger)
+        internal static ServiceConnection CreateUsingTcp(string hostname, ushort port, ILogger? logger = null)
         {
             Socket sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.IP);
             sock.Connect(hostname, port);
             return new ServiceConnection(sock, logger);
         }
 
-        private static ServiceConnection CreateUsingUsbmux(string udid, ushort port, ILogger logger, UsbmuxdConnectionType? usbmuxdConnectionType = null)
+        internal static ServiceConnection CreateUsingUsbmux(string udid, ushort port, UsbmuxdConnectionType? connectionType = null, string usbmuxAddress = "", ILogger? logger = null)
         {
-            UsbmuxdDevice? targetDevice = Usbmux.GetDevice(udid, usbmuxdConnectionType);
+            UsbmuxdDevice? targetDevice = Usbmux.GetDevice(udid, connectionType: connectionType, usbmuxAddress: usbmuxAddress);
             if (targetDevice == null) {
                 if (!string.IsNullOrEmpty(udid)) {
                     throw new ConnectionFailedException();
                 }
                 throw new NoDeviceConnectedException();
             }
-            Socket sock = targetDevice.Connect(port, logger);
+            Socket sock = targetDevice.Connect(port, usbmuxAddress: usbmuxAddress, logger);
             return new ServiceConnection(sock, logger, targetDevice);
         }
-
 
         private bool UserCertificateValidationCallback(object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors)
         {
@@ -72,26 +72,11 @@ namespace Netimobiledevice.Lockdown
             networkStream.Close();
         }
 
-        public static ServiceConnection Create(ConnectionMedium medium, string identifier, ushort port, ILogger logger, UsbmuxdConnectionType? usbmuxdConnectionType = null)
-        {
-            if (medium == ConnectionMedium.TCP) {
-                return CreateUsingTcp(identifier, port, logger);
-            }
-            else {
-                return CreateUsingUsbmux(identifier, port, logger, usbmuxdConnectionType);
-            }
-        }
-
         public void Dispose()
         {
             Close();
             networkStream.Dispose();
             GC.SuppressFinalize(this);
-        }
-
-        public UsbmuxdDevice? GetUsbmuxdDevice()
-        {
-            return muxDevice;
         }
 
         public byte[] Receive(int length = 4096)

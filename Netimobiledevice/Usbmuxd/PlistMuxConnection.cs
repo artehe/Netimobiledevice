@@ -105,6 +105,19 @@ namespace Netimobiledevice.Usbmuxd
             }
         }
 
+        /// <summary>
+        /// get SystemBUID
+        /// </summary>
+        /// <returns></returns>
+        public string GetBuid()
+        {
+            DictionaryNode msg = new DictionaryNode() {
+                { "MessageType", new StringNode("ReadBUID") }
+            };
+            Send(msg);
+            return ReceivePlist(Tag - 1).Plist.AsDictionaryNode()["BUID"].AsStringNode().Value;
+        }
+
         public override UsbmuxdResult Listen()
         {
             connectionTimeout = -1;
@@ -125,12 +138,12 @@ namespace Netimobiledevice.Usbmuxd
             return response;
         }
 
-        public void SavePairRecord(string serial, int deviceId, byte[] recordData)
+        public void SavePairRecord(string identifier, ulong deviceId, byte[] recordData)
         {
             // Serials are saved inside usbmuxd without '-'
             DictionaryNode message = new DictionaryNode {
                 { "MessageType", new StringNode("SavePairRecord") },
-                { "PairRecordID", new StringNode(serial) },
+                { "PairRecordID", new StringNode(identifier) },
                 { "PairRecordData", new DataNode(recordData) },
                 { "DeviceID", new IntegerNode(deviceId) }
             };

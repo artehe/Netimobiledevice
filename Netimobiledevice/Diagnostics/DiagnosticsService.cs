@@ -111,11 +111,11 @@ namespace Netimobiledevice.Diagnostics
         {
             ServiceConnection service;
             try {
-                service = client.StartService(SERVICE_NAME_NEW);
+                service = client.StartLockdownService(SERVICE_NAME_NEW);
             }
             catch (Exception ex) {
                 client.Logger.LogWarning($"Failed to star the new service, falling back to the old service: {ex.Message}");
-                service = client.StartService(SERVICE_NAME_OLD);
+                service = client.StartLockdownService(SERVICE_NAME_OLD);
             }
 
             return service;
