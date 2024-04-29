@@ -37,7 +37,7 @@ public class Program
             return;
         }
 
-        logger.LogDebug($"There's {devices.Count} devices connected");
+        logger.LogDebug("There's {deviceCount} devices connected", devices.Count);
         foreach (UsbmuxdDevice device in devices) {
             Console.WriteLine($"Device found: {device.DeviceId} - {device.Serial}");
         }
@@ -86,7 +86,7 @@ public class Program
                     Dictionary<string, ulong> storageInfo = diagnosticsService.GetStorageDetails();
                     ulong totalDiskValue = 0;
                     storageInfo?.TryGetValue("TotalDiskCapacity", out totalDiskValue);
-                    logger.LogInformation($"Total disk capacity in bytes: {totalDiskValue} bytes");
+                    logger.LogInformation("Total disk capacity in bytes: {totalDiskValue} bytes", totalDiskValue);
                 }
                 catch (DeprecatedException) {
                     logger.LogError("This functionality has been deprecated as of iOS 17.4 (beta)");
@@ -97,7 +97,7 @@ public class Program
         using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
             string product = lockdown.ProductType;
             string productName = lockdown.ProductFriendlyName;
-            logger.LogInformation($"Connected device is a {productName} ({product})");
+            logger.LogInformation("Connected device is a {productName} ({product})", productName, product);
         }
 
         using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
@@ -170,7 +170,7 @@ public class Program
             using (SyslogService syslog = new SyslogService(lockdown)) {
                 int counter = 0;
                 foreach (string line in syslog.Watch()) {
-                    logger.LogDebug(line);
+                    logger.LogDebug("{line}", line);
                     if (counter >= 100) {
                         break;
                     }
@@ -181,8 +181,8 @@ public class Program
             // Get the list of directories in the Connected iOS device.
             using (AfcService afcService = new AfcService(lockdown)) {
                 List<string> pathList = afcService.GetDirectoryList();
-                logger.LogInformation("Path's available in the connected iOS device are as below." + Environment.NewLine);
-                logger.LogInformation(string.Join(", " + Environment.NewLine, pathList));
+                logger.LogInformation("Path's available in the connected iOS device are as below.\n");
+                logger.LogInformation("{pathList}", string.Join(", " + Environment.NewLine, pathList));
             }
         }
 

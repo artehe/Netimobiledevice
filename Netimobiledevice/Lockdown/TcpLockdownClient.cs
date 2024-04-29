@@ -7,7 +7,7 @@ namespace Netimobiledevice.Lockdown
 {
     public class TcpLockdownClient : LockdownClient
     {
-        private string _hostname;
+        private readonly string _hostname;
 
         public TcpLockdownClient(ServiceConnection service, string hostId, string hostname = "", string identifier = "", string label = DEFAULT_CLIENT_NAME,
             string systemBuid = SYSTEM_BUID, DictionaryNode? pairRecord = null, DirectoryInfo? pairingRecordsCacheDirectory = null, ushort port = SERVICE_PORT,
@@ -40,7 +40,7 @@ namespace Netimobiledevice.Lockdown
             ushort port = SERVICE_PORT, ILogger? logger = null)
         {
             string hostId = PairRecords.GenerateHostId(localHostname);
-            DirectoryInfo pairingRecordsCacheDirectory = PairRecords.CreatePairingRecordsCacheFolder(pairingRecordsCacheFolder);
+            DirectoryInfo? pairingRecordsCacheDirectory = PairRecords.CreatePairingRecordsCacheFolder(pairingRecordsCacheFolder);
 
             TcpLockdownClient lockdownClient = new(service, hostId: hostId, hostname: hostname, identifier: identifier, label: label, systemBuid: systemBuid, pairRecord: pairRecord,
                 pairingRecordsCacheDirectory: pairingRecordsCacheDirectory, port: port, logger: logger);

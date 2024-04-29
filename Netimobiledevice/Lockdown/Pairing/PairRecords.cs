@@ -72,12 +72,17 @@ namespace Netimobiledevice.Lockdown.Pairing
             return Guid.NewGuid().ToString().ToUpperInvariant();
         }
 
-        public static DirectoryInfo CreatePairingRecordsCacheFolder(string pairingRecordsCacheFolder = "")
+        public static DirectoryInfo? CreatePairingRecordsCacheFolder(string pairingRecordsCacheFolder = "")
         {
             if (string.IsNullOrEmpty(pairingRecordsCacheFolder)) {
                 pairingRecordsCacheFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Netimobiledevice");
             }
-            Directory.CreateDirectory(pairingRecordsCacheFolder);
+            try {
+                Directory.CreateDirectory(pairingRecordsCacheFolder);
+            }
+            catch (Exception) {
+                return null;
+            }
             return new DirectoryInfo(pairingRecordsCacheFolder);
         }
 

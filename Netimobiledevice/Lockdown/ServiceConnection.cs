@@ -268,7 +268,7 @@ namespace Netimobiledevice.Lockdown
                 sslStream.AuthenticateAsClient(string.Empty, new X509CertificateCollection() { new X509Certificate2(cert.Export(X509ContentType.Pkcs12)) }, SslProtocols.None, false);
             }
             catch (AuthenticationException ex) {
-                logger.LogError($"SSL authentication failed: {ex}");
+                logger.LogError(ex, "SSL authentication failed");
             }
 
             networkStream = sslStream;

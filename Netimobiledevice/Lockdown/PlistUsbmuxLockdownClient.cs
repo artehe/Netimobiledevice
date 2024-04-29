@@ -41,12 +41,12 @@ namespace Netimobiledevice.Lockdown
         /// <param name="pairingRecordsCacheFolder">Use the following location to search and save pair records</param>
         /// <param name="port">lockdownd service port</param>
         /// <returns>A new LockdownClient instance</returns>
-        public static PlistUsbmuxLockdownClient Create(ServiceConnection service, string identifier = "", string systemBuid = SYSTEM_BUID, string label = DEFAULT_CLIENT_NAME,
+        public static new PlistUsbmuxLockdownClient Create(ServiceConnection service, string identifier = "", string systemBuid = SYSTEM_BUID, string label = DEFAULT_CLIENT_NAME,
             bool autopair = true, float? pairTimeout = null, string localHostname = "", DictionaryNode? pairRecord = null, string pairingRecordsCacheFolder = "",
             ushort port = SERVICE_PORT, string usbmuxAddress = "", ILogger? logger = null)
         {
             string hostId = PairRecords.GenerateHostId(localHostname);
-            DirectoryInfo pairingRecordsCacheDirectory = PairRecords.CreatePairingRecordsCacheFolder(pairingRecordsCacheFolder);
+            DirectoryInfo? pairingRecordsCacheDirectory = PairRecords.CreatePairingRecordsCacheFolder(pairingRecordsCacheFolder);
 
             PlistUsbmuxLockdownClient lockdownClient = new(service, hostId: hostId, identifier: identifier, label: label, systemBuid: systemBuid, pairRecord: pairRecord,
                 pairingRecordsCacheDirectory: pairingRecordsCacheDirectory, port: port, usbmuxAddress: usbmuxAddress, logger: logger);

@@ -7,7 +7,7 @@ namespace Netimobiledevice.Lockdown
 {
     public class UsbmuxLockdownClient : LockdownClient
     {
-        private string _usbmuxAddress;
+        private readonly string _usbmuxAddress;
 
         public UsbmuxLockdownClient(ServiceConnection service, string hostId, string identifier = "", string label = DEFAULT_CLIENT_NAME, string systemBuid = SYSTEM_BUID,
             DictionaryNode? pairRecord = null, DirectoryInfo? pairingRecordsCacheDirectory = null, ushort port = SERVICE_PORT, string usbmuxAddress = "", ILogger? logger = null)
@@ -40,7 +40,7 @@ namespace Netimobiledevice.Lockdown
             ushort port = SERVICE_PORT, string usbmuxAddress = "", ILogger? logger = null)
         {
             string hostId = PairRecords.GenerateHostId(localHostname);
-            DirectoryInfo pairingRecordsCacheDirectory = PairRecords.CreatePairingRecordsCacheFolder(pairingRecordsCacheFolder);
+            DirectoryInfo? pairingRecordsCacheDirectory = PairRecords.CreatePairingRecordsCacheFolder(pairingRecordsCacheFolder);
 
             UsbmuxLockdownClient lockdownClient = new(service, hostId: hostId, identifier: identifier, label: label, systemBuid: systemBuid, pairRecord: pairRecord,
                 pairingRecordsCacheDirectory: pairingRecordsCacheDirectory, port: port, usbmuxAddress: usbmuxAddress, logger: logger);

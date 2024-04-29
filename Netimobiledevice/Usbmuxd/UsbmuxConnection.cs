@@ -65,11 +65,11 @@ namespace Netimobiledevice.Usbmuxd
             byte[] headerBuffer = Sock.Receive(Marshal.SizeOf(header));
             int recievedLength = headerBuffer.Length;
             if (recievedLength < 0) {
-                logger.LogError($"Error receiving packet: {recievedLength}");
+                logger.LogError("Error receiving packet: {recievedLength}", recievedLength);
                 return recievedLength;
             }
             if (recievedLength < Marshal.SizeOf(header)) {
-                logger.LogError($"Received packet is too small, got {recievedLength} bytes!");
+                logger.LogError("Received packet is too small, got {recievedLength} bytes!", recievedLength);
                 return recievedLength;
             }
 
@@ -89,7 +89,7 @@ namespace Netimobiledevice.Usbmuxd
                     rsize += (uint) res;
                 } while (rsize < payloadSize);
                 if (rsize != payloadSize) {
-                    logger.LogError($"Error receiving payload of size {payloadSize} (bytes received: {rsize})");
+                    logger.LogError("Error receiving payload of size {payloadSize} (bytes received: {rsize})", payloadSize, rsize);
                     throw new UsbmuxException("Bad Message");
                 }
             }
