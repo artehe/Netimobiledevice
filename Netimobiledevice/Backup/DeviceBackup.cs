@@ -658,7 +658,6 @@ namespace Netimobiledevice.Backup
             int errorCode = 0;
             UpdateProgressForMessage(msg, 2);
 
-            int nlen = 0;
             long backupRealSize = 0;
             long backupTotalSize = (long) msg[3].AsIntegerNode().Value;
             if (backupTotalSize > 0) {
@@ -670,7 +669,7 @@ namespace Netimobiledevice.Backup
                 if (backupFile != null) {
                     LockdownClient.Logger.LogDebug($"Receiving file {backupFile.BackupPath}");
                     OnBeforeReceivingFile(backupFile);
-                    ResultCode code = ReceiveFile(backupFile, backupTotalSize, ref backupRealSize, out nlen);
+                    ResultCode code = ReceiveFile(backupFile, backupTotalSize, ref backupRealSize);
                     if (code == ResultCode.Success) {
                         OnFileReceived(backupFile);
                     }
@@ -1168,7 +1167,7 @@ namespace Netimobiledevice.Backup
         /// <param name="newSnapshotState">The new snapshot state.</param>
         protected virtual void OnSnapshotStateChanged(SnapshotState oldSnapshotState, SnapshotState newSnapshotState)
         {
-            LockdownClient.Logger.LogDebug($"Snapshot state changed: {newSnapshotState}");
+            LockdownClient.Logger.LogDebug("Snapshot state changed: {newSnapshotState}", newSnapshotState);
             OnStatus($"{newSnapshotState} ...");
             if (newSnapshotState == SnapshotState.Finished) {
                 IsFinished = true;
@@ -1182,7 +1181,7 @@ namespace Netimobiledevice.Backup
         protected virtual void OnStatus(string message)
         {
             Status?.Invoke(this, new StatusEventArgs(message));
-            LockdownClient.Logger.LogDebug($"OnStatus: {message}");
+            LockdownClient.Logger.LogDebug("OnStatus: {message}", message);
         }
 
         /// <summary>
@@ -1203,12 +1202,13 @@ namespace Netimobiledevice.Backup
         /// <param name="file">The BackupFile to receive.</param>
         /// <param name="totalSize">The total size indicated in the device message.</param>
         /// <param name="realSize">The actual bytes transferred.</param>
-        /// <param name="size">The number of bytes left to read.</param>
         /// <param name="skip">Indicates whether to skip or save the file.</param>
         /// <returns>The result code of the transfer.</returns>
-        protected virtual ResultCode ReceiveFile(BackupFile file, long totalSize, ref long realSize, out int size, bool skip = false)
+        protected virtual ResultCode ReceiveFile(BackupFile file, long totalSize, ref long realSize, bool skip = false)
         {
-            size = 0;
+            // Size is the number of bytes left to read
+            int size = 0;
+
             const int bufferLen = 32 * 1024;
             ResultCode lastCode = ResultCode.Success;
             if (File.Exists(file.LocalPath)) {
@@ -1273,7 +1273,7 @@ namespace Netimobiledevice.Backup
             OnFileReceiving(backupFile, infoPlistData);
 
             TimeSpan elapsed = DateTime.Now - startTime;
-            LockdownClient.Logger.LogDebug($"Creating Info.plist took {elapsed}");
+            LockdownClient.Logger.LogDebug("Creating Info.plist took {elapsed}", elapsed);
 
             OnFileReceived(backupFile);
         }

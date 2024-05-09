@@ -1,9 +1,12 @@
-﻿using System;
+﻿using Microsoft.Extensions.Logging;
+using System;
 
 namespace Netimobiledevice.Lockdown.Services
 {
     public abstract class BaseService : IDisposable
     {
+        protected ILogger Logger => Lockdown.Logger;
+
         /// <summary>
         /// Name of the service to use
         /// </summary>

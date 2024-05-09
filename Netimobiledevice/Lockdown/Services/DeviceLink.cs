@@ -1,4 +1,5 @@
-﻿using Netimobiledevice.Plist;
+﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.Plist;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,7 +23,12 @@ namespace Netimobiledevice.Lockdown.Services
                 new StringNode("DLMessageDisconnect"),
                 new StringNode("___EmptyParameterString___")
             };
-            Service.SendPlist(message, PlistFormat.Binary);
+            try {
+                Service.SendPlist(message, PlistFormat.Binary);
+            }
+            catch (ObjectDisposedException) {
+                Logger.LogWarning("Trying to send disconnect from disposed service");
+            }
         }
 
         protected async Task<ArrayNode> DeviceLinkReceiveMessage(CancellationToken cancellationToken)
