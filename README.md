@@ -64,7 +64,8 @@ private static void SubscriptionCallback(UsbmuxdDevice device, UsbmuxdConnection
 Get the app icon displayed on the home screen as a PNG:
 
 ```csharp
-using (LockdownClient lockdown = LockdownClient.CreateLockdownClient("60653a518d33eb53b3ca2322de3f44e162a42069")) {
+using (UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux("60653a518d33eb53b3ca2322de3f44e162a42069"))
+{
     SpringBoardServicesService springBoard = new SpringBoardServicesService(lockdown);
     PropertyNode png = springBoard.GetIconPNGData("net.whatsapp.WhatsApp");
 }
@@ -73,7 +74,7 @@ using (LockdownClient lockdown = LockdownClient.CreateLockdownClient("60653a518d
 Create an iTunes backup:
 
 ```csharp
-using (LockdownClient lockdown = LockdownClient.CreateLockdownClient("60653a518d33eb53b3ca2322de3f44e162a42069")) {
+using (UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux("60653a518d33eb53b3ca2322de3f44e162a42069")) {
     using (DeviceBackup backupJob = new DeviceBackup(lockdown, @"C:\Users\User\Downloads")) {
         backupJob.BeforeReceivingFile += BackupJob_BeforeReceivingFile;
         backupJob.Completed += BackupJob_Completed;
@@ -94,7 +95,7 @@ using (LockdownClient lockdown = LockdownClient.CreateLockdownClient("60653a518d
 Pair an iOS device asyncronously:
 
 ```csharp
-using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty)) {
+using (UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux(testDevice?.Serial ?? string.Empty)) {
     Progress<PairingState> progress = new();
     progress.ProgressChanged += Progress_ProgressChanged;
     await lockdown.PairAsync(progress);
@@ -112,7 +113,7 @@ Get structured logging information using the logger of your choice (provided it 
 using Microsoft.Extensions.Logging;
 
 using ILoggerFactory factory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Debug).AddConsole());
-using (LockdownClient lockdown = LockdownClient.CreateLockdownClient(testDevice?.Serial ?? string.Empty, logger: factory.CreateLogger("Netimobiledevice"))) {
+using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(testDevice?.Serial ?? string.Empty, logger: factory.CreateLogger("Netimobiledevice"))) {
     using (DeviceBackup backupJob = new DeviceBackup(lockdown, path)) {
         await backupJob.Start(tokenSource.Token);
     }
