@@ -92,6 +92,46 @@ public class Program
                     logger.LogError("This functionality has been deprecated as of iOS 17.4 (beta)");
                 }
             }
+
+            using (DiagnosticsService diagnosticsService = new DiagnosticsService(lockdown)) {
+                try {
+                    Dictionary<string, object> batteryInfo = diagnosticsService.GetBatteryDetails();
+                    ulong batteryPercentage = 0;
+                    if (batteryInfo != null && batteryInfo.TryGetValue("BatteryCurrentCapacity", out var batteryCurrentCapacity)) {
+                        if (batteryCurrentCapacity is ulong capacity) {
+                            batteryPercentage = capacity;
+                        }
+                        else if (batteryCurrentCapacity is int capacityInt) {
+                            batteryPercentage = (ulong) capacityInt;
+                        }
+                        else if (batteryCurrentCapacity is uint capacityUInt) {
+                            batteryPercentage = capacityUInt;
+                        }
+                    }
+                    logger.LogInformation("Current battery percentage: {percent}", batteryPercentage);
+
+                    bool isMobileCharging = false;
+                    if (batteryInfo != null && batteryInfo.TryGetValue("BatteryIsCharging", out var chargingStatus) && chargingStatus is bool charging) {
+                        isMobileCharging = charging;
+                    }
+                    logger.LogInformation("Battery is charging: {isCharging}", isMobileCharging);
+
+                    bool isFullyCharged = false;
+                    if (batteryInfo != null && batteryInfo.TryGetValue("BatteryIsFullyCharged", out var fullyChargedStatus) && fullyChargedStatus is bool fullyCharged) {
+                        isFullyCharged = fullyCharged;
+                    }
+                    logger.LogInformation("Battery is fully charged: {isFullyCharged}", isFullyCharged);
+
+                    string batterySerialNumber = string.Empty;
+                    if (batteryInfo != null && batteryInfo.TryGetValue("BatterySerialNumber", out var serialNumber) && serialNumber is string serial) {
+                        batterySerialNumber = serial;
+                    }
+                    logger.LogInformation("Battery serial number: {serialNumber}", batterySerialNumber);
+                }
+                catch (Exception ex) {
+                    logger.LogError("Error in getting battery details: " + ex.Message);
+                }
+            }
         }
 
         using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
