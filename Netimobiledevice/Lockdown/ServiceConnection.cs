@@ -95,6 +95,9 @@ namespace Netimobiledevice.Lockdown
                 }
 
                 int bytesRead = networkStream.Read(receiveBuffer, 0, readSize);
+                if (bytesRead == 0) { // If we don't get any bytes, the network connection was broken
+                    break;
+                }
                 totalBytesRead += bytesRead;
 
                 buffer.AddRange(receiveBuffer.Take(bytesRead));
@@ -134,6 +137,9 @@ namespace Netimobiledevice.Lockdown
                         throw new TimeoutException("Timeout waiting for message from service");
                     }
                     bytesRead = await result;
+                    if (bytesRead == 0) { // If we don't get any bytes, the network connection was broken
+                        break;
+                    }
                 }
                 else {
                     bytesRead = await networkStream.ReadAsync(receiveBuffer.AsMemory(0, readSize), cancellationToken);
