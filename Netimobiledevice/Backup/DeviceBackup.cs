@@ -39,6 +39,8 @@ namespace Netimobiledevice.Backup
             "iTunesPrefs.plist"
         };
 
+        private CancellationTokenSource? internalCancellationTokenSource;
+
         /// <summary>
         /// The AFC service.
         /// </summary>
@@ -512,7 +514,7 @@ namespace Netimobiledevice.Backup
             }
 
             // Check if the execution arrived here due to a device disconnection.
-            if (terminatingException == null && !Usbmux.IsDeviceConnected(LockdownClient.Udid)) {
+            if (terminatingException == null || !Usbmux.IsDeviceConnected(LockdownClient.Udid)) {
                 throw new DeviceDisconnectedException();
             }
 
@@ -978,9 +980,12 @@ namespace Netimobiledevice.Backup
         /// <param name="ex"></param>
         protected virtual void OnError(Exception ex)
         {
+            LockdownClient.Logger.LogError(ex, "Error in backup job");
+
             IsCancelling = true;
+            internalCancellationTokenSource?.Cancel();
+
             deviceDisconnected = Usbmux.IsDeviceConnected(LockdownClient.Udid);
-            LockdownClient.Logger.LogError($"Error in backup job: {ex.Message}");
             terminatingException = deviceDisconnected ? ex : new DeviceDisconnectedException();
             Error?.Invoke(this, new ErrorEventArgs(terminatingException));
         }
@@ -1306,8 +1311,9 @@ namespace Netimobiledevice.Backup
         /// </summary>
         public async Task Start(CancellationToken cancellationToken = default)
         {
+            internalCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             if (!InProgress) {
-                await CreateBackup(cancellationToken);
+                await CreateBackup(internalCancellationTokenSource.Token);
             }
         }
 
@@ -1319,6 +1325,7 @@ namespace Netimobiledevice.Backup
             if (InProgress && !IsStopping) {
                 IsCancelling = true;
                 userCancelled = true;
+                internalCancellationTokenSource?.Cancel();
             }
         }
     }
