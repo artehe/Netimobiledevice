@@ -76,7 +76,7 @@ namespace Netimobiledevice.Plist
         /// </returns>
         internal override string ToXmlString()
         {
-            return Value.ToUniversalTime().ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss.ffffffZ", CultureInfo.InvariantCulture);
+            return Value.ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss.ffffffZ", CultureInfo.InvariantCulture);
         }
 
         /// <summary>
@@ -86,7 +86,7 @@ namespace Netimobiledevice.Plist
         {
             TimeSpan ts = Value - MacEpoch;
             byte[] buf = EndianBitConverter.BigEndian.GetBytes(ts.TotalSeconds);
-            stream.Write(buf, 0, buf.Length);
+            stream.Write(buf);
         }
     }
 }
