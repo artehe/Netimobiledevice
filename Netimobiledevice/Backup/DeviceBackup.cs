@@ -513,9 +513,11 @@ namespace Netimobiledevice.Backup
                 }
             }
 
-            // Check if the execution arrived here due to a device disconnection.
-            if (terminatingException == null || !Usbmux.IsDeviceConnected(LockdownClient.Udid)) {
-                throw new DeviceDisconnectedException();
+            // Check if the execution arrived here due to a device disconnection, but skip if the scan has finished
+            if (!IsFinished) {
+                if (terminatingException == null || !Usbmux.IsDeviceConnected(LockdownClient.Udid)) {
+                    throw new DeviceDisconnectedException();
+                }
             }
 
             LockdownClient.Logger.LogInformation($"Finished message loop. Cancelling = {IsCancelling}, Finished = {IsFinished}, Errored = {terminatingException != null}");

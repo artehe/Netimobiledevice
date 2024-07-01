@@ -123,7 +123,7 @@ public class XmlWriterTests
             // check that boolean was written out without a space per spec
             using (var reader = new StreamReader(outStream)) {
                 string contents = reader.ReadToEnd();
-                Assert.IsTrue(contents.Contains($"<ustring>{utf16value}</ustring>"));
+                Assert.IsTrue(contents.Contains($"<string>{utf16value}</string>"));
             }
         }
     }
@@ -158,5 +158,21 @@ public class XmlWriterTests
         Assert.AreEqual(request, reReadNode["Request"].AsStringNode().Value);
         Assert.AreEqual(messageFilter, (int) reReadNode["MessageFilter"].AsIntegerNode().Value);
         Assert.AreEqual(pid, (int) reReadNode["Pid"].AsIntegerNode().Value);
+    }
+
+    [TestMethod]
+    public void HandlesUniqueCharacters()
+    {
+        ArrayNode array = new() {
+            new StringNode("&"),
+            new StringNode("<"),
+            new StringNode(">")
+        };
+
+        byte[] plistBytes = PropertyList.SaveAsByteArray(array, PlistFormat.Xml);
+        ArrayNode reReadArr = PropertyList.LoadFromByteArray(plistBytes).AsArrayNode();
+        Assert.AreEqual(array[0].AsStringNode().Value, reReadArr[0].AsStringNode().Value);
+        Assert.AreEqual(array[1].AsStringNode().Value, reReadArr[1].AsStringNode().Value);
+        Assert.AreEqual(array[2].AsStringNode().Value, reReadArr[2].AsStringNode().Value);
     }
 }

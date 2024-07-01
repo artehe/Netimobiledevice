@@ -83,5 +83,70 @@ public class XmlReaderTests
             }
         }
     }
+
+    [TestMethod]
+    public void HandleEmptyDictionary()
+    {
+        using (Stream stream = TestFileHelper.GetTestFileStream("TestFiles/EmptyDictionaryXml.plist")) {
+            try {
+                DictionaryNode rootNode = PropertyList.Load(stream).AsDictionaryNode();
+
+                Assert.IsNotNull(rootNode);
+                Assert.AreEqual(4, rootNode.Count);
+
+                // An empty dictionary in the root
+                Assert.IsInstanceOfType<DictionaryNode>(rootNode["{}"]);
+                DictionaryNode dict = rootNode["{}"].AsDictionaryNode();
+
+                Assert.IsNotNull(dict);
+                Assert.AreEqual(0, dict.Count);
+
+                // an empty dictionary that is nested
+                dict = rootNode["{\"foo\":{\"bar\":{\"quux\":{}}}}"].AsDictionaryNode();
+                Assert.IsNotNull(dict);
+
+                dict = dict["foo"].AsDictionaryNode();
+                Assert.IsNotNull(dict);
+
+                dict = dict["bar"].AsDictionaryNode();
+                Assert.IsNotNull(dict);
+
+                dict = dict["quux"].AsDictionaryNode();
+                Assert.IsNotNull(dict);
+
+                Assert.AreEqual(0, dict.Count);
+            }
+            catch (PlistFormatException ex) {
+                Assert.Fail(ex.Message);
+            }
+        }
+    }
+
+
+    [TestMethod]
+    public void HandleBooleans()
+    {
+        using (Stream stream = TestFileHelper.GetTestFileStream("TestFiles/BooleansXml.plist")) {
+            try {
+                DictionaryNode rootNode = PropertyList.Load(stream).AsDictionaryNode();
+
+                Assert.IsNotNull(rootNode);
+                Assert.AreEqual(2, rootNode.Count);
+
+                // true node
+                BooleanNode node = rootNode["foo"].AsBooleanNode();
+                Assert.IsNotNull(node);
+                Assert.IsTrue(node.Value);
+
+                // false node
+                node = rootNode["bar"].AsBooleanNode();
+                Assert.IsNotNull(node);
+                Assert.IsFalse(node.Value);
+            }
+            catch (PlistFormatException ex) {
+                Assert.Fail(ex.Message);
+            }
+        }
+    }
 }
 
