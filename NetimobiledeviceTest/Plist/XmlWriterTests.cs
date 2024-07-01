@@ -123,7 +123,7 @@ public class XmlWriterTests
             // check that boolean was written out without a space per spec
             using (var reader = new StreamReader(outStream)) {
                 string contents = reader.ReadToEnd();
-                Assert.IsTrue(contents.Contains($"<ustring>{utf16value}</ustring>"));
+                Assert.IsTrue(contents.Contains($"<string>{utf16value}</string>"));
             }
         }
     }
