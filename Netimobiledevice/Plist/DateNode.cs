@@ -76,7 +76,7 @@ namespace Netimobiledevice.Plist
         /// </returns>
         internal override string ToXmlString()
         {
-            return Value.ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss.ffffffZ", CultureInfo.InvariantCulture);
+            return Value.ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ssZ", CultureInfo.InvariantCulture);
         }
 
         /// <summary>

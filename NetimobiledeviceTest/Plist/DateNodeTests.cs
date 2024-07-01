@@ -64,4 +64,14 @@ public class DateNodeTests
         cultureInfo.DateTimeFormat.Calendar = new UmAlQuraCalendar();
         ExecuteWithCulture(() => DateHandlesArabicCulture(), cultureInfo);
     }
+
+    [TestMethod]
+    public void XmlStringIsValid()
+    {
+        DateTime currentTime = new DateTime(2005, 06, 17, 18, 19, 21, 222, DateTimeKind.Utc);
+        DateNode node = new DateNode(currentTime);
+
+        string xmlString = node.ToXmlString();
+        Assert.AreEqual("2005-06-17T18:19:21Z", xmlString);
+    }
 }
