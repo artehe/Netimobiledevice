@@ -4,6 +4,7 @@ using Netimobiledevice.Afc;
 using Netimobiledevice.Backup;
 using Netimobiledevice.Diagnostics;
 using Netimobiledevice.Exceptions;
+using Netimobiledevice.InstallationProxy;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Pairing;
 using Netimobiledevice.Lockdown.Services;
