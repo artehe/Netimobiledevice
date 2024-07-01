@@ -120,9 +120,7 @@ namespace Netimobiledevice.Plist
 
         internal override void WriteXml(XmlWriter writer)
         {
-            // Use "string" tag for single-byte and "ustring" for UTF-16 characters
-            string tag = IsUtf16 ? "ustring" : "string";
-            writer.WriteStartElement(tag);
+            writer.WriteStartElement("string");
             writer.WriteValue(ToXmlString());
             writer.WriteEndElement();
         }

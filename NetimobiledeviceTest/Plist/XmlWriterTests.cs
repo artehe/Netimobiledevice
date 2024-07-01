@@ -159,4 +159,20 @@ public class XmlWriterTests
         Assert.AreEqual(messageFilter, (int) reReadNode["MessageFilter"].AsIntegerNode().Value);
         Assert.AreEqual(pid, (int) reReadNode["Pid"].AsIntegerNode().Value);
     }
+
+    [TestMethod]
+    public void HandlesUniqueCharacters()
+    {
+        ArrayNode array = new() {
+            new StringNode("&"),
+            new StringNode("<"),
+            new StringNode(">")
+        };
+
+        byte[] plistBytes = PropertyList.SaveAsByteArray(array, PlistFormat.Xml);
+        ArrayNode reReadArr = PropertyList.LoadFromByteArray(plistBytes).AsArrayNode();
+        Assert.AreEqual(array[0].AsStringNode().Value, reReadArr[0].AsStringNode().Value);
+        Assert.AreEqual(array[1].AsStringNode().Value, reReadArr[1].AsStringNode().Value);
+        Assert.AreEqual(array[2].AsStringNode().Value, reReadArr[2].AsStringNode().Value);
+    }
 }
