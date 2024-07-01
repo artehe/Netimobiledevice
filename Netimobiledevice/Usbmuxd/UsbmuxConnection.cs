@@ -188,8 +188,10 @@ namespace Netimobiledevice.Usbmuxd
             PlistMuxConnection conn = new PlistMuxConnection(sock, logger);
             int tag = 1;
 
-            PropertyNode plistMessage = new StringNode("ReadBUID");
-            conn.Send(plistMessage);
+            DictionaryNode msg = new DictionaryNode() {
+                { "MessageType", new StringNode("ReadBUID") }
+            };
+            conn.Send(msg);
             PlistResponse response = conn.ReceivePlist(tag);
 
             // If we sent a bad request, we should re-create the socket in the correct version this time
