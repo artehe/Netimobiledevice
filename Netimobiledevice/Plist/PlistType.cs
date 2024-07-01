@@ -58,7 +58,7 @@ namespace Netimobiledevice.Plist
         /// <summary>
         /// UTF16 String node type.
         /// </summary>
-        [EnumMember(Value = "string")]
+        [EnumMember(Value = "ustring")]
         UString = 0x60,
         /// <summary>
         /// UID node type.
