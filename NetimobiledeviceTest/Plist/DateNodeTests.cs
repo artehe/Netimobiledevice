@@ -48,12 +48,12 @@ public class DateNodeTests
     {
         DateTime originalDateTime = new DateTime(2015, 9, 30, 0, 0, 0, DateTimeKind.Utc);
         DateNode node = new DateNode(originalDateTime);
-        Assert.AreEqual("2015-09-30T00:00:00.000000Z", node.ToXmlString());
+        Assert.AreEqual("2015-09-30T00:00:00Z", node.ToXmlString());
         Assert.AreEqual(originalDateTime, node.Value);
 
         DateTime alternativeDateTime = new DateTime(455874381151831020, DateTimeKind.Utc);
         DateNode alternativeNode = new DateNode(alternativeDateTime);
-        Assert.AreEqual("1445-08-11T09:15:15.183102Z", alternativeNode.ToXmlString());
+        Assert.AreEqual("1445-08-11T09:15:15Z", alternativeNode.ToXmlString());
         Assert.AreEqual(alternativeDateTime, alternativeNode.Value);
     }
 
