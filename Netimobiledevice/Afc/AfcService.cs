@@ -103,7 +103,7 @@ namespace Netimobiledevice.Afc
             return data.ToArray();
         }
 
-        private DictionaryNode GetFileInfo(string filename)
+        public DictionaryNode GetFileInfo(string filename)
         {
             Dictionary<string, string> stat;
             try {
