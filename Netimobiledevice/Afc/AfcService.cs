@@ -307,7 +307,7 @@ namespace Netimobiledevice.Afc
             return StructExtentions.FromBytes<AfcFileOpenResponse>(data).Handle;
         }
 
-        public void FileWrite(ulong handle, byte[] data, CancellationToken cancellationToken, IProgress<double>? progress = null, int chunkSize = 4096)
+        public void FileWrite(ulong handle, byte[] data, CancellationToken cancellationToken, int chunkSize = 4096)
         {
             ulong dataSize = (ulong) data.Length;
             int chunksCount = data.Length / chunkSize;
@@ -330,7 +330,6 @@ namespace Netimobiledevice.Afc
                     throw new AfcException(status, $"Failed to write chunk: {status}");
                 }
                 Logger?.LogDebug("Chunk {i} written", i);
-                progress?.Report(Math.Round((double) i / chunksCount * 100));
             }
 
             if (dataSize % (ulong) chunkSize > 0) {
@@ -346,7 +345,6 @@ namespace Netimobiledevice.Afc
                     throw new AfcException(status, $"Failed to write last chunk: {status}");
                 }
                 Logger?.LogDebug("Last chunk written");
-                progress?.Report(100);
             }
         }
 
@@ -542,13 +540,13 @@ namespace Netimobiledevice.Afc
             return new List<string>();
         }
 
-        public void SetFileContents(string filename, byte[] data, CancellationToken cancellationToken, IProgress<double>? progress = null)
+        public void SetFileContents(string filename, byte[] data, CancellationToken cancellationToken)
         {
             ulong handle = FileOpen(filename, "w");
             if (handle == 0) {
                 throw new AfcException(AfcError.OpenFailed, "Failed to open file for writing.");
             }
-            FileWrite(handle, data, cancellationToken, progress);
+            FileWrite(handle, data, cancellationToken);
             FileClose(handle);
         }
     }
