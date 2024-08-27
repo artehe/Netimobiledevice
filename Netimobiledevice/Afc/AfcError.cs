@@ -30,5 +30,6 @@
         NoMem = 31,
         NotEnoughData = 32,
         DirNotEmpty = 33,
+        OpenFailed = 34,
     }
 }

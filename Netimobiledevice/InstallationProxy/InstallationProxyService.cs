@@ -1,8 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.Afc;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
+using System.IO;
+using System.IO.Compression;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -10,9 +13,122 @@ namespace Netimobiledevice.InstallationProxy
 {
     public sealed class InstallationProxyService : BaseService
     {
-        protected override string ServiceName => "com.apple.mobile.installation_proxy";
+        private const string LOCKDOWN_SERVICE_NAME = "com.apple.mobile.installation_proxy";
+        private const string RSD_SERVICE_NAME = "com.apple.mobile.installation_proxy.shim.remote";
+
+        private const string TEMP_REMOTE_IPA_FILE = "/netimobiledevice.ipa";
+
+        protected override string ServiceName {
+            get {
+                if (Lockdown is not null) {
+                    return LOCKDOWN_SERVICE_NAME;
+                }
+                return RSD_SERVICE_NAME;
+            }
+        }
 
         public InstallationProxyService(LockdownClient client) : base(client) { }
+
+        private static byte[] CreateIpaFromDirectory(string directory)
+        {
+            string payloadPrefix = "Payload/" + Path.GetFileName(directory);
+            byte[] ipaContents;
+
+            // Create a temporary directory
+            string tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+            Directory.CreateDirectory(tempDir);
+
+            try {
+                // Create the zip file in the temporary directory
+                string zipPath = Path.Combine(tempDir, ".ipa");
+
+                using (ZipArchive zip = ZipFile.Open(zipPath, ZipArchiveMode.Create)) {
+                    foreach (string file in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)) {
+                        string relativePath = Path.GetRelativePath(directory, file);
+                        string zipEntryName = Path.Combine(payloadPrefix, relativePath).Replace("\\", "/");
+
+                        zip.CreateEntryFromFile(file, zipEntryName);
+                    }
+                }
+
+                // Read the contents of the zip file into a byte array
+                ipaContents = File.ReadAllBytes(zipPath);
+            }
+            finally {
+                // Clean up the temporary directory
+                if (Directory.Exists(tempDir)) {
+                    Directory.Delete(tempDir, true);
+                }
+            }
+
+            return ipaContents;
+        }
+
+        /// <summary>
+        /// Upload given ipa onto device and install/upgrade it
+        /// </summary>
+        /// <param name="ipaPath"></param>
+        /// <param name="command"></param>
+        /// <param name="cancellationToken"></param>
+        /// <param name="callback"></param>
+        /// <param name="options"></param>
+        /// <returns></returns>
+        private async Task InstallFromLocal(string ipaPath, string command, CancellationToken cancellationToken, DictionaryNode? options = null, IProgress<int>? progress = null)
+        {
+            options ??= new DictionaryNode();
+
+            byte[] ipaContents;
+            if (Directory.Exists(ipaPath)) {
+                // Treat the directory as an app and convert into an ipa
+                ipaContents = CreateIpaFromDirectory(ipaPath);
+            }
+            else {
+                ipaContents = await File.ReadAllBytesAsync(ipaPath, cancellationToken).ConfigureAwait(false);
+            }
+
+            using (AfcService afc = new AfcService(Lockdown)) {
+                afc.SetFileContents(TEMP_REMOTE_IPA_FILE, ipaContents, cancellationToken);
+            }
+            Logger.LogInformation("IPA sent to device");
+
+            DictionaryNode cmd = new DictionaryNode
+            {
+                { "Command", new StringNode(command) },
+                { "ClientOptions", options },
+                { "PackagePath", new StringNode(TEMP_REMOTE_IPA_FILE) }
+            };
+            await Service.SendPlistAsync(cmd, cancellationToken).ConfigureAwait(false);
+
+            await WatchForCompletion(command, cancellationToken, progress);
+            Logger?.LogInformation("IPA Installed");
+        }
+
+        private async Task WatchForCompletion(string action, CancellationToken cancellationToken, IProgress<int>? progress = null)
+        {
+            while (true) {
+                PropertyNode? response = await Service.ReceivePlistAsync(cancellationToken).ConfigureAwait(false);
+                if (response == null) {
+                    break;
+                }
+
+                DictionaryNode responseDict = response.AsDictionaryNode();
+                if (responseDict.TryGetValue("Error", out PropertyNode? errorNode)) {
+                    throw new AppInstallException($"{errorNode.AsStringNode().Value}: {responseDict["ErrorDescription"].AsStringNode().Value}");
+                }
+
+                if (responseDict.TryGetValue("PercentComplete", out PropertyNode? completion)) {
+                    progress?.Report((int) completion.AsIntegerNode().Value);
+                    Logger.LogInformation("{action} {percentComplete}% Complete", action, completion.AsIntegerNode().Value);
+                }
+
+                if (responseDict.TryGetValue("Status", out PropertyNode? status)) {
+                    if (status.AsStringNode().Value == "Complete") {
+                        return;
+                    }
+                }
+            }
+            throw new AppInstallException("Installation or command did not complete successfully.");
+        }
 
         public async Task<ArrayNode> Browse(DictionaryNode? options = null, ArrayNode? attributes = null, CancellationToken cancellationToken = default)
         {
@@ -51,6 +167,19 @@ namespace Netimobiledevice.InstallationProxy
         }
 
         /// <summary>
+        /// Install a given IPA from device path
+        /// </summary>
+        /// <param name="ipaPath"></param>
+        /// <param name="cancellationToken"></param>
+        /// <param name="callback"></param>
+        /// <param name="options"></param>
+        /// <returns></returns>
+        public async Task Install(string ipaPath, CancellationToken cancellationToken, DictionaryNode? options = null, IProgress<int>? progress = null)
+        {
+            await InstallFromLocal(ipaPath, "Install", cancellationToken, options, progress);
+        }
+
+        /// <summary>
         /// Uninstalls the App with the given bundle identifier
         /// </summary>
         /// <param name="bundleIdentifier"></param>
@@ -58,7 +187,7 @@ namespace Netimobiledevice.InstallationProxy
         /// <param name="callback"></param>
         /// <param name=""></param>
         /// <returns></returns>
-        public async Task Uninstall(string bundleIdentifier, CancellationToken cancellationToken, DictionaryNode? options = null, Action<int>? callback = null)
+        public async Task Uninstall(string bundleIdentifier, CancellationToken cancellationToken, DictionaryNode? options = null, IProgress<int>? progress = null)
         {
             DictionaryNode cmd = new DictionaryNode() {
                 { "Command", new StringNode("Uninstall") },
@@ -69,36 +198,20 @@ namespace Netimobiledevice.InstallationProxy
             cmd.Add("ClientOptions", options);
 
             await Service.SendPlistAsync(cmd, cancellationToken).ConfigureAwait(false);
+            await WatchForCompletion("Uninstall", cancellationToken, progress).ConfigureAwait(false);
+        }
 
-            // Wait for the uninstall to complete
-            // TODO self._watch_completion(handler, *args)
-
-            while (true) {
-                PropertyNode? response = await Service.ReceivePlistAsync(cancellationToken).ConfigureAwait(false);
-                if (response == null) {
-                    break;
-                }
-
-                DictionaryNode responseDict = response.AsDictionaryNode();
-                if (responseDict.TryGetValue("Error", out PropertyNode? errorNode)) {
-                    throw new AppInstallException($"{errorNode.AsStringNode().Value}: {responseDict["ErrorDescription"].AsStringNode().Value}");
-                }
-
-                if (responseDict.TryGetValue("PercentComplete", out PropertyNode? completion)) {
-                    if (callback is not null) {
-                        Logger.LogDebug("Using callback");
-                        callback((int) completion.AsIntegerNode().Value);
-                    }
-                    Logger.LogInformation("Uninstall {percentComplete}% Complete", completion.AsIntegerNode().Value);
-                }
-
-                if (responseDict.TryGetValue("Status", out PropertyNode? status)) {
-                    if (status.AsStringNode().Value == "Complete") {
-                        return;
-                    }
-                }
-            }
-            throw new AppInstallException();
+        /// <summary>
+        /// Upgrade given ipa from device path
+        /// </summary>
+        /// <param name="ipaPath"></param>
+        /// <param name="cancellationToken"></param>
+        /// <param name="callback"></param>
+        /// <param name="options"></param>
+        /// <returns></returns>
+        public async Task Upgrade(string ipaPath, CancellationToken cancellationToken, DictionaryNode? options = null, IProgress<int>? progress = null)
+        {
+            await InstallFromLocal(ipaPath, "Upgrade", cancellationToken, options, progress);
         }
     }
 }

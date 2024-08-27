@@ -19,7 +19,6 @@ namespace NetimobiledeviceDemo;
 public class Program
 {
     private static readonly CancellationTokenSource tokenSource = new CancellationTokenSource();
-    private static readonly Timer timer = new Timer(Timer_Callback);
 
     internal static async Task Main()
     {
@@ -30,6 +29,14 @@ public class Program
         TaskScheduler.UnobservedTaskException += (sender, args) => {
             Console.WriteLine($"UnobservedTaskException error: {args.Exception}");
         };
+
+        Console.CancelKeyPress += (sender, eventArgs) => {
+            Console.WriteLine("Cancellation requested...");
+            tokenSource.Cancel();
+            // Prevent the process from terminating immediately
+            eventArgs.Cancel = true;
+        };
+        Console.WriteLine("Press Ctrl+C to cancel the operation.");
 
         List<UsbmuxdDevice> devices = Usbmux.GetDeviceList();
 
@@ -179,8 +186,6 @@ public class Program
         Usbmux.Subscribe(SubscriptionCallback, SubscriptionErrorCallback);
         Usbmux.Unsubscribe();
 
-        timer.Change(15 * 1000, Timeout.Infinite);
-
         using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
             string path = "backups";
             if (Directory.Exists(path)) {
@@ -254,10 +259,5 @@ public class Program
     {
         Console.WriteLine("NewErrorCallbackExecuted");
         Console.WriteLine(ex.Message);
-    }
-
-    private static void Timer_Callback(object? state)
-    {
-        //tokenSource.Cancel();
     }
 }

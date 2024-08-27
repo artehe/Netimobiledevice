@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 
 namespace Netimobiledevice.Afc
 {
@@ -138,6 +139,14 @@ namespace Netimobiledevice.Afc
             return fileInfo;
         }
 
+        private static List<string> ParseFileInfoResponseForMessage(byte[] data)
+        {
+            string decodedData = Encoding.UTF8.GetString(data);
+            List<string> seperatedData = decodedData.Split('\0').ToList();
+            seperatedData.RemoveAt(seperatedData.Count - 1);
+            return seperatedData;
+        }
+
         private static Dictionary<string, string> ParseFileInfoResponseToDict(byte[] data)
         {
             Dictionary<string, string> result = new Dictionary<string, string>();
@@ -181,7 +190,7 @@ namespace Netimobiledevice.Afc
             if (response.Length > 0) {
                 AfcHeader header = AfcHeader.FromBytes(response);
                 if (header.EntireLength < (ulong) AfcHeader.GetSize()) {
-                    throw new Exception("Expected more bytes in afc header than receieved");
+                    throw new AfcException("Expected more bytes in afc header than receieved");
                 }
                 int length = (int) header.EntireLength - AfcHeader.GetSize();
                 data = Service.Receive(length);
@@ -298,6 +307,47 @@ namespace Netimobiledevice.Afc
             return StructExtentions.FromBytes<AfcFileOpenResponse>(data).Handle;
         }
 
+        public void FileWrite(ulong handle, byte[] data, CancellationToken cancellationToken, int chunkSize = 4096)
+        {
+            ulong dataSize = (ulong) data.Length;
+            int chunksCount = data.Length / chunkSize;
+            Logger?.LogDebug("Writing {dataSize} bytes in {chunksCount} chunks", dataSize, chunksCount);
+
+            byte[] fileHandle = BitConverter.GetBytes(handle);
+            List<byte> writtenData = new List<byte>();
+            for (int i = 0; i < chunksCount; i++) {
+                cancellationToken.ThrowIfCancellationRequested();
+                Logger?.LogDebug("Writing chunk {i}", i);
+
+                byte[] chunk = data.Skip(i * chunkSize).Take(chunkSize).ToArray();
+                byte[] packet = fileHandle.Concat(chunk).ToArray();
+
+                DispatchPacket(AfcOpCode.Write, packet, 48);
+                writtenData.AddRange(chunk);
+
+                (AfcError status, byte[] response) = ReceiveData();
+                if (status != AfcError.Success) {
+                    throw new AfcException(status, $"Failed to write chunk: {status}");
+                }
+                Logger?.LogDebug("Chunk {i} written", i);
+            }
+
+            if (dataSize % (ulong) chunkSize > 0) {
+                Logger?.LogDebug("Writing last chunk");
+                byte[] chunk = data.Skip(chunksCount * chunkSize).ToArray();
+                byte[] packet = fileHandle.Concat(chunk).ToArray();
+
+                DispatchPacket(AfcOpCode.Write, packet, 48);
+                writtenData.AddRange(chunk);
+
+                (AfcError status, byte[] response) = ReceiveData();
+                if (status != AfcError.Success) {
+                    throw new AfcException(status, $"Failed to write last chunk: {status}");
+                }
+                Logger?.LogDebug("Last chunk written");
+            }
+        }
+
         public List<string> GetDirectoryList()
         {
             List<string> directoryList = new List<string>();
@@ -403,7 +453,7 @@ namespace Netimobiledevice.Afc
                 // Normal file
                 if (Path.EndsInDirectorySeparator(dst)) {
                     string[] splitSrc = relativeSrc.Split('/');
-                    string filename = splitSrc[splitSrc.Length - 1];
+                    string filename = splitSrc[^1];
                     dst = Path.Combine(dst, filename);
                 }
                 using (FileStream fs = new FileStream(dst, FileMode.Create)) {
@@ -490,12 +540,14 @@ namespace Netimobiledevice.Afc
             return new List<string>();
         }
 
-        private static List<string> ParseFileInfoResponseForMessage(byte[] data)
+        public void SetFileContents(string filename, byte[] data, CancellationToken cancellationToken)
         {
-            string decodedData = Encoding.UTF8.GetString(data);
-            List<string> seperatedData = decodedData.Split('\0').ToList();
-            seperatedData.RemoveAt(seperatedData.Count - 1);
-            return seperatedData;
+            ulong handle = FileOpen(filename, "w");
+            if (handle == 0) {
+                throw new AfcException(AfcError.OpenFailed, "Failed to open file for writing.");
+            }
+            FileWrite(handle, data, cancellationToken);
+            FileClose(handle);
         }
     }
 }
