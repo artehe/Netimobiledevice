@@ -44,7 +44,7 @@ namespace Netimobiledevice.Backup
         /// <summary>
         /// The AFC service.
         /// </summary>
-        private AfcService? afcService;
+        private readonly AfcService afcService;
         /// <summary>
         /// The last backup status received.
         /// </summary>
@@ -169,6 +169,8 @@ namespace Netimobiledevice.Backup
             LockdownClient = lockdown;
             BackupDirectory = backupFolder;
             DeviceBackupPath = Path.Combine(BackupDirectory, lockdown.Udid);
+
+            afcService = new AfcService(LockdownClient);
         }
 
         /// <summary>
@@ -179,25 +181,25 @@ namespace Netimobiledevice.Backup
             Dispose();
         }
 
-        private async Task AquireBackupLock()
+        private async Task AquireBackupLock(CancellationToken cancellationToken)
         {
             notificationProxyService?.Post(SendableNotificaton.SyncWillStart);
-            syncLock = afcService?.FileOpen("/com.apple.itunes.lock_sync", "r+") ?? 0;
+            syncLock = await afcService.FileOpen("/com.apple.itunes.lock_sync", cancellationToken, AfcFileOpenMode.ReadWrite).ConfigureAwait(false);
 
             if (syncLock != 0) {
                 notificationProxyService?.Post(SendableNotificaton.SyncLockRequest);
                 for (int i = 0; i < 50; i++) {
                     bool lockAquired = false;
                     try {
-                        afcService?.Lock(syncLock, AfcLockModes.ExclusiveLock);
+                        await afcService.Lock(syncLock, AfcLockModes.ExclusiveLock, cancellationToken).ConfigureAwait(false);
                         lockAquired = true;
                     }
                     catch (AfcException e) {
                         if (e.AfcError == AfcError.OpWouldBlock) {
-                            await Task.Delay(200);
+                            await Task.Delay(200, cancellationToken).ConfigureAwait(false);
                         }
                         else {
-                            afcService?.FileClose(syncLock);
+                            await afcService.FileClose(syncLock, cancellationToken).ConfigureAwait(false);
                             throw;
                         }
                     }
@@ -213,22 +215,22 @@ namespace Netimobiledevice.Backup
             }
             else {
                 // Lock failed
-                afcService?.FileClose(syncLock);
-                throw new Exception("Failed to lock iTunes backup sync file");
+                await afcService.FileClose(syncLock, cancellationToken).ConfigureAwait(false);
+                throw new AfcException("Failed to lock iTunes backup sync file");
             }
         }
 
         /// <summary>
         /// Cleans the used resources.
         /// </summary>
-        private void CleanResources()
+        private async Task CleanResources(CancellationToken cancellationToken)
         {
             if (InProgress) {
                 IsCancelling = true;
             }
 
             try {
-                Unlock();
+                await Unlock(cancellationToken).ConfigureAwait(false);
             }
             catch (ObjectDisposedException) {
                 LockdownClient.Logger.LogDebug("Object already disposed so I assume we can just continue");
@@ -239,7 +241,7 @@ namespace Netimobiledevice.Backup
 
             notificationProxyService?.Dispose();
             mobilebackup2Service?.Dispose();
-            afcService?.Dispose();
+            afcService.Dispose();
             InProgress = false;
         }
 
@@ -248,7 +250,7 @@ namespace Netimobiledevice.Backup
         /// </summary>
         private async Task CreateBackup(CancellationToken cancellationToken)
         {
-            LockdownClient.Logger.LogInformation($"Starting backup of device {LockdownClient.GetValue("ProductType")?.AsStringNode().Value} v{LockdownClient.OsVersion}");
+            LockdownClient.Logger.LogInformation("Starting backup of device {productVersion} v{osVersion}", LockdownClient.GetValue("ProductType")?.AsStringNode().Value, LockdownClient.OsVersion);
 
             // Reset everything in case we have called this more than once.
             lastStatus = null;
@@ -262,17 +264,16 @@ namespace Netimobiledevice.Backup
             terminatingException = null;
             snapshotState = SnapshotState.Uninitialized;
 
-            LockdownClient.Logger.LogDebug($"Saving at {DeviceBackupPath}");
+            LockdownClient.Logger.LogDebug("Saving at {DeviceBackupPath}", DeviceBackupPath);
 
             IsEncrypted = LockdownClient.GetValue("com.apple.mobile.backup", "WillEncrypt")?.AsBooleanNode().Value ?? false;
             LockdownClient.Logger.LogInformation($"The backup will{(IsEncrypted ? null : " not")} be encrypted.");
 
             try {
-                afcService = new AfcService(LockdownClient);
                 mobilebackup2Service = await Mobilebackup2Service.CreateAsync(LockdownClient, cancellationToken);
                 notificationProxyService = new NotificationProxyService(LockdownClient);
 
-                await AquireBackupLock();
+                await AquireBackupLock(cancellationToken).ConfigureAwait(false);
 
                 OnStatus("Initializing backup ...");
                 DictionaryNode options = CreateBackupOptions();
@@ -322,7 +323,7 @@ namespace Netimobiledevice.Backup
         /// Creates the Info.plist dictionary.
         /// </summary>
         /// <returns>The created Info.plist as a DictionaryNode.</returns>
-        private async Task<DictionaryNode> CreateInfoPlist()
+        private async Task<DictionaryNode> CreateInfoPlist(CancellationToken cancellationToken)
         {
             DictionaryNode info = new DictionaryNode();
 
@@ -363,7 +364,7 @@ namespace Netimobiledevice.Backup
             }
 
             try {
-                byte[] dataBuffer = afcService?.GetFileContents("/Books/iBooksData2.plist") ?? Array.Empty<byte>();
+                byte[] dataBuffer = await afcService.GetFileContents("/Books/iBooksData2.plist", cancellationToken).ConfigureAwait(false) ?? Array.Empty<byte>();
                 info.Add("iBooks Data 2", new DataNode(dataBuffer));
             }
             catch (AfcException ex) {
@@ -376,7 +377,7 @@ namespace Netimobiledevice.Backup
             foreach (string iTuneFile in iTunesFiles) {
                 try {
                     string filePath = Path.Combine("/iTunes_Control/iTunes", iTuneFile);
-                    byte[] dataBuffer = afcService?.GetFileContents(filePath) ?? Array.Empty<byte>();
+                    byte[] dataBuffer = await afcService.GetFileContents(filePath, cancellationToken).ConfigureAwait(false) ?? Array.Empty<byte>();
                     files.Add(iTuneFile, new DataNode(dataBuffer));
                 }
                 catch (AfcException ex) {
@@ -430,7 +431,7 @@ namespace Netimobiledevice.Backup
                         }
                     }
                     catch (Exception ex) {
-                        LockdownClient.Logger.LogWarning($"Failed to create application list for Info.plist: {ex.Message}");
+                        LockdownClient.Logger.LogWarning(ex, "Failed to create application list for Info.plist");
                     }
                 }
             }
@@ -485,7 +486,7 @@ namespace Netimobiledevice.Backup
                             // If it's the first message that isn't null report that the backup is started
                             if (isFirstMessage) {
                                 OnBackupStarted();
-                                await SaveInfoPropertyList();
+                                await SaveInfoPropertyList(cancellationToken);
                                 isFirstMessage = false;
                             }
 
@@ -837,10 +838,10 @@ namespace Netimobiledevice.Backup
         /// <summary>
         /// Unlocks the sync file.
         /// </summary>
-        private void Unlock()
+        private async Task Unlock(CancellationToken cancellationToken)
         {
             if (syncLock != 0) {
-                afcService?.Lock(syncLock, AfcLockModes.Unlock);
+                await afcService.Lock(syncLock, AfcLockModes.Unlock, cancellationToken).ConfigureAwait(false);
                 syncLock = 0;
             }
         }
@@ -872,7 +873,7 @@ namespace Netimobiledevice.Backup
                     }
                 }
                 catch (Exception ex) {
-                    LockdownClient.Logger.LogError($"Issue getting space from drive: {ex}");
+                    LockdownClient.Logger.LogError(ex, "Issue getting space from drive");
                 }
             }
             return 0;
@@ -1213,16 +1214,14 @@ namespace Netimobiledevice.Backup
         /// <returns>The result code of the transfer.</returns>
         protected virtual ResultCode ReceiveFile(BackupFile file, long totalSize, ref long realSize, bool skip = false)
         {
-            // Size is the number of bytes left to read
-            int size = 0;
-
             const int bufferLen = 32 * 1024;
             ResultCode lastCode = ResultCode.Success;
             if (File.Exists(file.LocalPath)) {
                 File.Delete(file.LocalPath);
             }
             while (!IsStopping) {
-                size = ReadInt32();
+                // Size is the number of bytes left to read
+                int size = ReadInt32();
                 if (size <= 0) {
                     break;
                 }
@@ -1241,7 +1240,7 @@ namespace Netimobiledevice.Backup
                     }
 
                     // iOS 17 beta devices seem to give RemoteError for a fair number of file now?
-                    LockdownClient.Logger.LogWarning($"Failed to fully upload {file.LocalPath}. Device file name {file.DevicePath}. Reason: {msg}");
+                    LockdownClient.Logger.LogWarning("Failed to fully upload {localPath}. Device file name {devicePath}. Reason: {msg}", file.LocalPath, file.DevicePath, msg);
 
                     OnFileTransferError(file);
                     return code;
@@ -1268,14 +1267,14 @@ namespace Netimobiledevice.Backup
         /// <summary>
         /// Generates and saves the backup Info.plist file.
         /// </summary>
-        protected virtual async Task SaveInfoPropertyList()
+        protected virtual async Task SaveInfoPropertyList(CancellationToken cancellationToken)
         {
             OnStatus("Creating Info.plist");
             BackupFile backupFile = new BackupFile(string.Empty, $"Info.plist", DeviceBackupPath);
 
             DateTime startTime = DateTime.Now;
 
-            PropertyNode infoPlist = await CreateInfoPlist();
+            PropertyNode infoPlist = await CreateInfoPlist(cancellationToken).ConfigureAwait(false);
             byte[] infoPlistData = PropertyList.SaveAsByteArray(infoPlist, PlistFormat.Xml);
             OnFileReceiving(backupFile, infoPlistData);
 
@@ -1304,7 +1303,7 @@ namespace Netimobiledevice.Backup
         /// </summary>
         public void Dispose()
         {
-            CleanResources();
+            CleanResources(CancellationToken.None).GetAwaiter().GetResult();
             GC.SuppressFinalize(this);
         }
 

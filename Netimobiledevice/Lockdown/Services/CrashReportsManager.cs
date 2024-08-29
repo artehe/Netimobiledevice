@@ -2,6 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown.Services
 {
@@ -51,11 +53,11 @@ namespace Netimobiledevice.Lockdown.Services
         /// <summary>
         /// Clear all crash reports
         /// </summary>
-        public void Clear()
+        public async Task Clear(CancellationToken cancellationToken = default)
         {
             List<string> undeletedFiles = new List<string>();
-            foreach (string filename in GetCrashReportsList("/")) {
-                undeletedFiles.AddRange(_afcService.Rm(filename, force: true));
+            foreach (string filename in await GetCrashReportsList("/", cancellationToken: cancellationToken).ConfigureAwait(false)) {
+                undeletedFiles.AddRange(await _afcService.Rm(filename, cancellationToken, force: true).ConfigureAwait(false));
             }
 
             foreach (string item in undeletedFiles) {
@@ -73,11 +75,14 @@ namespace Netimobiledevice.Lockdown.Services
         /// <param name="path">Path to list, relative to the crash report's directory</param>
         /// <param name="depth">Listing depth, -1 to list infinite depth</param>
         /// <returns>List of files found</returns>
-        public List<string> GetCrashReportsList(string path = "/", int depth = 1)
+        public async Task<List<string>> GetCrashReportsList(string path = "/", int depth = 1, CancellationToken cancellationToken = default)
         {
             // Get the results then skip the root path '/'
-            List<string> results = _afcService.LsDirectory(path, depth).Skip(1).ToList();
-            return results;
+            List<string> results = new List<string>();
+            await foreach (string item in _afcService.LsDirectory(path, cancellationToken, depth).ConfigureAwait(false)) {
+                results.Add(item);
+            }
+            return results.Skip(1).ToList();
         }
 
         /// <summary>
@@ -86,17 +91,16 @@ namespace Netimobiledevice.Lockdown.Services
         /// <param name="outDir">The directory to pull the crash report(s) to</param>
         /// <param name="entry">File or folder to pull</param>
         /// <param name="erase">Whether to erase the original file form the CrashReports directory</param>
-        public void GetCrashReport(string outDir, string entry = "/", bool erase = false)
+        public async Task GetCrashReport(string outDir, string entry = "/", bool erase = false, CancellationToken cancellationToken = default)
         {
-            _afcService.Pull(entry, outDir);
-
+            await _afcService.Pull(entry, outDir, cancellationToken).ConfigureAwait(false);
             if (erase) {
                 string[] paths = new string[] { ".", "/" };
                 if (paths.Contains(entry.Trim())) {
-                    Clear();
+                    await Clear(cancellationToken).ConfigureAwait(false);
                 }
                 else {
-                    _afcService.Rm(entry, force: true);
+                    await _afcService.Rm(entry, cancellationToken, force: true).ConfigureAwait(false);
                 }
             }
         }
