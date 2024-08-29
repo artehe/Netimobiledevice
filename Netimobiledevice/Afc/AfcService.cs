@@ -18,15 +18,6 @@ namespace Netimobiledevice.Afc
 
         private const int MAXIMUM_READ_SIZE = 1024 ^ 2; // 1 MB
 
-        private static readonly Dictionary<string, AfcFileOpenMode> FileOpenModes = new Dictionary<string, AfcFileOpenMode>() {
-            { "r", AfcFileOpenMode.ReadOnly },
-            { "r+", AfcFileOpenMode.ReadWrite },
-            { "w", AfcFileOpenMode.WriteOnly },
-            { "w+", AfcFileOpenMode.WriteReadTruncate },
-            { "a", AfcFileOpenMode.Append},
-            { "a+", AfcFileOpenMode.ReadAppend},
-        };
-
         private ulong _packetNumber;
 
         public AfcService(LockdownServiceProvider lockdown, string serviceName, ILogger? logger = null) : base(lockdown, GetServiceName(lockdown, serviceName), logger: logger)
@@ -297,12 +288,9 @@ namespace Netimobiledevice.Afc
             return RunOperation(AfcOpCode.FileClose, request.GetBytes());
         }
 
-        public ulong FileOpen(string filename, string mode = "r")
+        public ulong FileOpen(string filename, AfcFileOpenMode mode = AfcFileOpenMode.ReadOnly)
         {
-            if (!FileOpenModes.TryGetValue(mode, out AfcFileOpenMode value)) {
-                throw new ArgumentException($"mode can oly be one of {FileOpenModes.Keys}", nameof(mode));
-            }
-            AfcFileOpenRequest openRequest = new AfcFileOpenRequest(value, new CString(filename, Encoding.UTF8));
+            AfcFileOpenRequest openRequest = new AfcFileOpenRequest(mode, new CString(filename, Encoding.UTF8));
             byte[] data = RunOperation(AfcOpCode.FileOpen, openRequest.GetBytes());
             return StructExtentions.FromBytes<AfcFileOpenResponse>(data).Handle;
         }
@@ -542,7 +530,7 @@ namespace Netimobiledevice.Afc
 
         public void SetFileContents(string filename, byte[] data, CancellationToken cancellationToken)
         {
-            ulong handle = FileOpen(filename, "w");
+            ulong handle = FileOpen(filename, AfcFileOpenMode.WriteOnly);
             if (handle == 0) {
                 throw new AfcException(AfcError.OpenFailed, "Failed to open file for writing.");
             }
