@@ -1,6 +1,6 @@
 ﻿namespace Netimobiledevice.Afc
 {
-    internal enum AfcFileOpenMode : ulong
+    public enum AfcFileOpenMode : ulong
     {
         ReadOnly = 0x00000001, // r O_RDONLY
         ReadWrite = 0x00000002, // r+  O_RDWR | O_CREAT

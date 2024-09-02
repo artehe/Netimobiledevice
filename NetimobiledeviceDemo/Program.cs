@@ -57,7 +57,7 @@ public class Program
                     Directory.Delete("CrashDir", true);
                 }
 
-                List<string> crashList = crm.GetCrashReportsList();
+                List<string> crashList = await crm.GetCrashReportsList();
                 crm.GetCrashReport("CrashDir");
             }
         }
@@ -105,7 +105,7 @@ public class Program
                 try {
                     Dictionary<string, object> batteryInfo = diagnosticsService.GetBatteryDetails();
                     ulong batteryPercentage = 0;
-                    if (batteryInfo != null && batteryInfo.TryGetValue("BatteryCurrentCapacity", out var batteryCurrentCapacity)) {
+                    if (batteryInfo != null && batteryInfo.TryGetValue("BatteryCurrentCapacity", out object? batteryCurrentCapacity)) {
                         if (batteryCurrentCapacity is ulong capacity) {
                             batteryPercentage = capacity;
                         }
@@ -119,25 +119,25 @@ public class Program
                     logger.LogInformation("Current battery percentage: {percent}", batteryPercentage);
 
                     bool isMobileCharging = false;
-                    if (batteryInfo != null && batteryInfo.TryGetValue("BatteryIsCharging", out var chargingStatus) && chargingStatus is bool charging) {
+                    if (batteryInfo != null && batteryInfo.TryGetValue("BatteryIsCharging", out object? chargingStatus) && chargingStatus is bool charging) {
                         isMobileCharging = charging;
                     }
                     logger.LogInformation("Battery is charging: {isCharging}", isMobileCharging);
 
                     bool isFullyCharged = false;
-                    if (batteryInfo != null && batteryInfo.TryGetValue("BatteryIsFullyCharged", out var fullyChargedStatus) && fullyChargedStatus is bool fullyCharged) {
+                    if (batteryInfo != null && batteryInfo.TryGetValue("BatteryIsFullyCharged", out object? fullyChargedStatus) && fullyChargedStatus is bool fullyCharged) {
                         isFullyCharged = fullyCharged;
                     }
                     logger.LogInformation("Battery is fully charged: {isFullyCharged}", isFullyCharged);
 
                     string batterySerialNumber = string.Empty;
-                    if (batteryInfo != null && batteryInfo.TryGetValue("BatterySerialNumber", out var serialNumber) && serialNumber is string serial) {
+                    if (batteryInfo != null && batteryInfo.TryGetValue("BatterySerialNumber", out object? serialNumber) && serialNumber is string serial) {
                         batterySerialNumber = serial;
                     }
                     logger.LogInformation("Battery serial number: {serialNumber}", batterySerialNumber);
                 }
                 catch (Exception ex) {
-                    logger.LogError("Error in getting battery details: " + ex.Message);
+                    logger.LogError(ex, "Error in getting battery details");
                 }
             }
         }
@@ -226,7 +226,7 @@ public class Program
 
             // Get the list of directories in the Connected iOS device.
             using (AfcService afcService = new AfcService(lockdown)) {
-                List<string> pathList = afcService.GetDirectoryList();
+                List<string> pathList = await afcService.GetDirectoryList(CancellationToken.None);
                 logger.LogInformation("Path's available in the connected iOS device are as below.\n");
                 logger.LogInformation("{pathList}", string.Join(", " + Environment.NewLine, pathList));
             }
