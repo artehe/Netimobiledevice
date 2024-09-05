@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.Afc.Packets;
 using Netimobiledevice.Extentions;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
@@ -43,29 +44,20 @@ namespace Netimobiledevice.Afc
             return serviceName;
         }
 
-        private async Task DispatchPacket(AfcOpCode opCode, byte[] data, CancellationToken cancellationToken, ulong? thisLength = null)
+        private async Task DispatchPacket(AfcOpCode opCode, AfcPacket packet, CancellationToken cancellationToken, ulong? thisLength = null)
         {
             AfcHeader header = new AfcHeader() {
-                EntireLength = (ulong) data.LongLength,
-                Length = (ulong) data.LongLength,
+                EntireLength = (ulong) packet.PacketSize,
+                Length = (ulong) packet.HeaderSize,
                 PacketNumber = _packetNumber,
                 Operation = opCode
             };
-            header.EntireLength = (ulong) (header.GetBytes().Length + data.Length);
-            header.Length = (ulong) (header.GetBytes().Length + data.Length);
-
             if (thisLength != null) {
                 header.Length = (ulong) thisLength;
             }
 
             _packetNumber++;
-
-            List<byte> packet = new List<byte>();
-            packet.AddRange(header.GetBytes());
-            packet.AddRange(data);
-
-            byte[] packetBytes = packet.ToArray();
-            await Service.SendAsync(packetBytes, cancellationToken).ConfigureAwait(false);
+            await Service.SendAsync(packet.GetBytes(), cancellationToken).ConfigureAwait(false);
         }
 
         private async Task<byte[]> FileRead(ulong handle, ulong size, CancellationToken cancellationToken)
@@ -85,8 +77,8 @@ namespace Netimobiledevice.Afc
                     Size = size
                 };
 
-                await DispatchPacket(AfcOpCode.Read, readRequest.GetBytes(), cancellationToken).ConfigureAwait(false);
-                (AfcError status, byte[] chunk) = ReceiveData();
+                await DispatchPacket(AfcOpCode.Read, readRequest, cancellationToken).ConfigureAwait(false);
+                (AfcError status, byte[] chunk) = await ReceiveData(cancellationToken).ConfigureAwait(false);
                 if (status != AfcError.Success) {
                     throw new AfcException(status, "File Read Error");
                 }
@@ -102,8 +94,8 @@ namespace Netimobiledevice.Afc
         {
             Dictionary<string, string> stat;
             try {
-                AfcFileInfoRequest request = new AfcFileInfoRequest(new CString(filename, Encoding.UTF8));
-                byte[] response = await RunOperation(AfcOpCode.GetFileInfo, request.GetBytes(), cancellationToken).ConfigureAwait(false);
+                AfcFileInfoRequest request = new AfcFileInfoRequest(filename);
+                byte[] response = await RunOperation(AfcOpCode.GetFileInfo, request, cancellationToken).ConfigureAwait(false);
                 stat = ParseFileInfoResponseToDict(response);
             }
             catch (AfcException ex) {
@@ -159,24 +151,22 @@ namespace Netimobiledevice.Afc
             return result;
         }
 
-        private async Task<byte[]> RunOperation(AfcOpCode opCode, byte[] data, CancellationToken cancellationToken)
+        private async Task<byte[]> RunOperation(AfcOpCode opCode, AfcPacket packet, CancellationToken cancellationToken)
         {
-            await DispatchPacket(opCode, data, cancellationToken).ConfigureAwait(false);
-            (AfcError status, byte[] recievedData) = ReceiveData();
-
+            await DispatchPacket(opCode, packet, cancellationToken).ConfigureAwait(false);
+            (AfcError status, byte[] recievedData) = await ReceiveData(cancellationToken).ConfigureAwait(false);
             if (status != AfcError.Success) {
                 if (status == AfcError.ObjectNotFound) {
                     throw new AfcFileNotFoundException(AfcError.ObjectNotFound);
                 }
                 throw new AfcException($"Afc opcode {opCode} failed with status: {status}");
             }
-
             return recievedData;
         }
 
-        private (AfcError, byte[]) ReceiveData()
+        private async Task<(AfcError, byte[])> ReceiveData(CancellationToken cancellationToken)
         {
-            byte[] response = Service.Receive(AfcHeader.GetSize());
+            byte[] response = await Service.ReceiveAsync(AfcHeader.GetSize(), cancellationToken).ConfigureAwait(false);
 
             AfcError status = AfcError.Success;
             byte[] data = Array.Empty<byte>();
@@ -225,10 +215,9 @@ namespace Netimobiledevice.Afc
         /// <returns></returns>
         private async Task<bool> RmSingle(string filename, CancellationToken cancellationToken, bool force = false)
         {
-            AfcRmRequest request = new AfcRmRequest(new CString(filename, Encoding.UTF8));
-
+            AfcRmRequest request = new AfcRmRequest(filename);
             try {
-                await RunOperation(AfcOpCode.RemovePath, request.GetBytes(), cancellationToken).ConfigureAwait(false);
+                await RunOperation(AfcOpCode.RemovePath, request, cancellationToken).ConfigureAwait(false);
                 return true;
             }
             catch (AfcException) {
@@ -282,7 +271,7 @@ namespace Netimobiledevice.Afc
                 Handle = handle,
                 Op = (ulong) operation
             };
-            return await RunOperation(AfcOpCode.FileLock, request.GetBytes(), cancellationToken).ConfigureAwait(false);
+            return await RunOperation(AfcOpCode.FileLock, request, cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<byte[]> FileClose(ulong handle, CancellationToken cancellationToken)
@@ -290,13 +279,13 @@ namespace Netimobiledevice.Afc
             AfcFileCloseRequest request = new AfcFileCloseRequest() {
                 Handle = handle,
             };
-            return await RunOperation(AfcOpCode.FileClose, request.GetBytes(), cancellationToken).ConfigureAwait(false);
+            return await RunOperation(AfcOpCode.FileClose, request, cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<ulong> FileOpen(string filename, CancellationToken cancellationToken, AfcFileOpenMode mode = AfcFileOpenMode.ReadOnly)
         {
-            AfcFileOpenRequest openRequest = new AfcFileOpenRequest(mode, new CString(filename, Encoding.UTF8));
-            byte[] data = await RunOperation(AfcOpCode.FileOpen, openRequest.GetBytes(), cancellationToken).ConfigureAwait(false);
+            AfcFileOpenRequest openRequest = new AfcFileOpenRequest(mode, filename);
+            byte[] data = await RunOperation(AfcOpCode.FileOpen, openRequest, cancellationToken).ConfigureAwait(false);
             return StructExtentions.FromBytes<AfcFileOpenResponse>(data).Handle;
         }
 
@@ -306,19 +295,19 @@ namespace Netimobiledevice.Afc
             int chunksCount = data.Length / chunkSize;
             Logger?.LogDebug("Writing {dataSize} bytes in {chunksCount} chunks", dataSize, chunksCount);
 
-            byte[] fileHandle = BitConverter.GetBytes(handle);
             List<byte> writtenData = new List<byte>();
             for (int i = 0; i < chunksCount; i++) {
                 cancellationToken.ThrowIfCancellationRequested();
                 Logger?.LogDebug("Writing chunk {i}", i);
 
-                byte[] chunk = data.Skip(i * chunkSize).Take(chunkSize).ToArray();
-                byte[] packet = fileHandle.Concat(chunk).ToArray();
-
+                AfcFileWritePacket packet = new AfcFileWritePacket() {
+                    Handle = handle,
+                    Data = data.Skip(i * chunkSize).Take(chunkSize).ToArray()
+                };
                 await DispatchPacket(AfcOpCode.Write, packet, cancellationToken, 48).ConfigureAwait(false);
-                writtenData.AddRange(chunk);
+                writtenData.AddRange(packet.Data);
 
-                (AfcError status, byte[] response) = ReceiveData();
+                (AfcError status, byte[] response) = await ReceiveData(cancellationToken).ConfigureAwait(false);
                 if (status != AfcError.Success) {
                     throw new AfcException(status, $"Failed to write chunk: {status}");
                 }
@@ -327,13 +316,14 @@ namespace Netimobiledevice.Afc
 
             if (dataSize % (ulong) chunkSize > 0) {
                 Logger?.LogDebug("Writing last chunk");
-                byte[] chunk = data.Skip(chunksCount * chunkSize).ToArray();
-                byte[] packet = fileHandle.Concat(chunk).ToArray();
-
+                AfcFileWritePacket packet = new AfcFileWritePacket() {
+                    Handle = handle,
+                    Data = data.Skip(chunksCount * chunkSize).ToArray()
+                };
                 await DispatchPacket(AfcOpCode.Write, packet, cancellationToken, 48).ConfigureAwait(false);
-                writtenData.AddRange(chunk);
+                writtenData.AddRange(packet.Data);
 
-                (AfcError status, byte[] response) = ReceiveData();
+                (AfcError status, byte[] response) = await ReceiveData(cancellationToken).ConfigureAwait(false);
                 if (status != AfcError.Success) {
                     throw new AfcException(status, $"Failed to write last chunk: {status}");
                 }
@@ -345,8 +335,8 @@ namespace Netimobiledevice.Afc
         {
             List<string> directoryList = new List<string>();
             try {
-                AfcFileInfoRequest request = new AfcFileInfoRequest(new CString("/", Encoding.UTF8));
-                byte[] response = await RunOperation(AfcOpCode.ReadDir, request.GetBytes(), cancellationToken).ConfigureAwait(false);
+                AfcFileInfoRequest request = new AfcFileInfoRequest("/");
+                byte[] response = await RunOperation(AfcOpCode.ReadDir, request, cancellationToken).ConfigureAwait(false);
                 directoryList = ParseFileInfoResponseForMessage(response);
             }
             catch (Exception ex) {
@@ -357,7 +347,7 @@ namespace Netimobiledevice.Afc
 
         private async Task<List<string>> ListDirectory(string filename, CancellationToken cancellationToken)
         {
-            byte[] data = await RunOperation(AfcOpCode.ReadDir, new AfcReadDirectoryRequest(filename).GetBytes(), cancellationToken);
+            byte[] data = await RunOperation(AfcOpCode.ReadDir, new AfcReadDirectoryRequest(filename), cancellationToken);
             // Make sure to skip "." and ".."
             return AfcReadDirectoryResponse.Parse(data).Filenames.Skip(2).ToList();
         }
