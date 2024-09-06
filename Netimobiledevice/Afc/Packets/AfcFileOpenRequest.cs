@@ -19,6 +19,7 @@ namespace Netimobiledevice.Afc.Packets
         public override byte[] GetBytes()
         {
             List<byte> bytes = new List<byte>();
+            bytes.AddRange(Header.GetBytes());
             bytes.AddRange(BitConverter.GetBytes((ulong) Mode));
             bytes.AddRange(Filename.Bytes);
             return bytes.ToArray();

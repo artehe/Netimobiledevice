@@ -1,4 +1,6 @@
-﻿namespace Netimobiledevice.Afc.Packets
+﻿using System.Collections.Generic;
+
+namespace Netimobiledevice.Afc.Packets
 {
     internal class AfcRmRequest : AfcPacket
     {
@@ -13,7 +15,10 @@
 
         public override byte[] GetBytes()
         {
-            return Filename.Bytes;
+            List<byte> bytes = new List<byte>();
+            bytes.AddRange(Header.GetBytes());
+            bytes.AddRange(Filename.Bytes);
+            return bytes.ToArray();
         }
     }
 }
