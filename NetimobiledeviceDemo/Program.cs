@@ -52,13 +52,13 @@ public class Program
 
         // Connect via usbmuxd
         using (UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
-            using (CrashReportsManager crm = new CrashReportsManager(lockdown)) {
+            using (CrashReportsService crs = new CrashReportsService(lockdown)) {
                 if (Directory.Exists("CrashDir")) {
                     Directory.Delete("CrashDir", true);
                 }
 
-                List<string> crashList = await crm.GetCrashReportsList();
-                crm.GetCrashReport("CrashDir");
+                List<string> crashList = await crs.GetCrashReportsList();
+                await crs.GetCrashReport("CrashDir");
             }
         }
 
