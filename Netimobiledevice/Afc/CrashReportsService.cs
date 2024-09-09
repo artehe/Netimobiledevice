@@ -1,13 +1,13 @@
-﻿using Netimobiledevice.Afc;
+﻿using Netimobiledevice.Lockdown;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Netimobiledevice.Lockdown.Services
+namespace Netimobiledevice.Afc
 {
-    public class CrashReportsManager : IDisposable
+    public class CrashReportsService : IDisposable
     {
         private const string LOCKDOWN_COPY_MOBILE_NAME = "com.apple.crashreportcopymobile";
         private const string RSD_COPY_MOBILE_NAME = "com.apple.crashreportcopymobile.shim.remote";
@@ -23,7 +23,7 @@ namespace Netimobiledevice.Lockdown.Services
         private readonly string _copyMobileServiceName;
         private readonly string _crashMoverServiceName;
 
-        public CrashReportsManager(LockdownServiceProvider lockdown)
+        public CrashReportsService(LockdownServiceProvider lockdown)
         {
             _lockdown = lockdown;
 

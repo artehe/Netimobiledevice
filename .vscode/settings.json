@@ -2,6 +2,7 @@
   "[csharp]": {
     "editor.defaultFormatter": "ms-dotnettools.csharp"
   },
+  "csharp.format.enable": true,
   "editor.formatOnPaste": true,
   "editor.formatOnSave": true,
   "editor.formatOnType": true,

@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Afc
 {
-    public sealed class AfcService : LockdownService
+    public class AfcService : LockdownService
     {
         private const string LOCKDOWN_SERVICE_NAME = "com.apple.afc";
         private const string RSD_SERVICE_NAME = "com.apple.afc.shim.remote";
