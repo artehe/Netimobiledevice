@@ -234,13 +234,17 @@ public class Program
 
         // Connect via usbmuxd
         using (UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
+            int count = 0;
             foreach (string line in new SyslogService(lockdown).Watch()) {
+                if (count > 100) {
+                    break;
+                }
+                count++;
+
                 // Print all syslog lines as is
                 Console.WriteLine(line);
             }
         }
-
-        Console.ReadLine();
     }
 
     private static void Progress_ProgressChanged(object? sender, PairingState e)
