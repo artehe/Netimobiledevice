@@ -7,6 +7,7 @@ namespace Netimobiledevice.Afc.Packets
     {
         public ulong Handle { get; set; }
         public ulong Op { get; set; }
+
         public override int DataSize => sizeof(ulong) * 2;
 
         public override byte[] GetBytes()

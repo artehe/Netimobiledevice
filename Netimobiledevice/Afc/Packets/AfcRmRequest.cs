@@ -6,7 +6,7 @@ namespace Netimobiledevice.Afc.Packets
     {
         public CString Filename { get; }
 
-        public override int DataSize => GetBytes().Length;
+        public override int DataSize => Filename.Length;
 
         public AfcRmRequest(string filename)
         {
