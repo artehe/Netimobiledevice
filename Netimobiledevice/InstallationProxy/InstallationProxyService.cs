@@ -87,7 +87,7 @@ namespace Netimobiledevice.InstallationProxy
             }
 
             using (AfcService afc = new AfcService(Lockdown)) {
-                afc.SetFileContents(TEMP_REMOTE_IPA_FILE, ipaContents, cancellationToken);
+                await afc.SetFileContents(TEMP_REMOTE_IPA_FILE, ipaContents, cancellationToken).ConfigureAwait(false);
             }
             Logger.LogInformation("IPA sent to device");
 

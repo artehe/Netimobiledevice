@@ -60,7 +60,7 @@ namespace Netimobiledevice.Lockdown
         /// </summary>
         public bool IsPaired { get; private set; }
 
-        public ILogger Logger => _logger;
+        public override ILogger Logger => _logger;
 
         public string ProductFriendlyName => ModelIdentifier.GetDeviceModelName(ProductType);
 

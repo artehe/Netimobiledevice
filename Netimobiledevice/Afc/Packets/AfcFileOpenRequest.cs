@@ -1,26 +1,27 @@
-﻿using Netimobiledevice.Extentions;
-using System;
+﻿using System;
 using System.Collections.Generic;
 
-namespace Netimobiledevice.Afc
+namespace Netimobiledevice.Afc.Packets
 {
-    internal class AfcFileOpenRequest
+    internal class AfcFileOpenRequest : AfcPacket
     {
         public AfcFileOpenMode Mode { get; }
         public CString Filename { get; }
 
-        public AfcFileOpenRequest(AfcFileOpenMode mode, CString filename)
+        public override int DataSize => sizeof(AfcFileOpenMode) + Filename.Length;
+
+        public AfcFileOpenRequest(AfcFileOpenMode mode, string filename)
         {
             Mode = mode;
-            Filename = filename;
+            Filename = new CString(filename);
         }
 
-        public byte[] GetBytes()
+        public override byte[] GetBytes()
         {
             List<byte> bytes = new List<byte>();
+            bytes.AddRange(Header.GetBytes());
             bytes.AddRange(BitConverter.GetBytes((ulong) Mode));
             bytes.AddRange(Filename.Bytes);
-
             return bytes.ToArray();
         }
     }

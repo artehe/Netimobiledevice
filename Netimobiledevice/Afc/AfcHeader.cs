@@ -7,21 +7,23 @@ namespace Netimobiledevice.Afc
 {
     internal class AfcHeader
     {
-        public const string Magic = "CFA6LPAA";
-        public ulong EntireLength;
-        public ulong Length;
-        public ulong PacketNumber;
-        public AfcOpCode Operation;
+        private const string MAGIC_STRING = "CFA6LPAA";
+
+        public byte[] Magic { get; } = Encoding.UTF8.GetBytes(MAGIC_STRING);
+        public ulong EntireLength { get; set; }
+        public ulong Length { get; set; }
+        public ulong PacketNumber { get; set; }
+        public AfcOpCode Operation { get; set; }
 
         public static AfcHeader FromBytes(byte[] bytes)
         {
             using (MemoryStream ms = new MemoryStream(bytes)) {
-                byte[] magicBytes = Encoding.UTF8.GetBytes(Magic);
+                byte[] magicBytes = Encoding.UTF8.GetBytes(MAGIC_STRING);
                 byte[] readMagicBytes = new byte[magicBytes.Length];
                 ms.Read(readMagicBytes, 0, readMagicBytes.Length);
                 for (int i = 0; i < magicBytes.Length; i++) {
                     if (magicBytes[i] != readMagicBytes[i]) {
-                        throw new Exception("Missmatch in magic bytes for afc header");
+                        throw new AfcException("Missmatch in magic bytes for afc header");
                     }
                 }
             }
@@ -38,7 +40,7 @@ namespace Netimobiledevice.Afc
         public byte[] GetBytes()
         {
             List<byte> bytes = new List<byte>();
-            bytes.AddRange(Encoding.UTF8.GetBytes(Magic));
+            bytes.AddRange(Magic);
             bytes.AddRange(BitConverter.GetBytes(EntireLength));
             bytes.AddRange(BitConverter.GetBytes(Length));
             bytes.AddRange(BitConverter.GetBytes(PacketNumber));
@@ -49,11 +51,8 @@ namespace Netimobiledevice.Afc
 
         public static int GetSize()
         {
-            int size = Encoding.UTF8.GetBytes(Magic).Length;
-            size += sizeof(ulong);
-            size += sizeof(ulong);
-            size += sizeof(ulong);
-            size += sizeof(ulong);
+            int size = Encoding.UTF8.GetBytes(MAGIC_STRING).Length;
+            size += sizeof(ulong) * 4;
             return size;
         }
     }
