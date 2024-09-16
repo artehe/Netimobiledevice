@@ -46,14 +46,14 @@ namespace Netimobiledevice.Afc
 
         private async Task DispatchPacket(AfcOpCode opCode, AfcPacket packet, CancellationToken cancellationToken, ulong? thisLength = null)
         {
-            AfcHeader header = new AfcHeader() {
+            packet.Header = new AfcHeader() {
                 EntireLength = (ulong) packet.PacketSize,
-                Length = (ulong) packet.HeaderSize,
+                Length = (ulong) packet.PacketSize,
                 PacketNumber = _packetNumber,
                 Operation = opCode
             };
             if (thisLength != null) {
-                header.Length = (ulong) thisLength;
+                packet.Header.Length = (ulong) thisLength;
             }
 
             _packetNumber++;
