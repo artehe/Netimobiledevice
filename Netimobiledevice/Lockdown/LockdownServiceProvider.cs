@@ -1,20 +1,23 @@
-﻿using System;
+﻿using Microsoft.Extensions.Logging;
+using System;
 
 namespace Netimobiledevice.Lockdown
 {
     public abstract class LockdownServiceProvider
     {
-        public string Udid { get; protected set; } = string.Empty;
+        public abstract ILogger Logger { get; }
+
+        /// <summary>
+        /// The iOS version attached to this lockdown service provider
+        /// </summary>
+        public abstract Version OsVersion { get; }
 
         /// <summary>
         /// The internal device model identifier
         /// </summary>
         public string ProductType { get; protected set; } = string.Empty;
 
-        /// <summary>
-        /// The iOS version attached to this lockdown service provider
-        /// </summary>
-        public abstract Version OsVersion { get; }
+        public string Udid { get; protected set; } = string.Empty;
 
         public LockdownServiceProvider() { }
 

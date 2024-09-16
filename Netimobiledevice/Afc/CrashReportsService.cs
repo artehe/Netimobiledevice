@@ -36,7 +36,7 @@ namespace Netimobiledevice.Afc
                 _crashMoverServiceName = RSD_CRASH_MOVER_NAME;
             }
 
-            _afcService = new AfcService(lockdown, _copyMobileServiceName);
+            _afcService = new AfcService(lockdown, _copyMobileServiceName, lockdown.Logger);
         }
 
         public void Close()

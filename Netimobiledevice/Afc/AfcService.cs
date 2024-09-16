@@ -307,7 +307,7 @@ namespace Netimobiledevice.Afc
                 await DispatchPacket(AfcOpCode.Write, packet, cancellationToken, 48).ConfigureAwait(false);
                 writtenData.AddRange(packet.Data);
 
-                (AfcError status, byte[] response) = await ReceiveData(cancellationToken).ConfigureAwait(false);
+                (AfcError status, byte[] _) = await ReceiveData(cancellationToken).ConfigureAwait(false);
                 if (status != AfcError.Success) {
                     throw new AfcException(status, $"Failed to write chunk: {status}");
                 }
@@ -323,7 +323,7 @@ namespace Netimobiledevice.Afc
                 await DispatchPacket(AfcOpCode.Write, packet, cancellationToken, 48).ConfigureAwait(false);
                 writtenData.AddRange(packet.Data);
 
-                (AfcError status, byte[] response) = await ReceiveData(cancellationToken).ConfigureAwait(false);
+                (AfcError status, byte[] _) = await ReceiveData(cancellationToken).ConfigureAwait(false);
                 if (status != AfcError.Success) {
                     throw new AfcException(status, $"Failed to write last chunk: {status}");
                 }
@@ -428,32 +428,28 @@ namespace Netimobiledevice.Afc
                 src = $"{src}/{relativeSrc}";
             }
 
+            string[] splitSrc = relativeSrc.Split('/');
+            string dstPath = splitSrc.Length > 1 ? Path.Combine(dst, splitSrc[^1]) : Path.Combine(dst, relativeSrc);
+            if (OperatingSystem.IsWindows()) {
+                // Windows filesystems can't cope with ':' so we replace these with '-'
+                dstPath = dstPath.Replace(':', '-');
+            }
             Logger?.LogInformation("{src} --> {dst}", src, dst);
 
             src = await ResolvePath(src, cancellationToken).ConfigureAwait(false);
-
             if (!await IsDir(src, cancellationToken).ConfigureAwait(false)) {
                 // Normal file
-                if (Path.EndsInDirectorySeparator(dst)) {
-                    string[] splitSrc = relativeSrc.Split('/');
-                    string filename = splitSrc[^1];
-                    dst = Path.Combine(dst, filename);
-                }
-                using (FileStream fs = new FileStream(dst, FileMode.Create)) {
+                using (FileStream fs = new FileStream(dstPath, FileMode.Create)) {
                     byte[]? data = await GetFileContents(src, cancellationToken).ConfigureAwait(false);
                     await fs.WriteAsync(data, cancellationToken).ConfigureAwait(false);
                 }
             }
             else {
                 // Directory
-                string dstPath = $"{dst}/{Path.GetDirectoryName(relativeSrc)}";
                 Directory.CreateDirectory(dstPath);
-
                 foreach (string filename in await ListDirectory(src, cancellationToken).ConfigureAwait(false)) {
-                    string srcFilename = $"{src}/{filename}";
                     string dstFilename = Path.Combine(dstPath, filename);
-
-                    srcFilename = await ResolvePath(srcFilename, cancellationToken).ConfigureAwait(false);
+                    string srcFilename = await ResolvePath($"{src}/{filename}", cancellationToken).ConfigureAwait(false);
 
                     if (await IsDir(srcFilename, cancellationToken).ConfigureAwait(false)) {
                         Directory.CreateDirectory(dstFilename);
