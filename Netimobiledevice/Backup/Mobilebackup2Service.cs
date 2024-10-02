@@ -1,11 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice.DeviceLink;
-using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -72,12 +69,6 @@ namespace Netimobiledevice.Backup
             }
         }
 
-        private void SendPrefixed(byte[] data, int length)
-        {
-            Service.Send(EndianBitConverter.BigEndian.GetBytes(length));
-            Service.Send(data);
-        }
-
         /// <summary>
         /// Exchange versions with the device and assert that the device supports our version of the protocol.
         /// </summary>
@@ -130,33 +121,9 @@ namespace Netimobiledevice.Backup
             return Service.Receive(length);
         }
 
-        /// <summary>
-        /// Sends the specified error report to the backup service.
-        /// </summary>
-        /// <param name="error">The error report to send.</param>
-        public void SendError(DictionaryNode errorReport)
-        {
-            byte[] errBytes = Encoding.UTF8.GetBytes(errorReport["DLFileErrorString"].AsStringNode().Value);
-            List<byte> buffer = new List<byte> {
-                (byte) ResultCode.LocalError
-            };
-            buffer.AddRange(errBytes);
-            SendPrefixed(buffer.ToArray(), buffer.Count);
-        }
-
         public void SendRaw(byte[] data)
         {
             Service.Send(data);
-        }
-
-        /// <summary>
-        /// Sends a filename to the backup service stream.
-        /// </summary>
-        /// <param name="filename">The filename to send.</param>
-        public void SendPath(string filename)
-        {
-            byte[] path = Encoding.UTF8.GetBytes(filename);
-            SendPrefixed(path, path.Length);
         }
 
         public void SendRequest(string request, string targetIdentifier, string sourceIdentifier, DictionaryNode options)
@@ -187,46 +154,6 @@ namespace Netimobiledevice.Backup
             }
 
             SendMessage(request, dict);
-        }
-
-        /// <summary>
-        /// Sends a status report to the backup service.
-        /// </summary>
-        /// <param name="errorCode">The error code to send (as errno value).</param>
-        /// <param name="errorMessage">The error message to send.</param>
-        /// <param name="errorList">A PropertyNode with additional value(s).</param>
-        public void SendStatusReport(int errorCode, string? errorMessage, PropertyNode? errorList)
-        {
-            ArrayNode array = new ArrayNode {
-                new StringNode("DLMessageStatusResponse"),
-                new IntegerNode(errorCode)
-            };
-
-            if (errorMessage != null) {
-                array.Add(new StringNode(errorMessage));
-            }
-            else {
-                array.Add(new StringNode("___EmptyParameterString___"));
-            }
-
-            if (errorList != null) {
-                array.Add(errorList);
-            }
-            else {
-                array.Add(new DictionaryNode());
-            }
-
-            DeviceLinkSend(array);
-        }
-
-        /// <summary>
-        /// Sends a status report to the backup service.
-        /// </summary>
-        /// <param name="errorCode">The error code to send (as errno value).</param>
-        /// <param name="errorMessage">The error message to send.</param>
-        public void SendStatusReport(int errorCode, string errorMessage)
-        {
-            SendStatusReport(errorCode, errorMessage, null);
         }
 
         /// <summary>

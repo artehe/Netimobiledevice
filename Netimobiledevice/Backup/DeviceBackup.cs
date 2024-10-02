@@ -267,7 +267,7 @@ namespace Netimobiledevice.Backup
             LockdownClient.Logger.LogDebug("Saving at {DeviceBackupPath}", DeviceBackupPath);
 
             IsEncrypted = LockdownClient.GetValue("com.apple.mobile.backup", "WillEncrypt")?.AsBooleanNode().Value ?? false;
-            LockdownClient.Logger.LogInformation($"The backup will{(IsEncrypted ? null : " not")} be encrypted.");
+            LockdownClient.Logger.LogInformation("The backup will {encyption} be encrypted.", IsEncrypted ? null : " not");
 
             try {
                 mobilebackup2Service = await Mobilebackup2Service.CreateAsync(LockdownClient, cancellationToken);
@@ -289,34 +289,6 @@ namespace Netimobiledevice.Backup
                 OnError(ex);
                 return;
             }
-        }
-
-        /// <summary>
-        /// Creates a dictionary plist instance of the required error report for the device.
-        /// </summary>
-        /// <param name="errorNo">The errno code.</param>
-        private static DictionaryNode CreateErrorReport(int errorNo)
-        {
-            string errMsg;
-            int errCode = -errorNo;
-
-            if (errorNo == (int) ErrNo.ENOENT) {
-                errCode = -6;
-                errMsg = "No such file or directory.";
-            }
-            else if (errorNo == (int) ErrNo.EEXIST) {
-                errCode = -7;
-                errMsg = "File or directory already exists.";
-            }
-            else {
-                errMsg = $"Unspecified error: ({errorNo})";
-            }
-
-            DictionaryNode dict = new DictionaryNode() {
-                { "DLFileErrorString", new StringNode(errMsg) },
-                { "DLFileErrorCode", new IntegerNode(errCode) }
-            };
-            return dict;
         }
 
         /// <summary>
@@ -466,6 +438,18 @@ namespace Netimobiledevice.Backup
         }
 
         /// <summary>
+        /// Updates the backup progress as signaled by the device link service.
+        /// </summary>
+        /// <param name="progress">The amount of progress extracted from the last message.</param>
+        private void DeviceLinkProgressCallback(double progress)
+        {
+            if (progress > 0.0 && progress > ProgressPercentage) {
+                ProgressPercentage = progress;
+                OnBackupProgress();
+            }
+        }
+
+        /// <summary>
         /// The main loop for processing messages from the device.
         /// </summary>
         private async Task MessageLoop(CancellationToken cancellationToken)
@@ -491,7 +475,7 @@ namespace Netimobiledevice.Backup
                             }
 
                             try {
-                                OnMessageReceived(msg, msg[0].AsStringNode().Value);
+                                await mobilebackup2Service.OnDeviceLinkMessageReceived(msg, msg[0].AsStringNode().Value, BackupDirectory, DeviceLinkProgressCallback, cancellationToken);
                             }
                             catch (Exception ex) {
                                 OnError(ex);
@@ -523,97 +507,6 @@ namespace Netimobiledevice.Backup
 
             LockdownClient.Logger.LogInformation($"Finished message loop. Cancelling = {IsCancelling}, Finished = {IsFinished}, Errored = {terminatingException != null}");
             OnBackupCompleted();
-        }
-
-        /// <summary>
-        /// Manages the DownloadFiles device message.
-        /// </summary>
-        /// <param name="msg">The message received from the device.</param>
-        private void OnDownloadFiles(ArrayNode msg)
-        {
-            UpdateProgressForMessage(msg, 3);
-
-            DictionaryNode errList = new DictionaryNode();
-            ArrayNode files = msg[1].AsArrayNode();
-            foreach (StringNode filename in files.Cast<StringNode>()) {
-                if (IsStopping) {
-                    break;
-                }
-                else {
-                    SendFile(filename.Value, errList);
-                }
-            }
-
-            if (!IsStopping) {
-                byte[] fileTransferTerminator = new byte[4];
-                mobilebackup2Service?.SendRaw(fileTransferTerminator);
-                if (errList.Count == 0) {
-                    mobilebackup2Service?.SendStatusReport(0, null, null);
-                }
-                else {
-                    mobilebackup2Service?.SendStatusReport(-13, "Multi status", errList);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Process the message received from the backup service.
-        /// </summary>
-        /// <param name="msg">The property array received.</param>
-        /// <param name="message">The string that identifies the message type.</param>
-        /// <returns>Depends on the message type, but a negative value always indicates an error.</returns>
-        private void OnMessageReceived(ArrayNode msg, string message)
-        {
-            LockdownClient.Logger.LogDebug($"Message Received: {message}");
-            switch (message) {
-                case DeviceLinkMessage.DownloadFiles: {
-                    OnDownloadFiles(msg);
-                    break;
-                }
-                case DeviceLinkMessage.GetFreeDiskSpace: {
-                    OnGetFreeDiskSpace(msg);
-                    break;
-                }
-                case DeviceLinkMessage.CreateDirectory: {
-                    OnCreateDirectory(msg);
-                    break;
-                }
-                case DeviceLinkMessage.UploadFiles: {
-                    OnUploadFiles(msg);
-                    break;
-                }
-                case DeviceLinkMessage.ContentsOfDirectory: {
-                    OnListDirectory(msg);
-                    break;
-                }
-                case DeviceLinkMessage.MoveFiles:
-                case DeviceLinkMessage.MoveItems: {
-                    OnMoveItems(msg);
-                    break;
-                }
-                case DeviceLinkMessage.RemoveFiles:
-                case DeviceLinkMessage.RemoveItems: {
-                    OnRemoveItems(msg);
-                    break;
-                }
-                case DeviceLinkMessage.CopyItem: {
-                    OnCopyItem(msg);
-                    break;
-                }
-                case DeviceLinkMessage.Disconnect: {
-                    IsCancelling = true;
-                    break;
-                }
-                case DeviceLinkMessage.ProcessMessage: {
-                    OnProcessMessage(msg);
-                    break;
-                }
-                default: {
-                    LockdownClient.Logger.LogWarning($"WARNING: Unknown message in MessageLoop: {message}");
-                    mobilebackup2Service?.SendStatusReport(1, "Operation not supported");
-                    break;
-                }
-            }
         }
 
         private void OnProcessMessage(ArrayNode msg)
@@ -689,7 +582,7 @@ namespace Netimobiledevice.Backup
             }
 
             if (!IsStopping) {
-                mobilebackup2Service?.SendStatusReport(errorCode, errorDescription);
+                // TODO mobilebackup2Service?.SendStatusReport(errorCode, errorDescription);
             }
         }
 
@@ -769,70 +662,6 @@ namespace Netimobiledevice.Backup
                 return EndianBitConverter.BigEndian.ToInt32(buffer, 0);
             }
             return -1;
-        }
-
-        /// <summary>
-        /// Sends a single file to the device.
-        /// </summary>
-        /// <param name="filename">The relative filename requested to send.</param>
-        /// <param name="errList">The error list to append the eventual local error happening.</param>
-        /// <returns>The errno result of the operation.</returns>
-        private void SendFile(string filename, DictionaryNode errList)
-        {
-            LockdownClient.Logger.LogDebug($"Sending file: {filename}");
-            mobilebackup2Service?.SendPath(filename);
-            string localFile = Path.Combine(BackupDirectory, filename);
-            FileInfo fileInfo = new FileInfo(localFile);
-            int errorCode;
-            if (!fileInfo.Exists) {
-                errorCode = 2;
-            }
-            else if (fileInfo.Length == 0) {
-                errorCode = 0;
-            }
-            else {
-                SendFile(fileInfo);
-                errorCode = 0;
-            }
-
-            if (errorCode == 0) {
-                List<byte> bytes = new List<byte>(EndianBitConverter.BigEndian.GetBytes(1)) {
-                    (byte) ResultCode.Success
-                };
-                mobilebackup2Service?.SendRaw(bytes.ToArray());
-            }
-            else {
-                LockdownClient.Logger.LogDebug($"Sending Error Code: {errorCode}");
-                DictionaryNode errReport = CreateErrorReport(errorCode);
-                errList.Add(filename, errReport);
-                mobilebackup2Service?.SendError(errReport);
-            }
-        }
-
-        /// <summary>
-        /// Sends the specified file to the device.
-        /// </summary>
-        /// <param name="fileInfo">The FileInfo of the file to send.</param>
-        /// <returns>The MobileBackup2Error result of the native call.</sreturns>
-        private void SendFile(FileInfo fileInfo)
-        {
-            const int maxBufferSize = 32768;
-            long remaining = fileInfo.Length;
-            using (FileStream stream = File.OpenRead(fileInfo.FullName)) {
-                while (remaining > 0) {
-                    int toSend = (int) Math.Min(maxBufferSize, remaining);
-                    List<byte> bytes = new List<byte>(EndianBitConverter.BigEndian.GetBytes(toSend)) {
-                        (byte) ResultCode.FileData
-                    };
-                    mobilebackup2Service?.SendRaw(bytes.ToArray());
-
-                    byte[] buffer = new byte[toSend];
-                    int read = stream.Read(buffer, 0, toSend);
-                    mobilebackup2Service?.SendRaw(buffer);
-
-                    remaining -= read;
-                }
-            }
         }
 
         /// <summary>
@@ -952,7 +781,7 @@ namespace Netimobiledevice.Backup
             else {
                 File.Copy(source.FullName, new FileInfo(dstPath).FullName);
             }
-            mobilebackup2Service?.SendStatusReport(errorCode, errorDesc);
+            // TODO mobilebackup2Service?.SendStatusReport(errorCode, errorDesc);
         }
 
         /// <summary>
@@ -974,7 +803,7 @@ namespace Netimobiledevice.Backup
             if (!newDir.Exists) {
                 newDir.Create();
             }
-            mobilebackup2Service?.SendStatusReport(errorCode, errorMessage);
+            // TODO mobilebackup2Service?.SendStatusReport(errorCode, errorMessage);
         }
 
         /// <summary>
@@ -1054,10 +883,10 @@ namespace Netimobiledevice.Backup
             long freeSpace = GetFreeSpace(BackupDirectory);
             IntegerNode spaceItem = new IntegerNode(freeSpace);
             if (respectFreeSpaceValue) {
-                mobilebackup2Service?.SendStatusReport(0, null, spaceItem);
+                // TODO mobilebackup2Service?.SendStatusReport(0, null, spaceItem);
             }
             else {
-                mobilebackup2Service?.SendStatusReport(-1, null, spaceItem);
+                // TODO  mobilebackup2Service?.SendStatusReport(-1, null, spaceItem);
             }
         }
 
@@ -1086,7 +915,7 @@ namespace Netimobiledevice.Backup
             }
 
             if (!IsStopping) {
-                mobilebackup2Service?.SendStatusReport(0, null, dirList);
+                // TODO  mobilebackup2Service?.SendStatusReport(0, null, dirList);
             }
         }
 
@@ -1127,7 +956,7 @@ namespace Netimobiledevice.Backup
                 }
             }
 
-            mobilebackup2Service?.SendStatusReport(errorCode, errorDesc);
+            // TODO mobilebackup2Service?.SendStatusReport(errorCode, errorDesc);
         }
 
         /// <summary>
@@ -1164,7 +993,7 @@ namespace Netimobiledevice.Backup
             }
 
             if (!IsStopping) {
-                mobilebackup2Service?.SendStatusReport(errorCode, errorDesc);
+                // TODO mobilebackup2Service?.SendStatusReport(errorCode, errorDesc);
             }
         }
 
