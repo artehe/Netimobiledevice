@@ -1,17 +1,19 @@
 ﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.Lockdown;
+using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Netimobiledevice.Lockdown.Services
+namespace Netimobiledevice.DeviceLink
 {
-    public abstract class DeviceLink : BaseService
+    public abstract class DeviceLinkService : BaseService
     {
         // Set the default timeout to be 5 minutes
         private const int SERVICE_TIMEOUT = 5 * 60 * 1000;
 
-        protected DeviceLink(LockdownClient lockdown, ServiceConnection? service = null) : base(lockdown, service)
+        protected DeviceLinkService(LockdownClient lockdown, ServiceConnection? service = null) : base(lockdown, service)
         {
             // Adjust the timeout to be long enough to handle device with a large amount of data
             Service.SetTimeout(SERVICE_TIMEOUT);
@@ -91,7 +93,7 @@ namespace Netimobiledevice.Lockdown.Services
             if (vMajor > versionMajor) {
                 throw new Exception($"Version mismatch detected received {vMajor}.{vMinor}, expected {versionMajor}.{versionMinor}");
             }
-            else if ((vMajor == versionMajor) && (vMinor > versionMinor)) {
+            else if (vMajor == versionMajor && vMinor > versionMinor) {
                 throw new Exception($"Version mismatch detected received {vMajor}.{vMinor}, expected {versionMajor}.{versionMinor}");
             }
 

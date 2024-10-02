@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.DeviceLink;
 using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Lockdown;
-using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Backup
 {
-    public sealed class Mobilebackup2Service : DeviceLink
+    public sealed class Mobilebackup2Service : DeviceLinkService
     {
         private const int MOBILEBACKUP2_VERSION_MAJOR = 400;
         private const int MOBILEBACKUP2_VERSION_MINOR = 0;

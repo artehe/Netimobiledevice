@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.DeviceLink;
 using Netimobiledevice.Lockdown;
-using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Mobilesync
 {
-    public sealed class MobilesyncService : DeviceLink
+    public sealed class MobilesyncService : DeviceLinkService
     {
         private const int MOBILESYNC_VERSION_MAJOR = 400;
         private const int MOBILESYNC_VERSION_MINOR = 100;
