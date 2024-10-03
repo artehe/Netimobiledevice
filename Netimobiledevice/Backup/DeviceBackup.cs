@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice.Afc;
+using Netimobiledevice.DeviceLink;
 using Netimobiledevice.Diagnostics;
 using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Exceptions;
@@ -462,11 +463,19 @@ namespace Netimobiledevice.Backup
                                 isFirstMessage = false;
                             }
 
-                            try {
-                                await mobilebackup2Service.OnDeviceLinkMessageReceived(msg, msg[0].AsStringNode().Value, BackupDirectory, cancellationToken);
-                            }
-                            catch (Exception ex) {
-                                OnError(ex);
+                            DLResultCode resultCode = await mobilebackup2Service.OnDeviceLinkMessageReceived(msg, msg[0].AsStringNode().Value, BackupDirectory, cancellationToken);
+                            if (resultCode != DLResultCode.MessageComplete) {
+                                IsFinished = resultCode == DLResultCode.Success;
+                                if (!IsFinished) {
+                                    LockdownClient.Logger.LogError("Error {error} in backup job", resultCode);
+
+                                    IsCancelling = true;
+                                    internalCancellationTokenSource?.Cancel();
+
+                                    deviceDisconnected = Usbmux.IsDeviceConnected(LockdownClient.Udid);
+                                    terminatingException = deviceDisconnected ? new DeviceLinkException(resultCode) : new DeviceDisconnectedException();
+                                    Error?.Invoke(this, new ErrorEventArgs(terminatingException));
+                                }
                             }
                         }
                         else if (!Usbmux.IsDeviceConnected(LockdownClient.Udid)) {
@@ -495,92 +504,6 @@ namespace Netimobiledevice.Backup
 
             LockdownClient.Logger.LogInformation($"Finished message loop. Cancelling = {IsCancelling}, Finished = {IsFinished}, Errored = {terminatingException != null}");
             OnBackupCompleted();
-        }
-
-        private void OnProcessMessage(ArrayNode msg)
-        {
-            int resultCode = ProcessMessage(msg);
-            switch (resultCode) {
-                case 0: {
-                    IsFinished = true;
-                    break;
-                }
-                case -38: {
-                    OnError(new Exception("Backing up the phone is denied by managing organisation"));
-                    break;
-                }
-                case -207: {
-                    OnError(new Exception("No backup encryption password set but is required by managing organisation"));
-                    break;
-                }
-                case -208: {
-                    // Device locked which most commonly happens when requesting a backup but the user either
-                    // hit cancel or the screen turned off again locking the phone and cancelling the backup.
-                    OnError(new Exception($"Device locked - {msg[1].AsDictionaryNode()["ErrorDescription"].AsStringNode().Value}"));
-                    break;
-                }
-                default: {
-                    LockdownClient.Logger.LogError($"Issue with OnProcessMessage: {resultCode}");
-                    DictionaryNode msgDict = msg[1].AsDictionaryNode();
-                    if (msgDict.TryGetValue("ErrorDescription", out PropertyNode? errDescription)) {
-                        throw new Exception($"Error {resultCode}: {errDescription.AsStringNode().Value}");
-                    }
-                    else {
-                        throw new Exception($"Error {resultCode}");
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Processes a message response received from the backup service.
-        /// </summary>
-        /// <param name="msg">The message received.</param>
-        /// <returns>The result status code from the message.</returns>
-        private int ProcessMessage(ArrayNode msg)
-        {
-            DictionaryNode tmp = msg[1].AsDictionaryNode();
-            int errorCode = (int) tmp["ErrorCode"].AsIntegerNode().Value;
-            string errorDescription = tmp["ErrorDescription"].AsStringNode().Value;
-            if (errorCode != 0) {
-                LockdownClient.Logger.LogError($"ProcessMessage Code: {errorCode} {errorDescription}");
-            }
-            return -errorCode;
-        }
-
-        /// <summary>
-        /// Reads the information of the next file that the backup service will send.
-        /// </summary>
-        /// <returns>Returns the file information of the next file to download, or null if there are no more files to download.</returns>
-        private BackupFile? ReceiveBackupFile()
-        {
-            int len = ReceiveFilename(out string devicePath);
-            if (len == 0) {
-                return null;
-            }
-            len = ReceiveFilename(out string backupPath);
-            if (len <= 0) {
-                LockdownClient.Logger.LogWarning("Error reading backup file path.");
-            }
-            return new BackupFile(devicePath, backupPath, BackupDirectory);
-        }
-
-        /// <summary>
-        /// Reads a filename from the backup service stream.
-        /// </summary>
-        /// <param name="filename">The filename read from the backup stream, or NULL if there are no more files.</param>
-        /// <returns>The length of the filename read.</returns>
-        private int ReceiveFilename(out string filename)
-        {
-            filename = string.Empty;
-            int len = ReadInt32();
-
-            // A zero length means no more files to receive.
-            if (len != 0) {
-                byte[] buffer = mobilebackup2Service?.ReceiveRaw(len) ?? Array.Empty<byte>();
-                filename = Encoding.UTF8.GetString(buffer);
-            }
-            return len;
         }
 
         private ResultCode ReadCode()
@@ -687,28 +610,6 @@ namespace Netimobiledevice.Backup
         }
 
         /// <summary>
-        /// Manages the CopyItem device message.
-        /// </summary>
-        /// <param name="msg">The message received from the device.</param>
-        /// <returns>The errno result of the operation.</returns>
-        protected virtual void OnCopyItem(ArrayNode msg)
-        {
-            int errorCode = 0;
-            string errorDesc = string.Empty;
-            string srcPath = Path.Combine(BackupDirectory, msg[1].AsStringNode().Value);
-            string dstPath = Path.Combine(BackupDirectory, msg[2].AsStringNode().Value);
-
-            FileInfo source = new FileInfo(srcPath);
-            if (source.Attributes.HasFlag(FileAttributes.Directory)) {
-                LockdownClient.Logger.LogError($"Trying to coppy a whole directory rather than an individual file");
-            }
-            else {
-                File.Copy(source.FullName, new FileInfo(dstPath).FullName);
-            }
-            // TODO mobilebackup2Service?.SendStatusReport(errorCode, errorDesc);
-        }
-
-        /// <summary>
         /// Event handler called when a terminating error happens during the backup.
         /// </summary>
         /// <param name="ex"></param>
@@ -771,44 +672,6 @@ namespace Netimobiledevice.Backup
                 BackupFileErrorEventArgs e = new BackupFileErrorEventArgs(file);
                 FileTransferError.Invoke(this, e);
                 IsCancelling = e.Cancel;
-            }
-        }
-
-        /// <summary>
-        /// Manages the RemoveItems device message.
-        /// </summary>
-        /// <param name="msg">The message received from the device.</param>
-        /// <returns>The number of items removed.</returns>
-        protected virtual void OnRemoveItems(ArrayNode msg)
-        {
-            UpdateProgressForMessage(msg, 3);
-
-            int errorCode = 0;
-            string errorDesc = string.Empty;
-            ArrayNode removes = msg[1].AsArrayNode();
-            foreach (StringNode filename in removes.Cast<StringNode>()) {
-                if (IsStopping) {
-                    break;
-                }
-
-                if (string.IsNullOrEmpty(filename.Value)) {
-                    LockdownClient.Logger.LogWarning("Empty file to remove.");
-                }
-                else {
-                    FileInfo file = new FileInfo(Path.Combine(BackupDirectory, filename.Value));
-                    if (file.Exists) {
-                        if (file.Attributes.HasFlag(FileAttributes.Directory)) {
-                            Directory.Delete(file.FullName, true);
-                        }
-                        else {
-                            file.Delete();
-                        }
-                    }
-                }
-            }
-
-            if (!IsStopping) {
-                // TODO mobilebackup2Service?.SendStatusReport(errorCode, errorDesc);
             }
         }
 

@@ -127,23 +127,46 @@ namespace Netimobiledevice.DeviceLink
         }
 
         /// <summary>
+        /// Manages the CopyItem device message.
+        /// </summary>
+        /// <param name="msg">The message received from the device.</param>
+        /// <returns>The errno result of the operation.</returns>
+        private DLResultCode OnCopyItem(ArrayNode msg, string rootPath)
+        {
+            string srcPath = Path.Combine(rootPath, msg[1].AsStringNode().Value);
+            string dstPath = Path.Combine(rootPath, msg[2].AsStringNode().Value);
+
+            FileInfo source = new FileInfo(srcPath);
+            if (source.Attributes.HasFlag(FileAttributes.Directory)) {
+                Logger.LogError("Trying to cppy a whole directory rather than an individual file");
+            }
+            else {
+                File.Copy(source.FullName, new FileInfo(dstPath).FullName);
+            }
+            SendStatusReport(0, string.Empty);
+            return DLResultCode.MessageComplete;
+        }
+
+
+        /// <summary>
         /// Manages the CreateDirectory device message.
         /// </summary>
         /// <param name="msg">The message received from the device.</param>
         /// <returns>The errno result of the operation.</returns>
-        private void OnCreateDirectory(ArrayNode msg, string rootPath)
+        private DLResultCode OnCreateDirectory(ArrayNode msg, string rootPath)
         {
             UpdateProgressForMessage(msg, 3);
             string newDirPath = Path.Combine(rootPath, msg[1].AsStringNode().Value);
             Directory.CreateDirectory(newDirPath);
             SendStatusReport(0, string.Empty);
+            return DLResultCode.MessageComplete;
         }
 
         /// <summary>
         /// Manages the DownloadFiles device message.
         /// </summary>
         /// <param name="msg">The message received from the device.</param>
-        private async Task OnDownloadFiles(ArrayNode msg, string rootPath, CancellationToken cancellationToken = default)
+        private async Task<DLResultCode> OnDownloadFiles(ArrayNode msg, string rootPath, CancellationToken cancellationToken = default)
         {
             UpdateProgressForMessage(msg, 3);
 
@@ -196,6 +219,7 @@ namespace Netimobiledevice.DeviceLink
             else {
                 SendStatusReport(BULK_OPERATION_ERROR, "Multi status", errList);
             }
+            return DLResultCode.MessageComplete;
         }
 
         /// <summary>
@@ -204,7 +228,7 @@ namespace Netimobiledevice.DeviceLink
         /// <param name="msg">The message received from the device.</param>
         /// <param name="respectFreeSpaceValue">Whether the device should abide by the freeSpace value passed or ignore it</param>
         /// <returns>0 on success, -1 on error.</returns>
-        private void OnGetFreeDiskSpace(string rootPath, bool respectFreeSpaceValue = true)
+        private DLResultCode OnGetFreeDiskSpace(string rootPath, bool respectFreeSpaceValue = true)
         {
             long freeSpace = 0;
             DirectoryInfo dir = new DirectoryInfo(rootPath);
@@ -227,6 +251,7 @@ namespace Netimobiledevice.DeviceLink
             else {
                 SendStatusReport(-1, null, spaceItem);
             }
+            return DLResultCode.MessageComplete;
         }
 
         /// <summary>
@@ -234,7 +259,7 @@ namespace Netimobiledevice.DeviceLink
         /// </summary>
         /// <param name="msg">The message received from the device.</param>
         /// <returns>Always 0.</returns>
-        private void OnListDirectory(ArrayNode msg, string rootPath, CancellationToken cancellationToken)
+        private DLResultCode OnListDirectory(ArrayNode msg, string rootPath, CancellationToken cancellationToken)
         {
             string path = Path.Combine(rootPath, msg[1].AsStringNode().Value);
             DictionaryNode dirList = new DictionaryNode();
@@ -253,6 +278,7 @@ namespace Netimobiledevice.DeviceLink
                 }
             }
             SendStatusReport(0, null, dirList);
+            return DLResultCode.MessageComplete;
         }
 
         /// <summary>
@@ -260,10 +286,9 @@ namespace Netimobiledevice.DeviceLink
         /// </summary>
         /// <param name="msg">The message received from the device.</param>
         /// <returns>The number of items moved.</returns>
-        private void OnMoveItems(ArrayNode msg, string rootPath, CancellationToken cancellationToken)
+        private DLResultCode OnMoveItems(ArrayNode msg, string rootPath, CancellationToken cancellationToken)
         {
             UpdateProgressForMessage(msg, 3);
-
             int res = 0;
             foreach (KeyValuePair<string, PropertyNode> move in msg[1].AsDictionaryNode()) {
                 if (cancellationToken.IsCancellationRequested) {
@@ -276,13 +301,12 @@ namespace Netimobiledevice.DeviceLink
                     FileInfo newFile = new FileInfo(Path.Combine(rootPath, newPath));
                     FileInfo oldFile = new FileInfo(Path.Combine(rootPath, move.Key));
 
-                    FileInfo fileInfo = new FileInfo(newPath);
-                    if (fileInfo.Exists) {
-                        if (fileInfo.Attributes.HasFlag(FileAttributes.Directory)) {
+                    if (newFile.Exists) {
+                        if (newFile.Attributes.HasFlag(FileAttributes.Directory)) {
                             new DirectoryInfo(newFile.FullName).Delete(true);
                         }
                         else {
-                            fileInfo.Delete();
+                            newFile.Delete();
                         }
                     }
 
@@ -291,8 +315,79 @@ namespace Netimobiledevice.DeviceLink
                     }
                 }
             }
-
             SendStatusReport(0);
+            return DLResultCode.MessageComplete;
+        }
+
+        private DLResultCode OnProcessMessage(ArrayNode msg)
+        {
+            DictionaryNode tmp = msg[1].AsDictionaryNode();
+            int resultCode = (int) tmp["ErrorCode"].AsIntegerNode().Value;
+
+            if (resultCode != 0 && tmp.TryGetValue("ErrorDescription", out PropertyNode? errorDescriptionNode)) {
+                Logger.LogError("ProcessMessage {code}: {description}", resultCode, errorDescriptionNode.AsStringNode().Value);
+            }
+
+            switch (-resultCode) {
+                case 0: {
+                    return DLResultCode.Success;
+                }
+                case -38: {
+                    Logger.LogError("Backing up the phone is denied by managing organisation");
+                    return DLResultCode.BackupDeniedByOrganisation;
+                }
+                case -207: {
+                    Logger.LogError("No backup encryption password set but is required by managing organisation");
+                    return DLResultCode.MissingRequiredEncryptionPassword;
+                }
+                case -208: {
+                    // Device locked which most commonly happens when requesting a backup but the user either
+                    // hit cancel or the screen turned off again locking the phone and cancelling the backup.
+                    Logger.LogError("Device locked: {error}", msg[1].AsDictionaryNode()["ErrorDescription"].AsStringNode().Value);
+                    return DLResultCode.DeviceLocked;
+                }
+                default: {
+                    Logger.LogError("Issue with OnProcessMessage: {code}", resultCode);
+                    DictionaryNode msgDict = msg[1].AsDictionaryNode();
+                    if (msgDict.TryGetValue("ErrorDescription", out PropertyNode? errDescription)) {
+                        Logger.LogError("Description: {description}", errDescription.AsStringNode().Value);
+                    }
+                    return DLResultCode.UnexpectedError;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Manages the RemoveItems device message.
+        /// </summary>
+        /// <param name="msg">The message received from the device.</param>
+        /// <returns>The number of items removed.</returns>
+        private DLResultCode OnRemoveItems(ArrayNode msg, string rootPath, CancellationToken cancellationToken)
+        {
+            UpdateProgressForMessage(msg, 3);
+            ArrayNode removes = msg[1].AsArrayNode();
+            foreach (StringNode filename in removes.Cast<StringNode>()) {
+                if (cancellationToken.IsCancellationRequested) {
+                    break;
+                }
+
+                if (string.IsNullOrEmpty(filename.Value)) {
+                    Logger.LogWarning("Empty file to remove.");
+                }
+                else {
+                    FileInfo file = new FileInfo(Path.Combine(rootPath, filename.Value));
+                    if (file.Exists) {
+                        if (file.Attributes.HasFlag(FileAttributes.Directory)) {
+                            Directory.Delete(file.FullName, true);
+                        }
+                        else {
+                            file.Delete();
+                        }
+                    }
+                }
+            }
+            SendStatusReport(0, string.Empty);
+            return DLResultCode.MessageComplete;
         }
 
         /// <summary>
@@ -300,7 +395,7 @@ namespace Netimobiledevice.DeviceLink
         /// </summary>
         /// <param name="msg">The message received from the device.</param>
         /// <returns>The number of files processed.</returns>
-        private async Task OnUploadFiles(ArrayNode msg, string rootPath, CancellationToken cancellationToken)
+        private async Task<DLResultCode> OnUploadFiles(ArrayNode msg, string rootPath, CancellationToken cancellationToken)
         {
             UpdateProgressForMessage(msg, 2);
 
@@ -341,6 +436,7 @@ namespace Netimobiledevice.DeviceLink
             }
 
             SendStatusReport(errorCode, errorDescription);
+            return DLResultCode.MessageComplete;
         }
 
         private async Task<DLResultCode> ReadCode(CancellationToken cancellationToken)
@@ -558,56 +654,46 @@ namespace Netimobiledevice.DeviceLink
         /// <param name="msg">The property array received.</param>
         /// <param name="message">The string that identifies the message type.</param>
         /// <returns>Depends on the message type, but a negative value always indicates an error.</returns>
-        public async Task OnDeviceLinkMessageReceived(ArrayNode msg, string message, string rootPath, CancellationToken cancellationToken = default)
+        public async Task<DLResultCode> OnDeviceLinkMessageReceived(ArrayNode msg, string message, string rootPath, CancellationToken cancellationToken = default)
         {
             Logger.LogDebug("Message Received: {message}", message);
             switch (message) {
                 case DeviceLinkMessage.DownloadFiles: {
-                    await OnDownloadFiles(msg, rootPath, cancellationToken).ConfigureAwait(false);
-                    break;
+                    return await OnDownloadFiles(msg, rootPath, cancellationToken).ConfigureAwait(false);
                 }
                 case DeviceLinkMessage.GetFreeDiskSpace: {
-                    OnGetFreeDiskSpace(rootPath);
-                    break;
+                    return OnGetFreeDiskSpace(rootPath);
                 }
                 case DeviceLinkMessage.CreateDirectory: {
-                    OnCreateDirectory(msg, rootPath);
-                    break;
+                    return OnCreateDirectory(msg, rootPath);
                 }
                 case DeviceLinkMessage.UploadFiles: {
-                    await OnUploadFiles(msg, rootPath, cancellationToken).ConfigureAwait(false);
-                    break;
+                    return await OnUploadFiles(msg, rootPath, cancellationToken).ConfigureAwait(false);
                 }
                 case DeviceLinkMessage.ContentsOfDirectory: {
-                    OnListDirectory(msg, rootPath, cancellationToken);
-                    break;
+                    return OnListDirectory(msg, rootPath, cancellationToken);
                 }
                 case DeviceLinkMessage.MoveFiles:
                 case DeviceLinkMessage.MoveItems: {
-                    OnMoveItems(msg, rootPath, cancellationToken);
-                    break;
+                    return OnMoveItems(msg, rootPath, cancellationToken);
                 }
                 case DeviceLinkMessage.RemoveFiles:
                 case DeviceLinkMessage.RemoveItems: {
-                    // TODO OnRemoveItems(msg);
-                    break;
+                    return OnRemoveItems(msg, rootPath, cancellationToken);
                 }
                 case DeviceLinkMessage.CopyItem: {
-                    // TODO OnCopyItem(msg);
-                    break;
+                    return OnCopyItem(msg, rootPath);
                 }
                 case DeviceLinkMessage.Disconnect: {
-                    // TODO IsCancelling = true;
-                    break;
+                    throw new DeviceDisconnectedException();
                 }
                 case DeviceLinkMessage.ProcessMessage: {
-                    // TODO OnProcessMessage(msg);
-                    break;
+                    return OnProcessMessage(msg);
                 }
                 default: {
                     Logger.LogWarning("Unknown message in MessageLoop: {message}", message);
                     SendStatusReport(1, "Operation not supported");
-                    break;
+                    return DLResultCode.UnknownMessage;
                 }
             }
         }
