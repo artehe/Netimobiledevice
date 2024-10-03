@@ -775,46 +775,6 @@ namespace Netimobiledevice.Backup
         }
 
         /// <summary>
-        /// Manages the MoveItems device message.
-        /// </summary>
-        /// <param name="msg">The message received from the device.</param>
-        /// <returns>The number of items moved.</returns>
-        protected virtual void OnMoveItems(ArrayNode msg)
-        {
-            int res = 0;
-            int errorCode = 0;
-            string errorDesc = string.Empty;
-            UpdateProgressForMessage(msg, 3);
-            foreach (KeyValuePair<string, PropertyNode> move in msg[1].AsDictionaryNode()) {
-                if (IsStopping) {
-                    break;
-                }
-
-                string newPath = move.Value.AsStringNode().Value;
-                if (!string.IsNullOrEmpty(newPath)) {
-                    res++;
-                    FileInfo newFile = new FileInfo(Path.Combine(BackupDirectory, newPath));
-                    FileInfo oldFile = new FileInfo(Path.Combine(BackupDirectory, move.Key));
-                    FileInfo fileInfo = new FileInfo(newPath);
-                    if (fileInfo.Exists) {
-                        if (fileInfo.Attributes.HasFlag(FileAttributes.Directory)) {
-                            new DirectoryInfo(newFile.FullName).Delete(true);
-                        }
-                        else {
-                            fileInfo.Delete();
-                        }
-                    }
-
-                    if (oldFile.Exists) {
-                        oldFile.MoveTo(newFile.FullName);
-                    }
-                }
-            }
-
-            // TODO mobilebackup2Service?.SendStatusReport(errorCode, errorDesc);
-        }
-
-        /// <summary>
         /// Manages the RemoveItems device message.
         /// </summary>
         /// <param name="msg">The message received from the device.</param>

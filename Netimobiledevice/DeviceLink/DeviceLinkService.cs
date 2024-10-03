@@ -256,6 +256,46 @@ namespace Netimobiledevice.DeviceLink
         }
 
         /// <summary>
+        /// Manages the MoveItems device message.
+        /// </summary>
+        /// <param name="msg">The message received from the device.</param>
+        /// <returns>The number of items moved.</returns>
+        private void OnMoveItems(ArrayNode msg, string rootPath, CancellationToken cancellationToken)
+        {
+            UpdateProgressForMessage(msg, 3);
+
+            int res = 0;
+            foreach (KeyValuePair<string, PropertyNode> move in msg[1].AsDictionaryNode()) {
+                if (cancellationToken.IsCancellationRequested) {
+                    break;
+                }
+
+                string newPath = move.Value.AsStringNode().Value;
+                if (!string.IsNullOrEmpty(newPath)) {
+                    res++;
+                    FileInfo newFile = new FileInfo(Path.Combine(rootPath, newPath));
+                    FileInfo oldFile = new FileInfo(Path.Combine(rootPath, move.Key));
+
+                    FileInfo fileInfo = new FileInfo(newPath);
+                    if (fileInfo.Exists) {
+                        if (fileInfo.Attributes.HasFlag(FileAttributes.Directory)) {
+                            new DirectoryInfo(newFile.FullName).Delete(true);
+                        }
+                        else {
+                            fileInfo.Delete();
+                        }
+                    }
+
+                    if (oldFile.Exists) {
+                        oldFile.MoveTo(newFile.FullName);
+                    }
+                }
+            }
+
+            SendStatusReport(0);
+        }
+
+        /// <summary>
         /// Manages the UploadFiles device message.
         /// </summary>
         /// <param name="msg">The message received from the device.</param>
@@ -544,7 +584,7 @@ namespace Netimobiledevice.DeviceLink
                 }
                 case DeviceLinkMessage.MoveFiles:
                 case DeviceLinkMessage.MoveItems: {
-                    // TODO OnMoveItems(msg);
+                    OnMoveItems(msg, rootPath, cancellationToken);
                     break;
                 }
                 case DeviceLinkMessage.RemoveFiles:
