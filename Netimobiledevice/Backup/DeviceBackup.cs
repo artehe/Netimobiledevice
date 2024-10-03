@@ -267,7 +267,7 @@ namespace Netimobiledevice.Backup
             LockdownClient.Logger.LogDebug("Saving at {DeviceBackupPath}", DeviceBackupPath);
 
             IsEncrypted = LockdownClient.GetValue("com.apple.mobile.backup", "WillEncrypt")?.AsBooleanNode().Value ?? false;
-            LockdownClient.Logger.LogInformation("The backup will {encyption} be encrypted.", IsEncrypted ? null : " not");
+            LockdownClient.Logger.LogInformation("The backup will{encyption} be encrypted.", IsEncrypted ? string.Empty : " not");
 
             try {
                 mobilebackup2Service = await Mobilebackup2Service.CreateAsync(LockdownClient, cancellationToken);
@@ -438,18 +438,6 @@ namespace Netimobiledevice.Backup
         }
 
         /// <summary>
-        /// Updates the backup progress as signaled by the device link service.
-        /// </summary>
-        /// <param name="progress">The amount of progress extracted from the last message.</param>
-        private void DeviceLinkProgressCallback(double progress)
-        {
-            if (progress > 0.0 && progress > ProgressPercentage) {
-                ProgressPercentage = progress;
-                OnBackupProgress();
-            }
-        }
-
-        /// <summary>
         /// The main loop for processing messages from the device.
         /// </summary>
         private async Task MessageLoop(CancellationToken cancellationToken)
@@ -475,7 +463,7 @@ namespace Netimobiledevice.Backup
                             }
 
                             try {
-                                await mobilebackup2Service.OnDeviceLinkMessageReceived(msg, msg[0].AsStringNode().Value, BackupDirectory, DeviceLinkProgressCallback, cancellationToken);
+                                await mobilebackup2Service.OnDeviceLinkMessageReceived(msg, msg[0].AsStringNode().Value, BackupDirectory, cancellationToken);
                             }
                             catch (Exception ex) {
                                 OnError(ex);
@@ -543,49 +531,6 @@ namespace Netimobiledevice.Backup
                 }
             }
         }
-
-        /// <summary>
-        /// Manages the UploadFiles device message.
-        /// </summary>
-        /// <param name="msg">The message received from the device.</param>
-        /// <returns>The number of files processed.</returns>
-        private void OnUploadFiles(ArrayNode msg)
-        {
-            string errorDescription = string.Empty;
-            int fileCount = 0;
-            int errorCode = 0;
-            UpdateProgressForMessage(msg, 2);
-
-            long backupRealSize = 0;
-            long backupTotalSize = (long) msg[3].AsIntegerNode().Value;
-            if (backupTotalSize > 0) {
-                LockdownClient.Logger.LogDebug($"Backup total size: {backupTotalSize}");
-            }
-
-            while (!IsStopping) {
-                BackupFile? backupFile = ReceiveBackupFile();
-                if (backupFile != null) {
-                    LockdownClient.Logger.LogDebug($"Receiving file {backupFile.BackupPath}");
-                    OnBeforeReceivingFile(backupFile);
-                    ResultCode code = ReceiveFile(backupFile, backupTotalSize, ref backupRealSize);
-                    if (code == ResultCode.Success) {
-                        OnFileReceived(backupFile);
-                    }
-                    fileCount++;
-                }
-                else if (Usbmux.IsDeviceConnected(LockdownClient.Udid, UsbmuxdConnectionType.Usb)) {
-                    break;
-                }
-                else {
-                    throw new DeviceDisconnectedException();
-                }
-            }
-
-            if (!IsStopping) {
-                // TODO mobilebackup2Service?.SendStatusReport(errorCode, errorDescription);
-            }
-        }
-
 
         /// <summary>
         /// Processes a message response received from the backup service.
@@ -688,27 +633,6 @@ namespace Netimobiledevice.Backup
         }
 
         /// <summary>
-        /// Gets the free space on the disk containing the specified path.
-        /// </summary>
-        /// <param name="path">The path that specifies the disk to retrieve its free space.</param>
-        /// <returns>The number of bytes of free space in the disk specified by path.</returns>
-        protected virtual long GetFreeSpace(string path)
-        {
-            DirectoryInfo dir = new DirectoryInfo(path);
-            foreach (DriveInfo drive in DriveInfo.GetDrives()) {
-                try {
-                    if (drive.IsReady && drive.Name == dir.Root.FullName) {
-                        return drive.AvailableFreeSpace;
-                    }
-                }
-                catch (Exception ex) {
-                    LockdownClient.Logger.LogError(ex, "Issue getting space from drive");
-                }
-            }
-            return 0;
-        }
-
-        /// <summary>
         /// Invoke the FileReceived event
         /// </summary>
         /// <param name="eventArgs">The BackupFileEventArgs for the file receiving event</param>
@@ -785,28 +709,6 @@ namespace Netimobiledevice.Backup
         }
 
         /// <summary>
-        /// Manages the CreateDirectory device message.
-        /// </summary>
-        /// <param name="msg">The message received from the device.</param>
-        /// <returns>The errno result of the operation.</returns>
-        protected virtual void OnCreateDirectory(ArrayNode msg)
-        {
-            int errorCode = 0;
-            string errorMessage = string.Empty;
-            UpdateProgressForMessage(msg, 3);
-
-            if (!Directory.Exists(DeviceBackupPath)) {
-                Directory.CreateDirectory(DeviceBackupPath);
-            }
-
-            DirectoryInfo newDir = new DirectoryInfo(Path.Combine(BackupDirectory, msg[1].AsStringNode().Value));
-            if (!newDir.Exists) {
-                newDir.Create();
-            }
-            // TODO mobilebackup2Service?.SendStatusReport(errorCode, errorMessage);
-        }
-
-        /// <summary>
         /// Event handler called when a terminating error happens during the backup.
         /// </summary>
         /// <param name="ex"></param>
@@ -869,53 +771,6 @@ namespace Netimobiledevice.Backup
                 BackupFileErrorEventArgs e = new BackupFileErrorEventArgs(file);
                 FileTransferError.Invoke(this, e);
                 IsCancelling = e.Cancel;
-            }
-        }
-
-        /// <summary>
-        /// Manages the GetFreeDiskSpace device message.
-        /// </summary>
-        /// <param name="msg">The message received from the device.</param>
-        /// <param name="respectFreeSpaceValue">Whether the device should abide by the freeSpace value passed or ignore it</param>
-        /// <returns>0 on success, -1 on error.</returns>
-        protected virtual void OnGetFreeDiskSpace(ArrayNode msg, bool respectFreeSpaceValue = true)
-        {
-            long freeSpace = GetFreeSpace(BackupDirectory);
-            IntegerNode spaceItem = new IntegerNode(freeSpace);
-            if (respectFreeSpaceValue) {
-                // TODO mobilebackup2Service?.SendStatusReport(0, null, spaceItem);
-            }
-            else {
-                // TODO  mobilebackup2Service?.SendStatusReport(-1, null, spaceItem);
-            }
-        }
-
-        /// <summary>
-        /// Manages the ListDirectory device message.
-        /// </summary>
-        /// <param name="msg">The message received from the device.</param>
-        /// <returns>Always 0.</returns>
-        protected virtual void OnListDirectory(ArrayNode msg)
-        {
-            string path = Path.Combine(BackupDirectory, msg[1].AsStringNode().Value);
-            DictionaryNode dirList = new DictionaryNode();
-            DirectoryInfo dir = new DirectoryInfo(path);
-            if (dir.Exists) {
-                foreach (FileSystemInfo entry in dir.GetFileSystemInfos()) {
-                    if (IsStopping) {
-                        break;
-                    }
-                    DictionaryNode entryDict = new DictionaryNode {
-                        { "DLFileModificationDate", new DateNode(entry.LastWriteTime) },
-                        { "DLFileSize", new IntegerNode(entry is FileInfo fileInfo ? fileInfo.Length : 0L) },
-                        { "DLFileType", new StringNode(entry.Attributes.HasFlag(FileAttributes.Directory) ? "DLFileTypeDirectory" : "DLFileTypeRegular") }
-                    };
-                    dirList.Add(entry.Name, entryDict);
-                }
-            }
-
-            if (!IsStopping) {
-                // TODO  mobilebackup2Service?.SendStatusReport(0, null, dirList);
             }
         }
 

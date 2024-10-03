@@ -1,11 +1,15 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice.Backup;
 using Netimobiledevice.EndianBitConversion;
+using Netimobiledevice.Exceptions;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
+using Netimobiledevice.Usbmuxd;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -21,8 +25,23 @@ namespace Netimobiledevice.DeviceLink
 
         private const int BULK_OPERATION_ERROR = -13;
         private const UInt32 FILE_TRANSFER_TERMINATOR = 0x00;
-        private const byte CODE_FILE_DATA = 0xC;
-        private const byte CODE_SUCCESS = 0x0;
+
+        /// <summary>
+        /// Event raised when a file is received from the device.
+        /// </summary>
+        public event EventHandler<DLFileEventArgs>? DLFileReceived;
+        /// <summary>
+        /// Event raised for signaling the backup progress.
+        /// </summary>
+        public event ProgressChangedEventHandler? DLProgress;
+        /// <summary>
+        /// Event raised when a file transfer has failed due an internal device error.
+        /// </summary>
+        public event EventHandler<DLFileEventArgs>? DLFileTransferError;
+        /// <summary>
+        /// Event raised for signaling different kinds of the backup status.
+        /// </summary>
+        public event EventHandler<StatusEventArgs>? DLStatus;
 
         protected DeviceLinkService(LockdownClient lockdown, ServiceConnection? service = null) : base(lockdown, service)
         {
@@ -72,23 +91,23 @@ namespace Netimobiledevice.DeviceLink
             }
         }
 
-        private static double GetProgressForMessage(ArrayNode msg, int index)
+        /// <summary>
+        /// Event handler called each time the backup service sends a status report.
+        /// </summary>
+        /// <param name="status">The status report sent from the backup service.</param>
+        private void OnStatusReceived(DictionaryNode status)
         {
-            return msg[index].AsRealNode().Value;
+            CultureInfo cultureInfo = CultureInfo.InvariantCulture;
+            TextInfo textInfo = cultureInfo.TextInfo;
+            string snapshotStateString = textInfo.ToTitleCase(status["SnapshotState"].AsStringNode().Value);
+            if (Enum.TryParse(snapshotStateString, out SnapshotState snapshotState)) {
+                DLStatus?.Invoke(this, new StatusEventArgs($"{snapshotState}"));
+            }
         }
 
-        /// <summary>
-        /// Sends the specified error report to the backup service.
-        /// </summary>
-        /// <param name="error">The error report to send.</param>
-        public async Task SendError(DictionaryNode errorReport, CancellationToken cancellationToken)
+        private void UpdateProgressForMessage(ArrayNode msg, int index)
         {
-            byte[] errBytes = Encoding.UTF8.GetBytes(errorReport["DLFileErrorString"].AsStringNode().Value);
-            List<byte> buffer = new List<byte> {
-                (byte) ResultCode.LocalError
-            };
-            buffer.AddRange(errBytes);
-            await SendPrefixed(buffer.ToArray(), buffer.Count, cancellationToken).ConfigureAwait(false);
+            DLProgress?.Invoke(this, new ProgressChangedEventArgs((int) msg[index].AsRealNode().Value, null));
         }
 
         /// <summary>
@@ -108,12 +127,25 @@ namespace Netimobiledevice.DeviceLink
         }
 
         /// <summary>
+        /// Manages the CreateDirectory device message.
+        /// </summary>
+        /// <param name="msg">The message received from the device.</param>
+        /// <returns>The errno result of the operation.</returns>
+        private void OnCreateDirectory(ArrayNode msg, string rootPath)
+        {
+            UpdateProgressForMessage(msg, 3);
+            string newDirPath = Path.Combine(rootPath, msg[1].AsStringNode().Value);
+            Directory.CreateDirectory(newDirPath);
+            SendStatusReport(0, string.Empty);
+        }
+
+        /// <summary>
         /// Manages the DownloadFiles device message.
         /// </summary>
         /// <param name="msg">The message received from the device.</param>
-        private async Task OnDownloadFiles(ArrayNode msg, string rootPath, Action<double>? progressCallback = null, CancellationToken cancellationToken = default)
+        private async Task OnDownloadFiles(ArrayNode msg, string rootPath, CancellationToken cancellationToken = default)
         {
-            progressCallback?.Invoke(GetProgressForMessage(msg, 3));
+            UpdateProgressForMessage(msg, 3);
 
             DictionaryNode errList = new DictionaryNode();
             ArrayNode files = msg[1].AsArrayNode();
@@ -138,7 +170,7 @@ namespace Netimobiledevice.DeviceLink
                     int bytesRead;
                     while ((bytesRead = await fs.ReadAsync(chunk, cancellationToken).ConfigureAwait(false)) > 0) {
                         List<byte> data = new List<byte> {
-                            CODE_FILE_DATA
+                            (byte) DLResultCode.FileData
                         };
                         data.AddRange(chunk.Take(bytesRead));
                         await SendPrefixed(data.ToArray(), data.Count, cancellationToken).ConfigureAwait(false);
@@ -146,7 +178,7 @@ namespace Netimobiledevice.DeviceLink
                 }
 
                 if (errorCode == 0) {
-                    byte[] buffer = new byte[] { CODE_SUCCESS };
+                    byte[] buffer = new byte[] { (byte) DLResultCode.Success };
                     await SendPrefixed(buffer, buffer.Length, cancellationToken).ConfigureAwait(false);
                 }
                 else {
@@ -164,6 +196,204 @@ namespace Netimobiledevice.DeviceLink
             else {
                 SendStatusReport(BULK_OPERATION_ERROR, "Multi status", errList);
             }
+        }
+
+        /// <summary>
+        /// Manages the GetFreeDiskSpace device message.
+        /// </summary>
+        /// <param name="msg">The message received from the device.</param>
+        /// <param name="respectFreeSpaceValue">Whether the device should abide by the freeSpace value passed or ignore it</param>
+        /// <returns>0 on success, -1 on error.</returns>
+        private void OnGetFreeDiskSpace(string rootPath, bool respectFreeSpaceValue = true)
+        {
+            long freeSpace = 0;
+            DirectoryInfo dir = new DirectoryInfo(rootPath);
+            foreach (DriveInfo drive in DriveInfo.GetDrives()) {
+                try {
+                    if (drive.IsReady && drive.Name == dir.Root.FullName) {
+                        freeSpace = drive.AvailableFreeSpace;
+                        break;
+                    }
+                }
+                catch (Exception ex) {
+                    Logger.LogError(ex, "Issue getting space from drive");
+                }
+            }
+
+            IntegerNode spaceItem = new IntegerNode(freeSpace);
+            if (respectFreeSpaceValue) {
+                SendStatusReport(0, null, spaceItem);
+            }
+            else {
+                SendStatusReport(-1, null, spaceItem);
+            }
+        }
+
+        /// <summary>
+        /// Manages the ListDirectory device message.
+        /// </summary>
+        /// <param name="msg">The message received from the device.</param>
+        /// <returns>Always 0.</returns>
+        private void OnListDirectory(ArrayNode msg, string rootPath, CancellationToken cancellationToken)
+        {
+            string path = Path.Combine(rootPath, msg[1].AsStringNode().Value);
+            DictionaryNode dirList = new DictionaryNode();
+            DirectoryInfo dir = new DirectoryInfo(path);
+            if (dir.Exists) {
+                foreach (FileSystemInfo entry in dir.GetFileSystemInfos()) {
+                    if (cancellationToken.IsCancellationRequested) {
+                        break;
+                    }
+                    DictionaryNode entryDict = new DictionaryNode {
+                        { "DLFileModificationDate", new DateNode(entry.LastWriteTime) },
+                        { "DLFileSize", new IntegerNode(entry is FileInfo fileInfo ? fileInfo.Length : 0L) },
+                        { "DLFileType", new StringNode(entry.Attributes.HasFlag(FileAttributes.Directory) ? "DLFileTypeDirectory" : "DLFileTypeRegular") }
+                    };
+                    dirList.Add(entry.Name, entryDict);
+                }
+            }
+            SendStatusReport(0, null, dirList);
+        }
+
+        /// <summary>
+        /// Manages the UploadFiles device message.
+        /// </summary>
+        /// <param name="msg">The message received from the device.</param>
+        /// <returns>The number of files processed.</returns>
+        private async Task OnUploadFiles(ArrayNode msg, string rootPath, CancellationToken cancellationToken)
+        {
+            UpdateProgressForMessage(msg, 2);
+
+            string errorDescription = string.Empty;
+            int fileCount = 0;
+            int errorCode = 0;
+
+            long backupRealSize = 0;
+            long backupTotalSize = (long) msg[3].AsIntegerNode().Value;
+            if (backupTotalSize > 0) {
+                Logger.LogDebug("Backup total size: {backupSize}", backupTotalSize);
+            }
+
+            while (!cancellationToken.IsCancellationRequested) {
+                string devicePath = await ReceiveFilename(cancellationToken).ConfigureAwait(false);
+                if (string.IsNullOrEmpty(devicePath)) {
+                    break;
+                }
+                else if (!Usbmux.IsDeviceConnected(Lockdown.Udid)) {
+                    throw new DeviceDisconnectedException();
+                }
+
+                string backupPath = await ReceiveFilename(cancellationToken).ConfigureAwait(false);
+                string localPath = Path.Combine(rootPath, backupPath);
+
+                Logger.LogDebug("Receiving file {backupFilePath}", backupPath);
+                DLResultCode code = await ReceiveFile(localPath, backupTotalSize, backupRealSize, cancellationToken).ConfigureAwait(false);
+                if (code == DLResultCode.Success) {
+                    DLFileReceived?.Invoke(this, new DLFileEventArgs(localPath));
+                    if (string.Equals("Status.plist", Path.GetFileName(localPath), StringComparison.OrdinalIgnoreCase)) {
+                        using (FileStream fs = File.OpenRead(localPath)) {
+                            PropertyNode statusPlist = await PropertyList.LoadAsync(fs).ConfigureAwait(false);
+                            OnStatusReceived(statusPlist.AsDictionaryNode());
+                        }
+                    }
+                }
+                fileCount++;
+            }
+
+            SendStatusReport(errorCode, errorDescription);
+        }
+
+        private async Task<DLResultCode> ReadCode(CancellationToken cancellationToken)
+        {
+            byte[] buffer = await Service.ReceiveAsync(1, cancellationToken).ConfigureAwait(false);
+            if (!Enum.IsDefined(typeof(DLResultCode), buffer[0])) {
+                Logger.LogWarning("New backup code found: {code}", buffer[0]);
+            }
+            return (DLResultCode) buffer[0];
+        }
+
+        /// <summary>
+        /// Receives a single file from the device.
+        /// </summary>
+        /// <param name="file">The BackupFile to receive.</param>
+        /// <param name="totalSize">The total size indicated in the device message.</param>
+        /// <param name="realSize">The actual bytes transferred.</param>
+        /// <returns>The result code of the transfer.</returns>
+        private async Task<DLResultCode> ReceiveFile(string localFilePath, long totalSize, long realSize, CancellationToken cancellationToken)
+        {
+            const int bufferLen = 32 * 1024;
+            DLResultCode lastCode = DLResultCode.Success;
+            if (File.Exists(localFilePath)) {
+                File.Delete(localFilePath);
+            }
+            while (!cancellationToken.IsCancellationRequested) {
+                // Size is the number of bytes left to read
+                byte[] buffer = await Service.ReceiveAsync(sizeof(int), cancellationToken).ConfigureAwait(false);
+                int size = EndianBitConverter.BigEndian.ToInt32(buffer, 0);
+                if (size <= 0) {
+                    break;
+                }
+
+                DLResultCode code = await ReadCode(cancellationToken).ConfigureAwait(false);
+                int blockSize = size - sizeof(DLResultCode);
+                if (code != DLResultCode.FileData) {
+                    if (code == DLResultCode.Success) {
+                        return code;
+                    }
+
+                    string msg = string.Empty;
+                    if (blockSize > 0) {
+                        byte[] msgBuffer = await Service.ReceiveAsync(blockSize, cancellationToken).ConfigureAwait(false);
+                        msg = Encoding.UTF8.GetString(msgBuffer);
+                    }
+
+                    // iOS 17 beta devices seem to give RemoteError for a fair number of file now?
+                    Logger.LogWarning("Failed to fully upload {localPath}. Reason: {msg}", localFilePath, msg);
+                    DLFileTransferError?.Invoke(this, new DLFileEventArgs(localFilePath));
+                    return code;
+                }
+                lastCode = code;
+
+                int done = 0;
+                while (done < blockSize) {
+                    int toRead = Math.Min(blockSize - done, bufferLen);
+                    buffer = await Service.ReceiveAsync(toRead, cancellationToken).ConfigureAwait(false);
+
+                    // Ensure the directory requested exists before writing to it.
+                    string? pathDir = Path.GetDirectoryName(localFilePath);
+                    if (!string.IsNullOrWhiteSpace(pathDir) && !Directory.Exists(localFilePath)) {
+                        Directory.CreateDirectory(pathDir);
+                    }
+
+                    using (FileStream stream = File.OpenWrite(localFilePath)) {
+                        stream.Seek(0, SeekOrigin.End);
+                        await stream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
+                    }
+                    done += buffer.Length;
+                }
+                if (done == blockSize) {
+                    realSize += blockSize;
+                }
+            }
+
+            return lastCode;
+        }
+
+        /// <summary>
+        /// Reads a filename from the backup service stream.
+        /// </summary>
+        /// <returns>The filename read from the backup stream, or NULL if there are no more files.</returns>
+        private async Task<string> ReceiveFilename(CancellationToken cancellationToken)
+        {
+            byte[] buffer = await Service.ReceiveAsync(sizeof(int), cancellationToken).ConfigureAwait(false);
+            int filenameLength = EndianBitConverter.BigEndian.ToInt32(buffer, 0);
+
+            // A zero length means no more files to receive.
+            if (filenameLength != 0) {
+                buffer = await Service.ReceiveAsync(filenameLength, cancellationToken).ConfigureAwait(false);
+                return Encoding.UTF8.GetString(buffer);
+            }
+            return string.Empty;
         }
 
         protected async Task<ArrayNode> DeviceLinkReceiveMessage(CancellationToken cancellationToken)
@@ -288,28 +518,28 @@ namespace Netimobiledevice.DeviceLink
         /// <param name="msg">The property array received.</param>
         /// <param name="message">The string that identifies the message type.</param>
         /// <returns>Depends on the message type, but a negative value always indicates an error.</returns>
-        public async Task OnDeviceLinkMessageReceived(ArrayNode msg, string message, string rootPath, Action<double>? progressCallback = null, CancellationToken cancellationToken = default)
+        public async Task OnDeviceLinkMessageReceived(ArrayNode msg, string message, string rootPath, CancellationToken cancellationToken = default)
         {
             Logger.LogDebug("Message Received: {message}", message);
             switch (message) {
                 case DeviceLinkMessage.DownloadFiles: {
-                    await OnDownloadFiles(msg, rootPath, progressCallback, cancellationToken).ConfigureAwait(false);
+                    await OnDownloadFiles(msg, rootPath, cancellationToken).ConfigureAwait(false);
                     break;
                 }
                 case DeviceLinkMessage.GetFreeDiskSpace: {
-                    OnGetFreeDiskSpace(msg);
+                    OnGetFreeDiskSpace(rootPath);
                     break;
                 }
                 case DeviceLinkMessage.CreateDirectory: {
-                    // TODO OnCreateDirectory(msg);
+                    OnCreateDirectory(msg, rootPath);
                     break;
                 }
                 case DeviceLinkMessage.UploadFiles: {
-                    // TODO OnUploadFiles(msg);
+                    await OnUploadFiles(msg, rootPath, cancellationToken).ConfigureAwait(false);
                     break;
                 }
                 case DeviceLinkMessage.ContentsOfDirectory: {
-                    // TODO OnListDirectory(msg);
+                    OnListDirectory(msg, rootPath, cancellationToken);
                     break;
                 }
                 case DeviceLinkMessage.MoveFiles:
@@ -336,10 +566,24 @@ namespace Netimobiledevice.DeviceLink
                 }
                 default: {
                     Logger.LogWarning("Unknown message in MessageLoop: {message}", message);
-                    // TODO mobilebackup2Service?.SendStatusReport(1, "Operation not supported");
+                    SendStatusReport(1, "Operation not supported");
                     break;
                 }
             }
+        }
+
+        /// <summary>
+        /// Sends the specified error report to the backup service.
+        /// </summary>
+        /// <param name="error">The error report to send.</param>
+        public async Task SendError(DictionaryNode errorReport, CancellationToken cancellationToken)
+        {
+            byte[] errBytes = Encoding.UTF8.GetBytes(errorReport["DLFileErrorString"].AsStringNode().Value);
+            List<byte> buffer = new List<byte> {
+                (byte) ResultCode.LocalError
+            };
+            buffer.AddRange(errBytes);
+            await SendPrefixed(buffer.ToArray(), buffer.Count, cancellationToken).ConfigureAwait(false);
         }
     }
 }
