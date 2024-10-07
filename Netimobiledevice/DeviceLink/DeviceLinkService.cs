@@ -3,13 +3,10 @@ using Netimobiledevice.Backup;
 using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.Lockdown;
-using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
-using Netimobiledevice.Usbmuxd;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -18,35 +15,149 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.DeviceLink
 {
-    public abstract class DeviceLinkService : BaseService
+    internal sealed class DeviceLinkService : IDisposable
     {
+        private const int BULK_OPERATION_ERROR = -13;
+        private const UInt32 FILE_TRANSFER_TERMINATOR = 0x00;
         // Set the default timeout to be 5 minutes
         private const int SERVICE_TIMEOUT = 5 * 60 * 1000;
 
-        private const int BULK_OPERATION_ERROR = -13;
-        private const UInt32 FILE_TRANSFER_TERMINATOR = 0x00;
+        private readonly ServiceConnection _service;
+        private readonly string _rootPath;
+        private readonly ILogger _logger;
+        private CancellationTokenSource internalCancellationTokenSource;
 
+        private Dictionary<string, Func<ArrayNode, CancellationToken, Task>> DeviceLinkHandlers { get; }
+        /// <summary>
+        /// A list of the files whose transfer failed due to a device error.
+        /// </summary>
+        private List<BackupFile> FailedFiles { get; } = new List<BackupFile>();
+
+        /// <summary>
+        /// Event raised when a file is about to be transferred from the device.
+        /// </summary>
+        public event EventHandler<BackupFileEventArgs>? BeforeReceivingFile;
+        /// <summary>
+        /// Event raised when the backup finishes.
+        /// </summary>
+        public event EventHandler<BackupResultEventArgs>? Completed;
+        /// <summary>
+        /// Event raised when there is some error during the backup.
+        /// </summary>
+        public event EventHandler<ErrorEventArgs>? Error;
         /// <summary>
         /// Event raised when a file is received from the device.
         /// </summary>
-        public event EventHandler<DLFileEventArgs>? DLFileReceived;
+        public event EventHandler<BackupFileEventArgs>? FileReceived;
         /// <summary>
-        /// Event raised for signaling the backup progress.
+        /// Event raised when a part of a file has been received from the device.
         /// </summary>
-        public event ProgressChangedEventHandler? DLProgress;
+        public event EventHandler<BackupFileEventArgs>? FileReceiving;
         /// <summary>
         /// Event raised when a file transfer has failed due an internal device error.
         /// </summary>
-        public event EventHandler<DLFileEventArgs>? DLFileTransferError;
+        public event EventHandler<BackupFileErrorEventArgs>? FileTransferError;
+        /// <summary>
+        /// Event raised when the device requires a passcode to start the backup
+        /// </summary>
+        public event EventHandler? PasscodeRequiredForBackup;
+        /// <summary>
+        /// Event raised for signaling the backup progress.
+        /// </summary>
+        public event ProgressChangedEventHandler? Progress;
+        /// <summary>
+        /// Event raised when the backup started.
+        /// </summary>
+        public event EventHandler? Started;
         /// <summary>
         /// Event raised for signaling different kinds of the backup status.
         /// </summary>
-        public event EventHandler<StatusEventArgs>? DLStatus;
+        public event EventHandler<StatusEventArgs>? Status;
 
-        protected DeviceLinkService(LockdownClient lockdown, ServiceConnection? service = null) : base(lockdown, service)
+        public DeviceLinkService(ServiceConnection service, string backupDirectory, ILogger logger)
         {
+            _service = service;
+            _rootPath = backupDirectory;
+            _logger = logger;
+
+            internalCancellationTokenSource = new CancellationTokenSource();
+
             // Adjust the timeout to be long enough to handle device with a large amount of data
-            Service.SetTimeout(SERVICE_TIMEOUT);
+            _service.SetTimeout(SERVICE_TIMEOUT);
+
+            DeviceLinkHandlers = new Dictionary<string, Func<ArrayNode, CancellationToken, Task>>() {
+                { DeviceLinkMessage.ContentsOfDirectory, ContentsOfDirectory },
+                { DeviceLinkMessage.CopyItem, CopyItem },
+                { DeviceLinkMessage.CreateDirectory, CreateDirectory },
+                { DeviceLinkMessage.Disconnect, DisconnectAsync },
+                { DeviceLinkMessage.DownloadFiles, DownloadFiles },
+                { DeviceLinkMessage.GetFreeDiskSpace, GetFreeDiskSpace },
+                { DeviceLinkMessage.MoveFiles, MoveItems },
+                { DeviceLinkMessage.MoveItems, MoveItems },
+                { DeviceLinkMessage.PurgeDiskSpace, PurgeDiskSpace },
+                { DeviceLinkMessage.RemoveFiles, RemoveItems },
+                { DeviceLinkMessage.RemoveItems, RemoveItems },
+                { DeviceLinkMessage.UploadFiles, UploadFiles }
+            };
+        }
+
+        /// <summary>
+        /// Manages the ListDirectory device message.
+        /// </summary>
+        /// <param name="msg">The message received from the device.</param>
+        /// <returns>Always 0.</returns>
+        private async Task ContentsOfDirectory(ArrayNode msg, CancellationToken cancellationToken)
+        {
+            string path = Path.Combine(_rootPath, msg[1].AsStringNode().Value);
+            DictionaryNode dirList = new DictionaryNode();
+            DirectoryInfo dir = new DirectoryInfo(path);
+            if (dir.Exists) {
+                foreach (FileSystemInfo entry in dir.GetFileSystemInfos()) {
+                    if (cancellationToken.IsCancellationRequested) {
+                        break;
+                    }
+                    DictionaryNode entryDict = new DictionaryNode {
+                        { "DLFileModificationDate", new DateNode(entry.LastWriteTime) },
+                        { "DLFileSize", new IntegerNode(entry is FileInfo fileInfo ? fileInfo.Length : 0L) },
+                        { "DLFileType", new StringNode(entry.Attributes.HasFlag(FileAttributes.Directory) ? "DLFileTypeDirectory" : "DLFileTypeRegular") }
+                    };
+                    dirList.Add(entry.Name, entryDict);
+                }
+            }
+
+            if (!cancellationToken.IsCancellationRequested) {
+                await SendStatusReport(0, null, dirList, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// Manages the CopyItem device message.
+        /// </summary>
+        /// <param name="msg">The message received from the device.</param>
+        /// <returns>The errno result of the operation.</returns>
+        private async Task CopyItem(ArrayNode msg, CancellationToken cancellationToken)
+        {
+            FileInfo source = new FileInfo(Path.Combine(_rootPath, msg[1].AsStringNode().Value));
+            FileInfo dest = new FileInfo(Path.Combine(_rootPath, msg[2].AsStringNode().Value));
+            if (source.Attributes.HasFlag(FileAttributes.Directory)) {
+                _logger.LogError("Trying to coppy a whole directory rather than an individual file");
+            }
+            else {
+                source.CopyTo(dest.FullName);
+            }
+            await SendStatusReport(0, string.Empty, cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Manages the CreateDirectory device message.
+        /// </summary>
+        /// <param name="msg">The message received from the device.</param>
+        /// <returns>The errno result of the operation.</returns>
+        private async Task CreateDirectory(ArrayNode msg, CancellationToken cancellationToken)
+        {
+            string newDirPath = Path.Combine(_rootPath, msg[1].AsStringNode().Value);
+            Directory.CreateDirectory(newDirPath);
+            await SendStatusReport(0, string.Empty, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -79,15 +190,189 @@ namespace Netimobiledevice.DeviceLink
 
         private void Disconnect()
         {
+            Task.Run(async () => await DisconnectAsync(new ArrayNode(), CancellationToken.None).ConfigureAwait(false)).GetAwaiter().GetResult();
+        }
+
+        private async Task DisconnectAsync(ArrayNode msg, CancellationToken cancellationToken)
+        {
             ArrayNode message = new ArrayNode {
                 new StringNode("DLMessageDisconnect"),
                 new StringNode("___EmptyParameterString___")
             };
             try {
-                Service.SendPlist(message, PlistFormat.Binary);
+                await _service.SendPlistAsync(message, PlistFormat.Binary, cancellationToken).ConfigureAwait(false);
             }
             catch (ObjectDisposedException) {
-                Logger.LogWarning("Trying to send disconnect from disposed service");
+                _logger.LogWarning("Trying to send disconnect from disposed service");
+            }
+        }
+
+        /// <summary>
+        /// Manages the DownloadFiles device message.
+        /// </summary>
+        /// <param name="msg">The message received from the device.</param>
+        private async Task DownloadFiles(ArrayNode msg, CancellationToken cancellationToken)
+        {
+            DictionaryNode errList = new DictionaryNode();
+            ArrayNode files = msg[1].AsArrayNode();
+            foreach (StringNode filename in files.Cast<StringNode>()) {
+                _logger.LogDebug("Sending file: {filename}", filename);
+                if (cancellationToken.IsCancellationRequested) {
+                    break;
+                }
+                await SendPath(filename.Value, cancellationToken).ConfigureAwait(false);
+
+                string filePath = Path.Combine(_rootPath, filename.Value);
+
+                int errorCode = 0;
+                if (!File.Exists(filePath)) {
+                    errorCode = 2;
+                }
+
+                using (FileStream fs = File.OpenRead(filePath)) {
+                    // We want to use a chunk size of 128 MiB
+                    byte[] chunk = new byte[128 * 1024 * 1024];
+
+                    int bytesRead;
+                    while ((bytesRead = await fs.ReadAsync(chunk, cancellationToken).ConfigureAwait(false)) > 0) {
+                        List<byte> data = new List<byte> {
+                            (byte) ResultCode.FileData
+                        };
+                        data.AddRange(chunk.Take(bytesRead));
+                        await SendPrefixed(data.ToArray(), data.Count, cancellationToken).ConfigureAwait(false);
+                    }
+                }
+
+                if (errorCode == 0) {
+                    byte[] buffer = new byte[] { (byte) ResultCode.Success };
+                    await SendPrefixed(buffer, buffer.Length, cancellationToken).ConfigureAwait(false);
+                }
+                else {
+                    _logger.LogDebug("Sending Error Code: {code}", errorCode);
+                    DictionaryNode errReport = CreateErrorReport(errorCode);
+                    errList.Add(filename.Value, errReport);
+                    await SendError(errReport, cancellationToken).ConfigureAwait(false);
+                }
+            }
+
+            await _service.SendAsync(BitConverter.GetBytes(FILE_TRANSFER_TERMINATOR), cancellationToken).ConfigureAwait(false);
+            if (errList.Count == 0) {
+                await SendStatusReport(0, cancellationToken: cancellationToken).ConfigureAwait(false);
+            }
+            else {
+                await SendStatusReport(BULK_OPERATION_ERROR, "Multi status", errList, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// Manages the GetFreeDiskSpace device message.
+        /// </summary>
+        /// <param name="msg">The message received from the device.</param>
+        /// <param name="respectFreeSpaceValue">Whether the device should abide by the freeSpace value passed or ignore it</param>
+        /// <returns>0 on success, -1 on error.</returns>
+        private async Task GetFreeDiskSpace(ArrayNode msg, CancellationToken cancellationToken)
+        {
+            long freeSpace = 0;
+            DirectoryInfo dir = new DirectoryInfo(_rootPath);
+            foreach (DriveInfo drive in DriveInfo.GetDrives()) {
+                try {
+                    if (drive.IsReady && drive.Name == dir.Root.FullName) {
+                        freeSpace = drive.AvailableFreeSpace;
+                        break;
+                    }
+                }
+                catch (Exception ex) {
+                    _logger.LogError(ex, "Issue getting space from drive");
+                }
+            }
+
+            IntegerNode spaceItem = new IntegerNode(freeSpace);
+            await SendStatusReport(0, null, spaceItem, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Manages the MoveItems device message.
+        /// </summary>
+        /// <param name="msg">The message received from the device.</param>
+        /// <returns>The number of items moved.</returns>
+        private async Task MoveItems(ArrayNode msg, CancellationToken cancellationToken)
+        {
+            foreach (KeyValuePair<string, PropertyNode> move in msg[1].AsDictionaryNode()) {
+                if (cancellationToken.IsCancellationRequested) {
+                    break;
+                }
+
+                string newPath = move.Value.AsStringNode().Value;
+                if (!string.IsNullOrEmpty(newPath)) {
+                    FileInfo newFile = new FileInfo(Path.Combine(_rootPath, newPath));
+                    if (newFile.Exists) {
+                        if (newFile.Attributes.HasFlag(FileAttributes.Directory)) {
+                            new DirectoryInfo(newFile.FullName).Delete(true);
+                        }
+                        else {
+                            newFile.Delete();
+                        }
+                    }
+
+                    FileInfo oldFile = new FileInfo(Path.Combine(_rootPath, move.Key));
+                    if (oldFile.Exists) {
+                        oldFile.MoveTo(newFile.FullName);
+                    }
+                }
+            }
+
+            if (!cancellationToken.IsCancellationRequested) {
+                await SendStatusReport(0, string.Empty, cancellationToken: cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// Event handler called after a file has been received from the device.
+        /// </summary>
+        /// <param name="file">The file received.</param>
+        private void OnFileReceived(BackupFile file)
+        {
+            FileReceived?.Invoke(this, new BackupFileEventArgs(file));
+            if (string.Equals("Status.plist", Path.GetFileName(file.LocalPath), StringComparison.OrdinalIgnoreCase)) {
+                using (FileStream fs = File.OpenRead(file.LocalPath)) {
+                    DictionaryNode statusPlist = PropertyList.Load(fs).AsDictionaryNode();
+                    OnStatusReceived(new BackupStatus(statusPlist, _logger));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Event handler called after a part (or all of) a file has been sent from the device from the device.
+        /// </summary>
+        /// <param name="file">The file received.</param>
+        /// <param name="fileData">The file contents received</param>
+        private void OnFileReceiving(BackupFile file, byte[] fileData)
+        {
+            // Ensure the directory requested exists before writing to it.
+            string? pathDir = Path.GetDirectoryName(file.LocalPath);
+            if (!string.IsNullOrWhiteSpace(pathDir) && !Directory.Exists(file.LocalPath)) {
+                Directory.CreateDirectory(pathDir);
+            }
+
+            using (FileStream stream = File.OpenWrite(file.LocalPath)) {
+                stream.Seek(0, SeekOrigin.End);
+                stream.Write(fileData, 0, fileData.Length);
+            }
+
+            FileReceiving?.Invoke(this, new BackupFileEventArgs(file, fileData));
+        }
+
+        /// <summary>
+        /// Event handler called after a file transfer failed due to a device error.
+        /// </summary>
+        /// <param name="file">The file whose tranfer failed.</param>
+        private void OnFileTransferError(BackupFile file)
+        {
+            FailedFiles.Add(file);
+            if (FileTransferError != null) {
+                BackupFileErrorEventArgs e = new BackupFileErrorEventArgs(file);
+                FileTransferError.Invoke(this, e);
+                internalCancellationTokenSource.Cancel();
             }
         }
 
@@ -95,19 +380,173 @@ namespace Netimobiledevice.DeviceLink
         /// Event handler called each time the backup service sends a status report.
         /// </summary>
         /// <param name="status">The status report sent from the backup service.</param>
-        private void OnStatusReceived(DictionaryNode status)
+        private void OnStatusReceived(BackupStatus status)
         {
-            CultureInfo cultureInfo = CultureInfo.InvariantCulture;
-            TextInfo textInfo = cultureInfo.TextInfo;
-            string snapshotStateString = textInfo.ToTitleCase(status["SnapshotState"].AsStringNode().Value);
-            if (Enum.TryParse(snapshotStateString, out SnapshotState snapshotState)) {
-                DLStatus?.Invoke(this, new StatusEventArgs($"{snapshotState}"));
+            string snapshotState = $"{status.SnapshotState}";
+            Status?.Invoke(this, new StatusEventArgs(snapshotState));
+            _logger.LogDebug("OnStatus: {message}", snapshotState);
+        }
+
+        private async Task PurgeDiskSpace(ArrayNode message, CancellationToken cancellationToken)
+        {
+            throw new DeviceLinkException("Not enough Disk space for operation");
+        }
+
+        private async Task<ResultCode> ReadCode(CancellationToken cancellationToken)
+        {
+            byte[] buffer = await _service.ReceiveAsync(1, cancellationToken).ConfigureAwait(false);
+            byte code = buffer[0];
+            if (!Enum.IsDefined(typeof(ResultCode), code)) {
+                _logger.LogWarning("New backup code found: {code}", code);
+            }
+            return (ResultCode) code;
+        }
+
+        /// <summary>
+        /// Reads an Int32 value from the backup service.
+        /// </summary>
+        /// <returns>The Int32 value read.</returns>
+        private async Task<int> ReadInt32(CancellationToken cancellationToken)
+        {
+            byte[] buffer = await _service.ReceiveAsync(4, cancellationToken).ConfigureAwait(false);
+            if (buffer.Length > 0) {
+                return EndianBitConverter.BigEndian.ToInt32(buffer, 0);
+            }
+            return -1;
+        }
+
+        /// <summary>
+        /// Reads the information of the next file that the backup service will send.
+        /// </summary>
+        /// <returns>Returns the file information of the next file to download, or null if there are no more files to download.</returns>
+        private async Task<BackupFile?> ReceiveBackupFile(CancellationToken cancellationToken)
+        {
+            string devicePath = await ReceiveFilename(cancellationToken).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(devicePath)) {
+                return null;
+            }
+            string backupPath = await ReceiveFilename(cancellationToken).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(backupPath)) {
+                _logger.LogWarning("Error reading backup file path.");
+            }
+            return new BackupFile(devicePath, backupPath, _rootPath);
+        }
+
+        /// <summary>
+        /// Receives a single file from the device.
+        /// </summary>
+        /// <param name="file">The BackupFile to receive.</param>
+        /// <param name="skip">Indicates whether to skip or save the file.</param>
+        /// <returns>The result code of the transfer.</returns>
+        private async Task<ResultCode> ReceiveFile(BackupFile file, CancellationToken cancellationToken)
+        {
+            const int bufferLen = 32 * 1024;
+            ResultCode lastCode = ResultCode.Success;
+            if (File.Exists(file.LocalPath)) {
+                File.Delete(file.LocalPath);
+            }
+            while (!cancellationToken.IsCancellationRequested) {
+                // Size is the number of bytes left to read
+                int size = await ReadInt32(cancellationToken).ConfigureAwait(false);
+                if (size <= 0) {
+                    break;
+                }
+
+                ResultCode code = await ReadCode(cancellationToken).ConfigureAwait(false);
+                int blockSize = size - sizeof(ResultCode);
+                if (code != ResultCode.FileData) {
+                    if (code == ResultCode.Success) {
+                        return code;
+                    }
+
+                    string msg = string.Empty;
+                    if (blockSize > 0) {
+                        byte[] msgBuffer = await _service.ReceiveAsync(blockSize, cancellationToken).ConfigureAwait(false);
+                        msg = Encoding.UTF8.GetString(msgBuffer);
+                    }
+
+                    // iOS 17 beta devices seem to give RemoteError for a fair number of file now?
+                    _logger.LogWarning("Failed to fully upload {localPath}. Device file name {devicePath}. Reason: {msg}", file.LocalPath, file.DevicePath, msg);
+
+                    OnFileTransferError(file);
+                    return code;
+                }
+                lastCode = code;
+
+                int done = 0;
+                while (done < blockSize) {
+                    int toRead = Math.Min(blockSize - done, bufferLen);
+                    byte[] buffer = await _service.ReceiveAsync(toRead, cancellationToken).ConfigureAwait(false);
+                    OnFileReceiving(file, buffer);
+                    done += buffer.Length;
+                }
+            }
+
+            return lastCode;
+        }
+
+        /// <summary>
+        /// Reads a filename from the backup service stream.
+        /// </summary>>
+        /// <returns>The filename read from the backup stream, or NULL if there are no more files.</returns>
+        private async Task<string> ReceiveFilename(CancellationToken cancellationToken)
+        {
+            int len = await ReadInt32(cancellationToken).ConfigureAwait(false);
+            if (len == 0) {
+                // A zero length means no more files to receive.
+                return string.Empty;
+            }
+            byte[] buffer = await _service.ReceiveAsync(len, cancellationToken).ConfigureAwait(false);
+            return Encoding.UTF8.GetString(buffer);
+        }
+
+        /// <summary>
+        /// Manages the RemoveItems device message.
+        /// </summary>
+        /// <param name="msg">The message received from the device.</param>
+        /// <returns>The number of items removed.</returns>
+        private async Task RemoveItems(ArrayNode message, CancellationToken cancellationToken)
+        {
+            ArrayNode removes = message[1].AsArrayNode();
+            foreach (StringNode filename in removes.Cast<StringNode>()) {
+                if (cancellationToken.IsCancellationRequested) {
+                    break;
+                }
+
+                if (string.IsNullOrEmpty(filename.Value)) {
+                    _logger.LogWarning("Empty file to remove.");
+                }
+                else {
+                    FileInfo file = new FileInfo(Path.Combine(_rootPath, filename.Value));
+                    if (file.Exists) {
+                        if (file.Attributes.HasFlag(FileAttributes.Directory)) {
+                            Directory.Delete(file.FullName, true);
+                        }
+                        else {
+                            file.Delete();
+                        }
+                    }
+                }
+            }
+
+            if (!cancellationToken.IsCancellationRequested) {
+                await SendStatusReport(0, string.Empty, cancellationToken: cancellationToken).ConfigureAwait(false);
             }
         }
 
-        private void UpdateProgressForMessage(ArrayNode msg, int index)
+
+        /// <summary>
+        /// Sends the specified error report to the backup service.
+        /// </summary>
+        /// <param name="error">The error report to send.</param>
+        public async Task SendError(DictionaryNode errorReport, CancellationToken cancellationToken)
         {
-            DLProgress?.Invoke(this, new ProgressChangedEventArgs((int) msg[index].AsRealNode().Value, null));
+            byte[] errBytes = Encoding.UTF8.GetBytes(errorReport["DLFileErrorString"].AsStringNode().Value);
+            List<byte> buffer = new List<byte> {
+                (byte) ResultCode.LocalError
+            };
+            buffer.AddRange(errBytes);
+            await SendPrefixed(buffer.ToArray(), buffer.Count, cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -122,493 +561,8 @@ namespace Netimobiledevice.DeviceLink
 
         private async Task SendPrefixed(byte[] data, int length, CancellationToken cancellationToken)
         {
-            await Service.SendAsync(EndianBitConverter.BigEndian.GetBytes(length), cancellationToken).ConfigureAwait(false);
-            await Service.SendAsync(data, cancellationToken).ConfigureAwait(false);
-        }
-
-        /// <summary>
-        /// Manages the CopyItem device message.
-        /// </summary>
-        /// <param name="msg">The message received from the device.</param>
-        /// <returns>The errno result of the operation.</returns>
-        private DLResultCode OnCopyItem(ArrayNode msg, string rootPath)
-        {
-            string srcPath = Path.Combine(rootPath, msg[1].AsStringNode().Value);
-            string dstPath = Path.Combine(rootPath, msg[2].AsStringNode().Value);
-
-            FileInfo source = new FileInfo(srcPath);
-            if (source.Attributes.HasFlag(FileAttributes.Directory)) {
-                Logger.LogError("Trying to cppy a whole directory rather than an individual file");
-            }
-            else {
-                File.Copy(source.FullName, new FileInfo(dstPath).FullName);
-            }
-            SendStatusReport(0, string.Empty);
-            return DLResultCode.MessageComplete;
-        }
-
-
-        /// <summary>
-        /// Manages the CreateDirectory device message.
-        /// </summary>
-        /// <param name="msg">The message received from the device.</param>
-        /// <returns>The errno result of the operation.</returns>
-        private DLResultCode OnCreateDirectory(ArrayNode msg, string rootPath)
-        {
-            UpdateProgressForMessage(msg, 3);
-            string newDirPath = Path.Combine(rootPath, msg[1].AsStringNode().Value);
-            Directory.CreateDirectory(newDirPath);
-            SendStatusReport(0, string.Empty);
-            return DLResultCode.MessageComplete;
-        }
-
-        /// <summary>
-        /// Manages the DownloadFiles device message.
-        /// </summary>
-        /// <param name="msg">The message received from the device.</param>
-        private async Task<DLResultCode> OnDownloadFiles(ArrayNode msg, string rootPath, CancellationToken cancellationToken = default)
-        {
-            UpdateProgressForMessage(msg, 3);
-
-            DictionaryNode errList = new DictionaryNode();
-            ArrayNode files = msg[1].AsArrayNode();
-            foreach (StringNode filename in files.Cast<StringNode>()) {
-                Logger.LogDebug("Sending file: {filename}", filename);
-                if (cancellationToken.IsCancellationRequested) {
-                    break;
-                }
-                await SendPath(filename.Value, cancellationToken).ConfigureAwait(false);
-
-                string filePath = Path.Combine(rootPath, filename.Value);
-
-                int errorCode = 0;
-                if (!File.Exists(filePath)) {
-                    errorCode = 2;
-                }
-
-                using (FileStream fs = File.OpenRead(filePath)) {
-                    // We want to use a chunk size of 128 MiB
-                    byte[] chunk = new byte[128 * 1024 * 1024];
-
-                    int bytesRead;
-                    while ((bytesRead = await fs.ReadAsync(chunk, cancellationToken).ConfigureAwait(false)) > 0) {
-                        List<byte> data = new List<byte> {
-                            (byte) DLResultCode.FileData
-                        };
-                        data.AddRange(chunk.Take(bytesRead));
-                        await SendPrefixed(data.ToArray(), data.Count, cancellationToken).ConfigureAwait(false);
-                    }
-                }
-
-                if (errorCode == 0) {
-                    byte[] buffer = new byte[] { (byte) DLResultCode.Success };
-                    await SendPrefixed(buffer, buffer.Length, cancellationToken).ConfigureAwait(false);
-                }
-                else {
-                    Logger.LogDebug("Sending Error Code: {code}", errorCode);
-                    DictionaryNode errReport = CreateErrorReport(errorCode);
-                    errList.Add(filename.Value, errReport);
-                    await SendError(errReport, cancellationToken).ConfigureAwait(false);
-                }
-            }
-
-            await Service.SendAsync(BitConverter.GetBytes(FILE_TRANSFER_TERMINATOR), cancellationToken).ConfigureAwait(false);
-            if (errList.Count == 0) {
-                SendStatusReport(0);
-            }
-            else {
-                SendStatusReport(BULK_OPERATION_ERROR, "Multi status", errList);
-            }
-            return DLResultCode.MessageComplete;
-        }
-
-        /// <summary>
-        /// Manages the GetFreeDiskSpace device message.
-        /// </summary>
-        /// <param name="msg">The message received from the device.</param>
-        /// <param name="respectFreeSpaceValue">Whether the device should abide by the freeSpace value passed or ignore it</param>
-        /// <returns>0 on success, -1 on error.</returns>
-        private DLResultCode OnGetFreeDiskSpace(string rootPath, bool respectFreeSpaceValue = true)
-        {
-            long freeSpace = 0;
-            DirectoryInfo dir = new DirectoryInfo(rootPath);
-            foreach (DriveInfo drive in DriveInfo.GetDrives()) {
-                try {
-                    if (drive.IsReady && drive.Name == dir.Root.FullName) {
-                        freeSpace = drive.AvailableFreeSpace;
-                        break;
-                    }
-                }
-                catch (Exception ex) {
-                    Logger.LogError(ex, "Issue getting space from drive");
-                }
-            }
-
-            IntegerNode spaceItem = new IntegerNode(freeSpace);
-            if (respectFreeSpaceValue) {
-                SendStatusReport(0, null, spaceItem);
-            }
-            else {
-                SendStatusReport(-1, null, spaceItem);
-            }
-            return DLResultCode.MessageComplete;
-        }
-
-        /// <summary>
-        /// Manages the ListDirectory device message.
-        /// </summary>
-        /// <param name="msg">The message received from the device.</param>
-        /// <returns>Always 0.</returns>
-        private DLResultCode OnListDirectory(ArrayNode msg, string rootPath, CancellationToken cancellationToken)
-        {
-            string path = Path.Combine(rootPath, msg[1].AsStringNode().Value);
-            DictionaryNode dirList = new DictionaryNode();
-            DirectoryInfo dir = new DirectoryInfo(path);
-            if (dir.Exists) {
-                foreach (FileSystemInfo entry in dir.GetFileSystemInfos()) {
-                    if (cancellationToken.IsCancellationRequested) {
-                        break;
-                    }
-                    DictionaryNode entryDict = new DictionaryNode {
-                        { "DLFileModificationDate", new DateNode(entry.LastWriteTime) },
-                        { "DLFileSize", new IntegerNode(entry is FileInfo fileInfo ? fileInfo.Length : 0L) },
-                        { "DLFileType", new StringNode(entry.Attributes.HasFlag(FileAttributes.Directory) ? "DLFileTypeDirectory" : "DLFileTypeRegular") }
-                    };
-                    dirList.Add(entry.Name, entryDict);
-                }
-            }
-            SendStatusReport(0, null, dirList);
-            return DLResultCode.MessageComplete;
-        }
-
-        /// <summary>
-        /// Manages the MoveItems device message.
-        /// </summary>
-        /// <param name="msg">The message received from the device.</param>
-        /// <returns>The number of items moved.</returns>
-        private DLResultCode OnMoveItems(ArrayNode msg, string rootPath, CancellationToken cancellationToken)
-        {
-            UpdateProgressForMessage(msg, 3);
-            int res = 0;
-            foreach (KeyValuePair<string, PropertyNode> move in msg[1].AsDictionaryNode()) {
-                if (cancellationToken.IsCancellationRequested) {
-                    break;
-                }
-
-                string newPath = move.Value.AsStringNode().Value;
-                if (!string.IsNullOrEmpty(newPath)) {
-                    res++;
-                    FileInfo newFile = new FileInfo(Path.Combine(rootPath, newPath));
-                    FileInfo oldFile = new FileInfo(Path.Combine(rootPath, move.Key));
-
-                    if (newFile.Exists) {
-                        if (newFile.Attributes.HasFlag(FileAttributes.Directory)) {
-                            new DirectoryInfo(newFile.FullName).Delete(true);
-                        }
-                        else {
-                            newFile.Delete();
-                        }
-                    }
-
-                    if (oldFile.Exists) {
-                        oldFile.MoveTo(newFile.FullName);
-                    }
-                }
-            }
-            SendStatusReport(0);
-            return DLResultCode.MessageComplete;
-        }
-
-        private DLResultCode OnProcessMessage(ArrayNode msg)
-        {
-            DictionaryNode tmp = msg[1].AsDictionaryNode();
-            int resultCode = (int) tmp["ErrorCode"].AsIntegerNode().Value;
-
-            if (resultCode != 0 && tmp.TryGetValue("ErrorDescription", out PropertyNode? errorDescriptionNode)) {
-                Logger.LogError("ProcessMessage {code}: {description}", resultCode, errorDescriptionNode.AsStringNode().Value);
-            }
-
-            switch (-resultCode) {
-                case 0: {
-                    return DLResultCode.Success;
-                }
-                case -38: {
-                    Logger.LogError("Backing up the phone is denied by managing organisation");
-                    return DLResultCode.BackupDeniedByOrganisation;
-                }
-                case -207: {
-                    Logger.LogError("No backup encryption password set but is required by managing organisation");
-                    return DLResultCode.MissingRequiredEncryptionPassword;
-                }
-                case -208: {
-                    // Device locked which most commonly happens when requesting a backup but the user either
-                    // hit cancel or the screen turned off again locking the phone and cancelling the backup.
-                    Logger.LogError("Device locked: {error}", msg[1].AsDictionaryNode()["ErrorDescription"].AsStringNode().Value);
-                    return DLResultCode.DeviceLocked;
-                }
-                default: {
-                    Logger.LogError("Issue with OnProcessMessage: {code}", resultCode);
-                    DictionaryNode msgDict = msg[1].AsDictionaryNode();
-                    if (msgDict.TryGetValue("ErrorDescription", out PropertyNode? errDescription)) {
-                        Logger.LogError("Description: {description}", errDescription.AsStringNode().Value);
-                    }
-                    return DLResultCode.UnexpectedError;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Manages the RemoveItems device message.
-        /// </summary>
-        /// <param name="msg">The message received from the device.</param>
-        /// <returns>The number of items removed.</returns>
-        private DLResultCode OnRemoveItems(ArrayNode msg, string rootPath, CancellationToken cancellationToken)
-        {
-            UpdateProgressForMessage(msg, 3);
-            ArrayNode removes = msg[1].AsArrayNode();
-            foreach (StringNode filename in removes.Cast<StringNode>()) {
-                if (cancellationToken.IsCancellationRequested) {
-                    break;
-                }
-
-                if (string.IsNullOrEmpty(filename.Value)) {
-                    Logger.LogWarning("Empty file to remove.");
-                }
-                else {
-                    FileInfo file = new FileInfo(Path.Combine(rootPath, filename.Value));
-                    if (file.Exists) {
-                        if (file.Attributes.HasFlag(FileAttributes.Directory)) {
-                            Directory.Delete(file.FullName, true);
-                        }
-                        else {
-                            file.Delete();
-                        }
-                    }
-                }
-            }
-            SendStatusReport(0, string.Empty);
-            return DLResultCode.MessageComplete;
-        }
-
-        /// <summary>
-        /// Manages the UploadFiles device message.
-        /// </summary>
-        /// <param name="msg">The message received from the device.</param>
-        /// <returns>The number of files processed.</returns>
-        private async Task<DLResultCode> OnUploadFiles(ArrayNode msg, string rootPath, CancellationToken cancellationToken)
-        {
-            UpdateProgressForMessage(msg, 2);
-
-            string errorDescription = string.Empty;
-            int fileCount = 0;
-            int errorCode = 0;
-
-            long backupRealSize = 0;
-            long backupTotalSize = (long) msg[3].AsIntegerNode().Value;
-            if (backupTotalSize > 0) {
-                Logger.LogDebug("Backup total size: {backupSize}", backupTotalSize);
-            }
-
-            while (!cancellationToken.IsCancellationRequested) {
-                string devicePath = await ReceiveFilename(cancellationToken).ConfigureAwait(false);
-                if (string.IsNullOrEmpty(devicePath)) {
-                    break;
-                }
-                else if (!Usbmux.IsDeviceConnected(Lockdown.Udid)) {
-                    throw new DeviceDisconnectedException();
-                }
-
-                string backupPath = await ReceiveFilename(cancellationToken).ConfigureAwait(false);
-                string localPath = Path.Combine(rootPath, backupPath);
-
-                Logger.LogDebug("Receiving file {backupFilePath}", backupPath);
-                DLResultCode code = await ReceiveFile(localPath, backupTotalSize, backupRealSize, cancellationToken).ConfigureAwait(false);
-                if (code == DLResultCode.Success) {
-                    DLFileReceived?.Invoke(this, new DLFileEventArgs(localPath));
-                    if (string.Equals("Status.plist", Path.GetFileName(localPath), StringComparison.OrdinalIgnoreCase)) {
-                        using (FileStream fs = File.OpenRead(localPath)) {
-                            PropertyNode statusPlist = await PropertyList.LoadAsync(fs).ConfigureAwait(false);
-                            OnStatusReceived(statusPlist.AsDictionaryNode());
-                        }
-                    }
-                }
-                fileCount++;
-            }
-
-            SendStatusReport(errorCode, errorDescription);
-            return DLResultCode.MessageComplete;
-        }
-
-        private async Task<DLResultCode> ReadCode(CancellationToken cancellationToken)
-        {
-            byte[] buffer = await Service.ReceiveAsync(1, cancellationToken).ConfigureAwait(false);
-            if (!Enum.IsDefined(typeof(DLResultCode), buffer[0])) {
-                Logger.LogWarning("New backup code found: {code}", buffer[0]);
-            }
-            return (DLResultCode) buffer[0];
-        }
-
-        /// <summary>
-        /// Receives a single file from the device.
-        /// </summary>
-        /// <param name="file">The BackupFile to receive.</param>
-        /// <param name="totalSize">The total size indicated in the device message.</param>
-        /// <param name="realSize">The actual bytes transferred.</param>
-        /// <returns>The result code of the transfer.</returns>
-        private async Task<DLResultCode> ReceiveFile(string localFilePath, long totalSize, long realSize, CancellationToken cancellationToken)
-        {
-            const int bufferLen = 32 * 1024;
-            DLResultCode lastCode = DLResultCode.Success;
-            if (File.Exists(localFilePath)) {
-                File.Delete(localFilePath);
-            }
-            while (!cancellationToken.IsCancellationRequested) {
-                // Size is the number of bytes left to read
-                byte[] buffer = await Service.ReceiveAsync(sizeof(int), cancellationToken).ConfigureAwait(false);
-                int size = EndianBitConverter.BigEndian.ToInt32(buffer, 0);
-                if (size <= 0) {
-                    break;
-                }
-
-                DLResultCode code = await ReadCode(cancellationToken).ConfigureAwait(false);
-                int blockSize = size - sizeof(DLResultCode);
-                if (code != DLResultCode.FileData) {
-                    if (code == DLResultCode.Success) {
-                        return code;
-                    }
-
-                    string msg = string.Empty;
-                    if (blockSize > 0) {
-                        byte[] msgBuffer = await Service.ReceiveAsync(blockSize, cancellationToken).ConfigureAwait(false);
-                        msg = Encoding.UTF8.GetString(msgBuffer);
-                    }
-
-                    // iOS 17 beta devices seem to give RemoteError for a fair number of file now?
-                    Logger.LogWarning("Failed to fully upload {localPath}. Reason: {msg}", localFilePath, msg);
-                    DLFileTransferError?.Invoke(this, new DLFileEventArgs(localFilePath));
-                    return code;
-                }
-                lastCode = code;
-
-                int done = 0;
-                while (done < blockSize) {
-                    int toRead = Math.Min(blockSize - done, bufferLen);
-                    buffer = await Service.ReceiveAsync(toRead, cancellationToken).ConfigureAwait(false);
-
-                    // Ensure the directory requested exists before writing to it.
-                    string? pathDir = Path.GetDirectoryName(localFilePath);
-                    if (!string.IsNullOrWhiteSpace(pathDir) && !Directory.Exists(localFilePath)) {
-                        Directory.CreateDirectory(pathDir);
-                    }
-
-                    using (FileStream stream = File.OpenWrite(localFilePath)) {
-                        stream.Seek(0, SeekOrigin.End);
-                        await stream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
-                    }
-                    done += buffer.Length;
-                }
-                if (done == blockSize) {
-                    realSize += blockSize;
-                }
-            }
-
-            return lastCode;
-        }
-
-        /// <summary>
-        /// Reads a filename from the backup service stream.
-        /// </summary>
-        /// <returns>The filename read from the backup stream, or NULL if there are no more files.</returns>
-        private async Task<string> ReceiveFilename(CancellationToken cancellationToken)
-        {
-            byte[] buffer = await Service.ReceiveAsync(sizeof(int), cancellationToken).ConfigureAwait(false);
-            int filenameLength = EndianBitConverter.BigEndian.ToInt32(buffer, 0);
-
-            // A zero length means no more files to receive.
-            if (filenameLength != 0) {
-                buffer = await Service.ReceiveAsync(filenameLength, cancellationToken).ConfigureAwait(false);
-                return Encoding.UTF8.GetString(buffer);
-            }
-            return string.Empty;
-        }
-
-        protected async Task<ArrayNode> DeviceLinkReceiveMessage(CancellationToken cancellationToken)
-        {
-            PropertyNode? message = await Service.ReceivePlistAsync(cancellationToken);
-            if (message == null) {
-                return new ArrayNode();
-            }
-            return message.AsArrayNode();
-        }
-
-        protected void DeviceLinkSend(PropertyNode message)
-        {
-            Service.SendPlist(message, PlistFormat.Binary);
-        }
-
-        /// <summary>
-        /// Sends a DLMessagePing plist.
-        /// </summary>
-        /// <param name="message">String to send as ping message.</param>
-        protected void DeviceLinkSendPing(string message)
-        {
-            ArrayNode msg = new ArrayNode() {
-                new StringNode("DLMessagePing"),
-                new StringNode(message)
-            };
-            DeviceLinkSend(msg);
-        }
-
-        protected void DeviceLinkSendProcessMessage(PropertyNode message)
-        {
-            Service.SendPlist(new ArrayNode() {
-                new StringNode("DLMessageProcessMessage"),
-                message
-            }, PlistFormat.Binary);
-        }
-
-        /// <summary>
-        /// Performs the DLMessageVersionExchange with the connected device. 
-        /// This should be the first operation to be executed by an implemented
-        /// device link service client.
-        /// </summary>
-        /// <param name="versionMajor">The major version number to check.</param>
-        /// <param name="versionMinor">The minor version number to check.</param>
-        protected async Task DeviceLinkVersionExchange(ulong versionMajor, ulong versionMinor, CancellationToken cancellationToken)
-        {
-            // Get DLMessageVersionExchange from device
-            ArrayNode versionExchangeMessage = await DeviceLinkReceiveMessage(cancellationToken);
-            string dlMessage = versionExchangeMessage[0].AsStringNode().Value;
-            if (string.IsNullOrEmpty(dlMessage) || dlMessage != "DLMessageVersionExchange") {
-                throw new DeviceLinkException("Didn't receive DLMessageVersionExchange from device");
-            }
-            if (versionExchangeMessage.Count < 3) {
-                throw new DeviceLinkException("DLMessageVersionExchange has unexpected format");
-            }
-
-            // Get major and minor version number
-            ulong vMajor = versionExchangeMessage[1].AsIntegerNode().Value;
-            ulong vMinor = versionExchangeMessage[2].AsIntegerNode().Value;
-            if (vMajor > versionMajor) {
-                throw new DeviceLinkException($"Version mismatch detected received {vMajor}.{vMinor}, expected {versionMajor}.{versionMinor}");
-            }
-            else if (vMajor == versionMajor && vMinor > versionMinor) {
-                throw new DeviceLinkException($"Version mismatch detected received {vMajor}.{vMinor}, expected {versionMajor}.{versionMinor}");
-            }
-
-            // The version is ok so send reply
-            Service.SendPlist(new ArrayNode {
-                new StringNode("DLMessageVersionExchange"),
-                new StringNode("DLVersionsOk"),
-                new IntegerNode(versionMajor)
-            }, PlistFormat.Binary);
-
-            // Receive DeviceReady message
-            ArrayNode messageDeviceReady = await DeviceLinkReceiveMessage(cancellationToken);
-            dlMessage = messageDeviceReady[0].AsStringNode().Value;
-            if (string.IsNullOrEmpty(dlMessage) || dlMessage != "DLMessageDeviceReady") {
-                throw new DeviceLinkException("Device link didn't return ready state (DLMessageDeviceReady)");
-            }
+            await _service.SendAsync(EndianBitConverter.BigEndian.GetBytes(length), cancellationToken).ConfigureAwait(false);
+            await _service.SendAsync(data, cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -617,7 +571,7 @@ namespace Netimobiledevice.DeviceLink
         /// <param name="errorCode">The error code to send (as errno value).</param>
         /// <param name="errorMessage">The error message to send.</param>
         /// <param name="errorList">A PropertyNode with additional value(s).</param>
-        protected void SendStatusReport(int errorCode, string? errorMessage = null, PropertyNode? errorList = null)
+        private async Task SendStatusReport(int errorCode, string? errorMessage = null, PropertyNode? errorList = null, CancellationToken cancellationToken = default)
         {
             ArrayNode array = new ArrayNode {
                 new StringNode("DLMessageStatusResponse"),
@@ -638,78 +592,156 @@ namespace Netimobiledevice.DeviceLink
                 array.Add(new DictionaryNode());
             }
 
-            DeviceLinkSend(array);
-        }
-
-        public override void Dispose()
-        {
-            Disconnect();
-            Close();
-            GC.SuppressFinalize(this);
+            await _service.SendPlistAsync(array, PlistFormat.Binary, cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>
-        /// Process the message received from the backup service.
+        /// Updates the progress as signaled by the backup service message.
         /// </summary>
-        /// <param name="msg">The property array received.</param>
-        /// <param name="message">The string that identifies the message type.</param>
-        /// <returns>Depends on the message type, but a negative value always indicates an error.</returns>
-        public async Task<DLResultCode> OnDeviceLinkMessageReceived(ArrayNode msg, string message, string rootPath, CancellationToken cancellationToken = default)
+        /// <param name="msg">The message received containing the progress information.</param>
+        /// <param name="index">The index of the element in the array that contains the progress value.</param>
+        private void UpdateProgressForMessage(RealNode progressNode)
         {
-            Logger.LogDebug("Message Received: {message}", message);
-            switch (message) {
-                case DeviceLinkMessage.DownloadFiles: {
-                    return await OnDownloadFiles(msg, rootPath, cancellationToken).ConfigureAwait(false);
-                }
-                case DeviceLinkMessage.GetFreeDiskSpace: {
-                    return OnGetFreeDiskSpace(rootPath);
-                }
-                case DeviceLinkMessage.CreateDirectory: {
-                    return OnCreateDirectory(msg, rootPath);
-                }
-                case DeviceLinkMessage.UploadFiles: {
-                    return await OnUploadFiles(msg, rootPath, cancellationToken).ConfigureAwait(false);
-                }
-                case DeviceLinkMessage.ContentsOfDirectory: {
-                    return OnListDirectory(msg, rootPath, cancellationToken);
-                }
-                case DeviceLinkMessage.MoveFiles:
-                case DeviceLinkMessage.MoveItems: {
-                    return OnMoveItems(msg, rootPath, cancellationToken);
-                }
-                case DeviceLinkMessage.RemoveFiles:
-                case DeviceLinkMessage.RemoveItems: {
-                    return OnRemoveItems(msg, rootPath, cancellationToken);
-                }
-                case DeviceLinkMessage.CopyItem: {
-                    return OnCopyItem(msg, rootPath);
-                }
-                case DeviceLinkMessage.Disconnect: {
-                    throw new DeviceDisconnectedException();
-                }
-                case DeviceLinkMessage.ProcessMessage: {
-                    return OnProcessMessage(msg);
-                }
-                default: {
-                    Logger.LogWarning("Unknown message in MessageLoop: {message}", message);
-                    SendStatusReport(1, "Operation not supported");
-                    return DLResultCode.UnknownMessage;
-                }
+            if (progressNode.Value > 0.0) {
+                Progress?.Invoke(this, new ProgressChangedEventArgs((int) progressNode.Value, null));
             }
         }
 
         /// <summary>
-        /// Sends the specified error report to the backup service.
+        /// Manages the UploadFiles device message.
         /// </summary>
-        /// <param name="error">The error report to send.</param>
-        public async Task SendError(DictionaryNode errorReport, CancellationToken cancellationToken)
+        /// <param name="msg">The message received from the device.</param>
+        /// <returns>The number of files processed.</returns>
+        private async Task UploadFiles(ArrayNode msg, CancellationToken cancellationToken)
         {
-            byte[] errBytes = Encoding.UTF8.GetBytes(errorReport["DLFileErrorString"].AsStringNode().Value);
-            List<byte> buffer = new List<byte> {
-                (byte) ResultCode.LocalError
-            };
-            buffer.AddRange(errBytes);
-            await SendPrefixed(buffer.ToArray(), buffer.Count, cancellationToken).ConfigureAwait(false);
+            string errorDescription = string.Empty;
+            int fileCount = 0;
+            int errorCode = 0;
+
+            long backupTotalSize = (long) msg[3].AsIntegerNode().Value;
+            if (backupTotalSize > 0) {
+                _logger.LogDebug("Backup total size: {backupTotalSize}", backupTotalSize);
+            }
+
+            while (!cancellationToken.IsCancellationRequested) {
+                BackupFile? backupFile = await ReceiveBackupFile(cancellationToken).ConfigureAwait(false);
+                if (backupFile != null) {
+                    _logger.LogDebug("Receiving file {BackupPath}", backupFile.BackupPath);
+                    BeforeReceivingFile?.Invoke(this, new BackupFileEventArgs(backupFile));
+                    ResultCode code = await ReceiveFile(backupFile, cancellationToken).ConfigureAwait(false);
+                    if (code == ResultCode.Success) {
+                        OnFileReceived(backupFile);
+                    }
+                    fileCount++;
+                }
+                else if (_service.IsConnected) {
+                    break;
+                }
+                else {
+                    throw new DeviceDisconnectedException();
+                }
+            }
+
+            if (!cancellationToken.IsCancellationRequested) {
+                await SendStatusReport(errorCode, errorDescription, cancellationToken: cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+
+        public void Dispose()
+        {
+            Disconnect();
+            _service.Close();
+            GC.SuppressFinalize(this);
+        }
+
+        public async Task<ResultCode> DlLoop(CancellationToken cancellationToken)
+        {
+            FailedFiles.Clear();
+
+            internalCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            while (!cancellationToken.IsCancellationRequested) {
+                ArrayNode message = await ReceiveMessage(internalCancellationTokenSource.Token).ConfigureAwait(false);
+
+                string command = message[0].AsStringNode().Value;
+                _logger.LogDebug("Command recieved: {command}", command);
+                if (command == DeviceLinkMessage.ProcessMessage) {
+                    if (message[1].AsDictionaryNode()["ErrorCode"].AsIntegerNode().Value != (ulong) ResultCode.Success) {
+                        throw new DeviceLinkException($"Device link error: {PropertyList.SaveAsString(message[1], PlistFormat.Xml)}");
+                    }
+                    return ResultCode.Success;
+                }
+                else if (command == DeviceLinkMessage.UploadFiles) {
+                    UpdateProgressForMessage(message[2].AsRealNode());
+                }
+                else {
+                    UpdateProgressForMessage(message[3].AsRealNode());
+                }
+
+                await DeviceLinkHandlers[command](message, internalCancellationTokenSource.Token).ConfigureAwait(false);
+            }
+            return ResultCode.Skipped;
+        }
+
+        public async Task<ArrayNode> ReceiveMessage(CancellationToken cancellationToken)
+        {
+            PropertyNode? message = await _service.ReceivePlistAsync(cancellationToken).ConfigureAwait(false);
+            if (message == null) {
+                return new ArrayNode();
+            }
+            return message.AsArrayNode();
+        }
+
+        public void SendProcessMessage(PropertyNode message)
+        {
+            _service.SendPlist(new ArrayNode() {
+                new StringNode("DLMessageProcessMessage"),
+                message
+            }, PlistFormat.Binary);
+        }
+
+        /// <summary>
+        /// Performs the DLMessageVersionExchange with the connected device. 
+        /// This should be the first operation to be executed by an implemented
+        /// device link service client.
+        /// </summary>
+        /// <param name="versionMajor">The major version number to check.</param>
+        /// <param name="versionMinor">The minor version number to check.</param>
+        public async Task VersionExchange(ulong versionMajor, ulong versionMinor, CancellationToken cancellationToken)
+        {
+            // Get DLMessageVersionExchange from device
+            ArrayNode versionExchangeMessage = await ReceiveMessage(cancellationToken);
+            string dlMessage = versionExchangeMessage[0].AsStringNode().Value;
+            if (string.IsNullOrEmpty(dlMessage) || dlMessage != "DLMessageVersionExchange") {
+                throw new DeviceLinkException("Didn't receive DLMessageVersionExchange from device");
+            }
+            if (versionExchangeMessage.Count < 3) {
+                throw new DeviceLinkException("DLMessageVersionExchange has unexpected format");
+            }
+
+            // Get major and minor version number
+            ulong vMajor = versionExchangeMessage[1].AsIntegerNode().Value;
+            ulong vMinor = versionExchangeMessage[2].AsIntegerNode().Value;
+            if (vMajor > versionMajor) {
+                throw new DeviceLinkException($"Version mismatch detected received {vMajor}.{vMinor}, expected {versionMajor}.{versionMinor}");
+            }
+            else if (vMajor == versionMajor && vMinor > versionMinor) {
+                throw new DeviceLinkException($"Version mismatch detected received {vMajor}.{vMinor}, expected {versionMajor}.{versionMinor}");
+            }
+
+            // The version is ok so send reply
+            _service.SendPlist(new ArrayNode {
+                new StringNode("DLMessageVersionExchange"),
+                new StringNode("DLVersionsOk"),
+                new IntegerNode(versionMajor)
+            }, PlistFormat.Binary);
+
+            // Receive DeviceReady message
+            ArrayNode messageDeviceReady = await ReceiveMessage(cancellationToken);
+            dlMessage = messageDeviceReady[0].AsStringNode().Value;
+            if (string.IsNullOrEmpty(dlMessage) || dlMessage != "DLMessageDeviceReady") {
+                throw new DeviceLinkException("Device link didn't return ready state (DLMessageDeviceReady)");
+            }
         }
     }
 }

@@ -1,7 +1,7 @@
 ﻿namespace Netimobiledevice.Backup
 {
     /// <summary>
-    /// Result codes for Mobilebackup2 Service operations.
+    /// Result codes for Service operations.
     /// </summary>
     public enum ResultCode : byte
     {

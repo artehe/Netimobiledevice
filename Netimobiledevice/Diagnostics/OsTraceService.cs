@@ -78,7 +78,7 @@ namespace Netimobiledevice.Diagnostics
             DictionaryNode request = new DictionaryNode() {
                 { "Request", new StringNode("PidList") },
             };
-            await Service.SendPlistAsync(request, cancellationToken);
+            await Service.SendPlistAsync(request, cancellationToken: cancellationToken);
 
             // Ignore the first received unknown byte
             await Service.ReceiveAsync(1, cancellationToken);

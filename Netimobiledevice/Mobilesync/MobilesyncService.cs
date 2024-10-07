@@ -1,30 +1,27 @@
-﻿using Microsoft.Extensions.Logging;
-using Netimobiledevice.DeviceLink;
-using Netimobiledevice.Lockdown;
-using Netimobiledevice.Plist;
-using System;
-using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using Netimobiledevice.Lockdown;
+using Netimobiledevice.Lockdown.Services;
 
 namespace Netimobiledevice.Mobilesync
 {
-    public sealed class MobilesyncService : DeviceLinkService
+    public sealed class MobilesyncService : BaseService
     {
+        private const string SERVICE_NAME = "com.apple.mobilesync";
+
+        /* TODO
         private const int MOBILESYNC_VERSION_MAJOR = 400;
         private const int MOBILESYNC_VERSION_MINOR = 100;
 
         private const ulong COMPUTER_DATA_CLASS_VERSION = 106;
         private const string EMPTY_PARAMETER_STRING = "___EmptyParameterString___";
-        private const string SERVICE_NAME = "com.apple.mobilesync";
 
         private string syncingDataClass = EMPTY_PARAMETER_STRING;
+        */
 
         protected override string ServiceName => SERVICE_NAME;
 
         private MobilesyncService(LockdownClient client) : base(client) { }
 
+        /* TODO
         private void GetRecords(string operation)
         {
             ArrayNode msg = new ArrayNode() {
@@ -198,5 +195,6 @@ namespace Netimobiledevice.Mobilesync
             await service.DeviceLinkVersionExchange(MOBILESYNC_VERSION_MAJOR, MOBILESYNC_VERSION_MINOR, cancellationToken);
             return service;
         }
+        */
     }
 }

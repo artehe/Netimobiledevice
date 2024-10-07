@@ -50,29 +50,15 @@ public class Program
         }
 
         using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
-            string path = "backups";
-            using (DeviceBackup backupJob = new DeviceBackup(lockdown, path)) {
-                await backupJob.Start(tokenSource.Token);
+            using (Mobilebackup2Service mb2 = new Mobilebackup2Service(lockdown)) {
+                await mb2.Backup(true, "backups", tokenSource.Token);
             }
+            Console.WriteLine($"Backup done!");
         }
-        Console.WriteLine($"Backup done!");
     }
 
     private static void Progress_ProgressChanged(object? sender, PairingState e)
     {
         Console.WriteLine($"Pair Progress Changed: {e}");
-    }
-
-    private static void SubscriptionCallback(UsbmuxdDevice device, UsbmuxdConnectionEventType connectionEvent)
-    {
-        Console.WriteLine("NewCallbackExecuted");
-        Console.WriteLine($"Connection event: {connectionEvent}");
-        Console.WriteLine($"Device: {device.DeviceId} - {device.Serial}");
-    }
-
-    private static void SubscriptionErrorCallback(Exception ex)
-    {
-        Console.WriteLine("NewErrorCallbackExecuted");
-        Console.WriteLine(ex.Message);
     }
 }

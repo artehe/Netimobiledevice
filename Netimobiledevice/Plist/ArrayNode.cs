@@ -37,6 +37,7 @@ namespace Netimobiledevice.Plist
         /// <param name="index">Index.</param>
         public PropertyNode this[int index] {
             get => _list[index];
+
             set => _list[index] = value;
         }
 
