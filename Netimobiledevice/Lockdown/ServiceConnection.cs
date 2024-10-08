@@ -38,9 +38,6 @@ namespace Netimobiledevice.Lockdown
                 if (networkStream is NetworkStream ns) {
                     return ns.Socket.Connected;
                 }
-                else if (networkStream is SslStream ssl) {
-                    return false;
-                }
                 return false;
             }
         }

@@ -671,6 +671,9 @@ namespace Netimobiledevice.DeviceLink
                     }
                     return ResultCode.Success;
                 }
+                else if (command == DeviceLinkMessage.GetFreeDiskSpace) {
+                    // We don't do anything specific for this command we just don't want to update progress as there isn't any attached to this message.
+                }
                 else if (command == DeviceLinkMessage.UploadFiles) {
                     UpdateProgressForMessage(message[2].AsRealNode());
                 }
