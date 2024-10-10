@@ -33,6 +33,15 @@ namespace Netimobiledevice.Lockdown
 
         public UsbmuxdDevice? MuxDevice { get; private set; }
 
+        public bool IsConnected {
+            get {
+                if (networkStream is NetworkStream ns) {
+                    return ns.Socket.Connected;
+                }
+                return false;
+            }
+        }
+
         private ServiceConnection(Socket sock, ILogger logger, UsbmuxdDevice? muxDevice = null)
         {
             this.logger = logger;
@@ -221,9 +230,9 @@ namespace Netimobiledevice.Lockdown
             Send(payload.ToArray());
         }
 
-        public async Task SendPlistAsync(PropertyNode data, CancellationToken cancellationToken)
+        public async Task SendPlistAsync(PropertyNode data, PlistFormat format = PlistFormat.Xml, CancellationToken cancellationToken = default)
         {
-            byte[] plistBytes = PropertyList.SaveAsByteArray(data, PlistFormat.Xml);
+            byte[] plistBytes = PropertyList.SaveAsByteArray(data, format);
             byte[] lengthBytes = BitConverter.GetBytes(EndianBitConverter.BigEndian.ToInt32(BitConverter.GetBytes(plistBytes.Length), 0));
 
             List<byte> payload = new List<byte>();
@@ -240,7 +249,7 @@ namespace Netimobiledevice.Lockdown
 
         public async Task<PropertyNode?> SendReceivePlistAsync(PropertyNode data, CancellationToken cancellationToken)
         {
-            await SendPlistAsync(data, cancellationToken);
+            await SendPlistAsync(data, cancellationToken: cancellationToken);
             return await ReceivePlistAsync(cancellationToken);
         }
 

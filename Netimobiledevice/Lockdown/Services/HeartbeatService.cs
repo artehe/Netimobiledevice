@@ -40,7 +40,7 @@ namespace Netimobiledevice.Lockdown.Services
 
                     await Service.SendPlistAsync(new DictionaryNode() {
                         { "Command", new StringNode("Polo") }
-                    }, CancellationToken.None);
+                    });
                 }
                 catch (IOException) {
                     // If there is an IO exception we also have to assume that the service is closed so we abort the listener

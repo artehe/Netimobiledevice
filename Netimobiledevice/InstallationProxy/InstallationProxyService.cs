@@ -97,7 +97,7 @@ namespace Netimobiledevice.InstallationProxy
                 { "ClientOptions", options },
                 { "PackagePath", new StringNode(TEMP_REMOTE_IPA_FILE) }
             };
-            await Service.SendPlistAsync(cmd, cancellationToken).ConfigureAwait(false);
+            await Service.SendPlistAsync(cmd, cancellationToken: cancellationToken).ConfigureAwait(false);
 
             await WatchForCompletion(command, cancellationToken, progress);
             Logger?.LogInformation("IPA Installed");
@@ -197,7 +197,7 @@ namespace Netimobiledevice.InstallationProxy
             options ??= new DictionaryNode();
             cmd.Add("ClientOptions", options);
 
-            await Service.SendPlistAsync(cmd, cancellationToken).ConfigureAwait(false);
+            await Service.SendPlistAsync(cmd, cancellationToken: cancellationToken).ConfigureAwait(false);
             await WatchForCompletion("Uninstall", cancellationToken, progress).ConfigureAwait(false);
         }
 

@@ -75,19 +75,19 @@ Create an iTunes backup:
 
 ```csharp
 using (UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux("60653a518d33eb53b3ca2322de3f44e162a42069")) {
-    using (DeviceBackup backupJob = new DeviceBackup(lockdown, @"C:\Users\User\Downloads")) {
-        backupJob.BeforeReceivingFile += BackupJob_BeforeReceivingFile;
-        backupJob.Completed += BackupJob_Completed;
-        backupJob.Error += BackupJob_Error;
-        backupJob.FileReceived += BackupJob_FileReceived;
-        backupJob.FileReceiving += BackupJob_FileReceiving;
-        backupJob.FileTransferError += BackupJob_FileTransferError;
-        backupJob.PasscodeRequiredForBackup += BackupJob_PasscodeRequiredForBackup;
-        backupJob.Progress += BackupJob_Progress;
-        backupJob.Status += BackupJob_Status;
-        backupJob.Started += BackupJob_Started;
+    using (Mobilebackup2Service mb2 = new Mobilebackup2Service(lockdown)) {
+        mb2.BeforeReceivingFile += BackupJob_BeforeReceivingFile;
+        mb2.Completed += BackupJob_Completed;
+        mb2.Error += BackupJob_Error;
+        mb2.FileReceived += BackupJob_FileReceived;
+        mb2.FileReceiving += BackupJob_FileReceiving;
+        mb2.FileTransferError += BackupJob_FileTransferError;
+        mb2.PasscodeRequiredForBackup += BackupJob_PasscodeRequiredForBackup;
+        mb2.Progress += BackupJob_Progress;
+        mb2.Status += BackupJob_Status;
+        mb2.Started += BackupJob_Started;
 
-        await backupJob.Start();
+        await mb2.Backup(true, "backups", tokenSource.Token);
     }
 }
 ```
@@ -140,6 +140,7 @@ The list of all the services from lockdownd which have been implemented and the 
   * Send and receive notifications from the device for example informing a backup sync is about to occur.
 - [com.apple.mobilebackup2](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Backup/Mobilebackup2Service.cs)
   * Backup Creation
+  * Restore a backup to the iOS device
   * Communication with the Backup service
 - [com.apple.mobilesync](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Mobilesync/Mobilesync.cs)
   * Sync data (Contacts, Calendar etc) between device and computer

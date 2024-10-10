@@ -1,4 +1,4 @@
-﻿namespace Netimobiledevice.Backup
+﻿namespace Netimobiledevice.DeviceLink
 {
     /// <summary>
     /// DeviceLink Messages received from the device during the backup process.
