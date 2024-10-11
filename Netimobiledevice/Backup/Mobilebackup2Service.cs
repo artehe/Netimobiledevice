@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice.Afc;
 using Netimobiledevice.DeviceLink;
+using Netimobiledevice.Diagnostics;
+using Netimobiledevice.Exceptions;
 using Netimobiledevice.InstallationProxy;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
@@ -8,6 +10,7 @@ using Netimobiledevice.NotificationProxy;
 using Netimobiledevice.Plist;
 using Netimobiledevice.SpringBoardServices;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -325,6 +328,34 @@ namespace Netimobiledevice.Backup
             return client.StartLockdownService(SERVICE_NAME, useEscrowBag: true);
         }
 
+        // TODO switch this to use the newer method that I know about.
+        private bool IsPasscodeRequiredBeforeBackup()
+        {
+            // iOS versions 15.7.1 and anything 16.1 or newer will require you to input a passcode before
+            // it can start a backup so we make sure to notify the user about this.
+            if ((Lockdown.OsVersion >= new Version(15, 7, 1) && Lockdown.OsVersion < new Version(16, 0)) ||
+                Lockdown.OsVersion >= new Version(16, 1)) {
+                using (DiagnosticsService diagnosticsService = new DiagnosticsService(Lockdown)) {
+                    string queryString = "PasswordConfigured";
+                    try {
+                        DictionaryNode queryResponse = diagnosticsService.MobileGestalt(new List<string>() { queryString });
+                        if (queryResponse.TryGetValue(queryString, out PropertyNode? passcodeSetNode)) {
+                            bool passcodeSet = passcodeSetNode.AsBooleanNode().Value;
+                            if (passcodeSet) {
+                                return true;
+                            }
+                        }
+                    }
+                    catch (DeprecatedException) {
+                        // Assume that the passcode is set for now
+                        // TODO Try and find a new way to tell if the devices passcode is set 
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
         /// <summary>
         /// Exchange versions with the device and assert that the device supports our version of the protocol.
         /// </summary>
@@ -412,6 +443,10 @@ namespace Netimobiledevice.Backup
                                 { "TargetIdentifier", new StringNode(Lockdown.Udid) }
                             };
                             dl.SendProcessMessage(message);
+
+                            if (IsPasscodeRequiredBeforeBackup()) {
+                                PasscodeRequiredForBackup?.Invoke(this, EventArgs.Empty);
+                            }
 
                             return await dl.DlLoop(cancellationToken).ConfigureAwait(false);
                         }
