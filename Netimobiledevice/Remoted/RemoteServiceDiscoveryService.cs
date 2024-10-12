@@ -1,12 +1,37 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Netimobiledevice.Lockdown;
 
 namespace Netimobiledevice.Remoted
 {
-    internal class RemoteServiceDiscoveryService
+    public class RemoteServiceDiscoveryService : LockdownServiceProvider
     {
+        public const ushort RSD_PORT = 58783;
+
+        private readonly RemoteXPCConnection _service;
+
+        public RemoteServiceDiscoveryService(string ip, ushort port) : base()
+        {
+            _service = RemoteXPCConnection(ip, port);
+
+            /* TODO
+    def __init__(self, address: tuple[str, int], name: Optional[str] = None) -> None:
+        self.peer_info: Optional[dict] = None
+        self.lockdown: Optional[LockdownClient] = None
+        self.all_values: Optional[dict] = None
+            */
+        }
     }
+
+    /* TODO
+    async def connect(self) -> None:
+        await self.service.connect()
+        self.peer_info = await self.service.receive_response()
+        self.udid = self.peer_info['Properties']['UniqueDeviceID']
+        self.product_type = self.peer_info['Properties']['ProductType']
+        try:
+            self.lockdown = create_using_remote(self.start_lockdown_service('com.apple.mobile.lockdown.remote.trusted'))
+        except InvalidServiceError:
+            self.lockdown = create_using_remote(
+                self.start_lockdown_service('com.apple.mobile.lockdown.remote.untrusted'))
+        self.all_values = self.lockdown.all_values
+    */
 }
