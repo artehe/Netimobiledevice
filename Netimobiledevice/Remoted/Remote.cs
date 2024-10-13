@@ -43,7 +43,7 @@ namespace Netimobiledevice.Remoted
                         }
 
                         if (string.IsNullOrEmpty(udid) || rsd.Udid == udid) {
-                            result.Add(rsd)
+                            result.Add(rsd);
                         }
                         else {
                             await rsd.Close();

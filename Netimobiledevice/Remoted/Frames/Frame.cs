@@ -49,6 +49,8 @@ namespace Netimobiledevice.Remoted.Frames
             };
         }
 
+        public static Frame Create(byte frameType) => Create((FrameType) frameType);
+
         private static byte[] To24BitInt(uint original)
         {
             byte[] b = BitConverter.GetBytes(original);
@@ -81,6 +83,45 @@ namespace Netimobiledevice.Remoted.Frames
 
         internal void Parse(byte[] data)
         {
+            var frameHeader = ParseFrameHeader(data);
+
+            this.StreamIdentifier = frameHeader.StreamIdentifier;
+            this.Flags = frameHeader.Flags;
+
+            // Isolate the payload data
+            byte[] payloadData = new byte[frameHeader.Length];
+            Array.Copy(data, 9, payloadData, 0, frameHeader.Length);
+
+            ParsePayload(payloadData, frameHeader);
+        }
+
+        public IEnumerable<byte> ToBytes()
+        {
+            List<byte> data = new List<byte>();
+
+            // Copy Frame Length
+            byte[] frameLength = To24BitInt(Length);
+            data.AddRange(frameLength.EnsureBigEndian());
+
+            // Copy Type
+            data.Add((byte) Type);
+
+            // Copy Flags
+            data.Add(Flags);
+
+            // 1 Bit reserved as unset (0) so let's take the first bit of the next 32 bits and unset it
+            byte[] streamId = ConvertToUInt31(StreamIdentifier);
+            data.AddRange(streamId.EnsureBigEndian());
+
+            byte[] payloadData = Payload.ToArray();
+            // Now the payload
+            data.AddRange(payloadData);
+
+            return data;
+        }
+
+        public static FrameHeader ParseFrameHeader(byte[] data)
+        {
             if (data.Length < 9) {
                 throw new InvalidDataException("data[] is missing frame header");
             }
@@ -103,47 +144,15 @@ namespace Netimobiledevice.Remoted.Frames
             // we need to turn the stream id into a uint
             byte[] frameStreamIdData = new byte[4];
             Array.Copy(data, 5, frameStreamIdData, 0, 4);
-            this.StreamIdentifier = ConvertFromUInt31(frameStreamIdData.EnsureBigEndian());
-
-            this.Flags = frameFlags;
 
             var frameHeader = new FrameHeader {
                 Length = frameLength,
                 Type = frameType,
                 Flags = frameFlags,
-                StreamIdentifier = this.StreamIdentifier
+                StreamIdentifier = ConvertFromUInt31(frameStreamIdData.EnsureBigEndian())
             };
 
-            // Isolate the payload data
-            byte[] payloadData = new byte[frameLength];
-            Array.Copy(data, 9, payloadData, 0, frameLength);
-
-            ParsePayload(payloadData, frameHeader);
-        }
-
-        public IEnumerable<byte> ToBytes()
-        {
-            List<byte> data = new List<byte>();
-
-            // Copy Frame Length
-            byte[] frameLength = To24BitInt(Length);
-            data.AddRange(frameLength.EnsureBigEndian());
-
-            // Copy Type
-            data.Add((byte) Type);
-
-            // Copy Flags
-            data.Add(Flags);
-
-            // 1 Bit reserved as unset (0) so let's take the first bit of the next 32 bits and unset it
-            var streamId = ConvertToUInt31(StreamIdentifier);
-            data.AddRange(streamId.EnsureBigEndian());
-
-            var payloadData = Payload.ToArray();
-            // Now the payload
-            data.AddRange(payloadData);
-
-            return data;
+            return frameHeader;
         }
 
         public abstract void ParsePayload(byte[] payloadData, FrameHeader frameHeader);
