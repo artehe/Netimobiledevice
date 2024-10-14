@@ -5,5 +5,10 @@ namespace Netimobiledevice.Remoted.Xpc
         public override XpcMessageType Type => XpcMessageType.Null;
 
         public override object? Data => null;
+
+        public override byte[] Serialise()
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }

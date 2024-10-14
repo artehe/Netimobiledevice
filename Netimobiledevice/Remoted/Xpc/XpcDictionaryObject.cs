@@ -1,5 +1,8 @@
+using Netimobiledevice.Extentions;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Text;
 
 namespace Netimobiledevice.Remoted.Xpc
 {
@@ -65,6 +68,26 @@ namespace Netimobiledevice.Remoted.Xpc
         public bool Remove(KeyValuePair<string, XpcObject> item)
         {
             return _dictionary.Remove(item);
+        }
+
+        public override byte[] Serialise()
+        {
+            List<byte> serialisedData = [
+                .. BitConverter.GetBytes((uint) Type),
+                .. BitConverter.GetBytes(Count)];
+            foreach (KeyValuePair<string, XpcObject> entry in _dictionary) {
+                byte[] keyString = entry.Key.AsCString().GetBytes(Encoding.UTF8);
+                serialisedData.AddRange(keyString);
+
+                // Make sure we align the string to 4
+                int alignmentAmount = keyString.Length % 4;
+                for (int i = 0; i < alignmentAmount; i++) {
+                    serialisedData.Add(0x00);
+                }
+
+                serialisedData.AddRange(entry.Value.Serialise());
+            }
+            return [.. serialisedData];
         }
 
         public bool TryGetValue(string key, [MaybeNullWhen(false)] out XpcObject value)

@@ -1,5 +1,6 @@
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.Remoted.Frames;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
@@ -19,15 +20,20 @@ namespace Netimobiledevice.Remoted.Xpc
 
         private static readonly byte[] HTTP2_MAGIC = Encoding.UTF8.GetBytes("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n");
 
-        private TcpClient _client;
-        private NetworkStream _stream;
-        private Dictionary<int, int> _nextMessageId;
+        private byte[] _previousFrameData = [];
+
+        private readonly TcpClient _client;
+        private readonly NetworkStream _stream;
+        private readonly Dictionary<int, ulong> _nextMessageId;
+
+        public string Address { get; }
 
         public RemoteXPCConnection(string ip, ushort port)
         {
+            Address = $"{ip}";
             _client = new TcpClient(ip, port);
             _stream = _client.GetStream();
-            _nextMessageId = new Dictionary<int, int> {
+            _nextMessageId = new Dictionary<int, ulong> {
                 { ROOT_CHANNEL, 0 },
                 { REPLY_CHANNEL, 0 }
             };
@@ -102,6 +108,34 @@ namespace Netimobiledevice.Remoted.Xpc
             return frame;
         }
 
+        private async Task<DataFrame> ReceiveNextDataFrame()
+        {
+            while (true) {
+                Frame frame = await ReceiveFrame().ConfigureAwait(false);
+
+                if (frame is GoAwayFrame) {
+                    throw new NetimobiledeviceException($"Stream closed got frame {frame}");
+                }
+                if (frame is RstStreamFrame) {
+                    throw new NetimobiledeviceException($"Stream closed got frame {frame}");
+                }
+
+                if (frame is DataFrame dataFrame) {
+                    if (dataFrame.StreamIdentifier % 2 == 0 && dataFrame.PayloadLength > 0) {
+                        await SendFrameAsync(new WindowUpdateFrame() {
+                            StreamIdentifier = 0,
+                            WindowSizeIncrement = dataFrame.PayloadLength
+                        }).ConfigureAwait(false);
+                        await SendFrameAsync(new WindowUpdateFrame() {
+                            StreamIdentifier = dataFrame.StreamIdentifier,
+                            WindowSizeIncrement = dataFrame.PayloadLength
+                        }).ConfigureAwait(false);
+                    }
+                    return dataFrame;
+                }
+            }
+        }
+
         private async Task SendFrameAsync(Frame frame)
         {
             IEnumerable<byte> data = frame.ToBytes();
@@ -117,9 +151,42 @@ namespace Netimobiledevice.Remoted.Xpc
             }).ConfigureAwait(false);
         }
 
+        public void Close()
+        {
+            _stream.Close();
+            _client.Close();
+        }
+
         public async Task Connect()
         {
             await DoHandshake().ConfigureAwait(false);
+        }
+
+        public async Task<XpcDictionaryObject> ReceiveResponse()
+        {
+            while (true) {
+                DataFrame frame = await ReceiveNextDataFrame().ConfigureAwait(false);
+
+                XpcMessage? message = null;
+                try {
+                    message = XpcWrapper.Parse([.. _previousFrameData, .. frame.Data]);
+                    _previousFrameData = [];
+                }
+                catch (Exception ex) {
+                    _previousFrameData = [.. _previousFrameData, .. frame.Data];
+                    continue;
+                }
+
+                if (message is null) {
+                    continue;
+                }
+                if (message.Payload.Obj is XpcDictionaryObject dict && dict.Count == 0) {
+                    continue;
+                }
+
+                _nextMessageId[(int) frame.StreamIdentifier] = message.MessageId + 1;
+                return (XpcDictionaryObject) message.Payload.Obj;
+            }
         }
     }
 }

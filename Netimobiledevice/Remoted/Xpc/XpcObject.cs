@@ -9,7 +9,7 @@ namespace Netimobiledevice.Remoted.Xpc
 
         private static XpcObject ParseXpcDictionary(Dictionary<string, object> dict)
         {
-            XpcDictionaryObject xpcDict = new XpcDictionaryObject();
+            XpcDictionaryObject xpcDict = [];
             foreach (KeyValuePair<string, object> entry in dict) {
                 xpcDict.Add(entry.Key, Parse(entry.Value));
             }

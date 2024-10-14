@@ -11,7 +11,7 @@ namespace Netimobiledevice.Remoted.Xpc
 
         private XpcWrapper() { }
 
-        public static XpcWrapper Create(Dictionary<string, object> data, int messageId = 0, bool wantingReply = false)
+        public static XpcWrapper Create(Dictionary<string, object> data, ulong messageId = 0, bool wantingReply = false)
         {
             XpcFlags flags = XpcFlags.AlwaysSet;
             if (data.Count > 0) {
@@ -34,11 +34,11 @@ namespace Netimobiledevice.Remoted.Xpc
 
         public byte[] Serialise()
         {
-            List<byte> payload = new List<byte>();
-            payload.AddRange(BitConverter.GetBytes(Magic));
-            payload.AddRange(BitConverter.GetBytes((uint) Flags));
-            payload.AddRange(Message.Serialise());
-            return payload.ToArray();
+            return [
+                .. BitConverter.GetBytes(Magic),
+                .. BitConverter.GetBytes((uint) Flags),
+                .. Message.Serialise(),
+            ];
         }
     }
 }

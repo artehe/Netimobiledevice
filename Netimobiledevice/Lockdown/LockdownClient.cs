@@ -348,6 +348,11 @@ namespace Netimobiledevice.Lockdown
             _pairRecord = PairRecords.GetPreferredPairRecord(Identifier, _pairingRecordsCacheDirectory, logger: Logger);
         }
 
+        public void Close()
+        {
+            Dispose();
+        }
+
         /// <summary>
         /// Create a LockdownClient instance
         /// </summary>
