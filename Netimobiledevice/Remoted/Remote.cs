@@ -19,10 +19,9 @@ namespace Netimobiledevice.Remoted
             bool deamonise = true, TunnelProtocol protocol = TunnelProtocol.TCP, bool usb = true, bool wifi = true,
             bool usbmux = true, bool mobdev2 = true)
         {
+            // TODO @sudo_required
+
             /* TODO
-    """ Start Tunneld service for remote tunneling """
-    if not verify_tunnel_imports():
-        return
     protocol = TunnelProtocol(protocol)
     tunneld_runner = partial(TunneldRunner.create, host, port, protocol=protocol, usb_monitor=usb, wifi_monitor=wifi,
                              usbmux_monitor=usbmux, mobdev2_monitor=mobdev2)
@@ -37,8 +36,8 @@ namespace Netimobiledevice.Remoted
             logger.info(f'starting Tunneld {host}:{port}')
             daemon.start()
     else:
-        tunneld_runner()
-
+    tunneld_runner()
     */
         }
     }
+}
