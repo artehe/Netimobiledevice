@@ -15,29 +15,12 @@ namespace Netimobiledevice.Remoted
         /// <param name="wifi">Enable wifi monitoring</param>
         /// <param name="usbmux">Enable usbmux monitoring</param>
         /// <param name="mobdev2">Enable mobdev2 monitoring</param>
-        public static void StartTunneld(string host = Tunneld.TUNNELD_DEFAULT_HOST, ushort port = Tunneld.TUNNELD_DEFAULT_PORT
-            bool deamonise = true, TunnelProtocol protocol = TunnelProtocol.TCP, bool usb = true, bool wifi = true,
-            bool usbmux = true, bool mobdev2 = true)
+        public static Tunneld StartTunneld(string host = Tunneld.TUNNELD_DEFAULT_HOST, ushort port = Tunneld.TUNNELD_DEFAULT_PORT,
+            TunnelProtocol protocol = TunnelProtocol.QUIC, bool usb = true, bool wifi = true, bool usbmux = true, bool mobdev2 = true)
         {
             // TODO @sudo_required
-
-            /* TODO
-    protocol = TunnelProtocol(protocol)
-    tunneld_runner = partial(TunneldRunner.create, host, port, protocol=protocol, usb_monitor=usb, wifi_monitor=wifi,
-                             usbmux_monitor=usbmux, mobdev2_monitor=mobdev2)
-    if daemonize:
-        try:
-            from daemonize import Daemonize
-        except ImportError:
-            raise NotImplementedError('daemonizing is only supported on unix platforms')
-        with tempfile.NamedTemporaryFile('wt') as pid_file:
-            daemon = Daemonize(app=f'Tunneld {host}:{port}', pid=pid_file.name,
-                               action=tunneld_runner)
-            logger.info(f'starting Tunneld {host}:{port}')
-            daemon.start()
-    else:
-    tunneld_runner()
-    */
+            Tunneld tunneld = new Tunneld(protocol, wifi, usb, usbmux, mobdev2);
+            return tunneld;
         }
     }
 }

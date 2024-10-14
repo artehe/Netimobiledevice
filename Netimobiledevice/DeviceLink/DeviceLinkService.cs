@@ -669,6 +669,7 @@ namespace Netimobiledevice.DeviceLink
                     if (message[1].AsDictionaryNode()["ErrorCode"].AsIntegerNode().Value != (ulong) ResultCode.Success) {
                         throw new DeviceLinkException($"Device link error: {PropertyList.SaveAsString(message[1], PlistFormat.Xml)}");
                     }
+                    Completed?.Invoke(this, new BackupResultEventArgs(FailedFiles, false, false));
                     return ResultCode.Success;
                 }
                 else if (command == DeviceLinkMessage.GetFreeDiskSpace) {

@@ -8,7 +8,7 @@ namespace Netimobiledevice.Remoted
     {
         public static List<NetworkInterface> GetIPv6Interfaces()
         {
-            List<NetworkInterface> ipv6Interfaces = new List<NetworkInterface>();
+            List<NetworkInterface> ipv6Interfaces = [];
             foreach (NetworkInterface adapter in NetworkInterface.GetAllNetworkInterfaces()) {
                 // Check if the adapter is up
                 if (adapter.OperationalStatus == OperationalStatus.Up) {

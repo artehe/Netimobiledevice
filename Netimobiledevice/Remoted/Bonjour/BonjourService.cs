@@ -8,12 +8,12 @@ namespace Netimobiledevice.Remoted.Bonjour
     public static class BonjourService
     {
 #if WINDOWS
-        public const int DEFAULT_BONJOUR_TIMEOUT = 2;
+        public const int DEFAULT_BONJOUR_TIMEOUT = 2000;
 #else
-        public const int DEFAULT_BONJOUR_TIMEOUT = 1;
+        public const int DEFAULT_BONJOUR_TIMEOUT = 1000;
 #endif
 
-        private static string[] RemotedServiceNames => ["_remoted._tcp.local."];
+        public static string[] RemotedServiceNames => ["_remoted._tcp.local."];
 
         public static async Task<List<IZeroconfHost>> Browse(string[] serviceNames, List<NetworkInterface> interfaces, int timeout = DEFAULT_BONJOUR_TIMEOUT)
         {
@@ -22,8 +22,8 @@ namespace Netimobiledevice.Remoted.Bonjour
                 listeners.Add(new BonjourListener(serviceNames, adapter));
             }
 
-            List<IZeroconfHost> answers = new List<IZeroconfHost>();
-            await Task.Delay(timeout * 1000).ConfigureAwait(false);
+            List<IZeroconfHost> answers = [];
+            await Task.Delay(timeout).ConfigureAwait(false);
 
             foreach (BonjourListener listener in listeners) {
                 IZeroconfHost[] answer = await listener.GenerateAnswer().ConfigureAwait(false);
