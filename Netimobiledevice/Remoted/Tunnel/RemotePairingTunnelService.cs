@@ -5,7 +5,7 @@
         private ushort _port;
 
         public string Hostname { get; private set; }
-        public string RemoteIdentifier { get; private set; }
+        public override string RemoteIdentifier { get; }
 
         public RemotePairingTunnelService(string remoteIdentifier, string hostname, ushort port) : base()
         {

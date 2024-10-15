@@ -3,6 +3,7 @@ using Netimobiledevice.Remoted.Bonjour;
 using Netimobiledevice.Usbmuxd;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Threading;
@@ -177,13 +178,13 @@ namespace Netimobiledevice.Remoted.Tunnel
                         try {
                             tunnelService = new CoreDeviceTunnelProxy(lockdown);
                         }
-                        catch (InvalidServiceError) {
-                            Console.WriteLine($"[{taskIdentifier}] Failed to start CoreDeviceTunnelProxy - skipping");
+                        catch (Exception) {
+                            Debug.WriteLine($"[{taskIdentifier}] Failed to start CoreDeviceTunnelProxy - skipping");
                             continue;
                         }
 
                         _tunnelTasks[taskIdentifier] = new TunnelTask {
-                            Task = Task.Run(() => StartTunnelTask(taskIdentifier, tunnelService)),
+                            Task = StartTunnelTask(taskIdentifier, tunnelService),
                             Udid = lockdown.Udid
                         };
                     }
@@ -207,7 +208,7 @@ namespace Netimobiledevice.Remoted.Tunnel
 
         public async Task HandleNewPotentialUsbCdcNcmInterfaceTask(NetworkInterface ip)
         {
-            RemoteServiceDiscoveryService rsd = null;
+            RemoteServiceDiscoveryService? rsd = null;
             try {
                 List<IZeroconfHost> answers = [];
                 for (int i = 0; i < REATTEMPT_COUNT; i++) {
@@ -239,7 +240,7 @@ namespace Netimobiledevice.Remoted.Tunnel
                     throw new NetimobiledeviceException("Can't use RSD on this device");
                 }
 
-                await Task.Run(StartTunnelTask(ip, await TunnelService.CreateCoreDeviceTunnelServiceUsingRsd(rsd)));
+                await StartTunnelTask(ip, await TunnelService.CreateCoreDeviceTunnelServiceUsingRsd(rsd));
             }
             catch (Exception ex) {
                 Console.WriteLine($"Error: {ex.Message}");
@@ -251,71 +252,52 @@ namespace Netimobiledevice.Remoted.Tunnel
             }
         }
 
-        public async Task StartTunnelTask(string taskIdentifier, StartTcpTunnel protocolHandler, Queue? queue = null TunnelProtocol? protocol = null)
+        public async Task StartTunnelTask(string taskIdentifier, StartTcpTunnel protocolHandler, TunnelProtocol? protocol = null)
         {
-            if (protocol is null) {
-                protocol = this._protocol;
-            }
+            protocol ??= this._protocol;
             if (protocolHandler is CoreDeviceTunnelProxy) {
                 protocol = TunnelProtocol.TCP;
             }
 
             bool bailedOut = false;
-            var tun;
 
+            TunnelResult? tun = null;
             try {
                 if (TunnelExistsForUdid(protocolHandler.RemoteIdentifier)) {
                     // Cancel current tunnel creation
                     throw new TaskCanceledException();
                 }
+
+                tun = await TunnelService.StartTunnel(protocolHandler, protocol: (TunnelProtocol) protocol);
+                if (!TunnelExistsForUdid(protocolHandler.RemoteIdentifier)) {
+                    _tunnelTasks[taskIdentifier].Tunnel = tun;
+                    _tunnelTasks[taskIdentifier].Udid = protocolHandler.RemoteIdentifier;
+                    Debug.WriteLine($"Created tunnel --rsd {tun.Address} {tun.Port}");
+                    await tun.Client.WaitClosed();
+                }
+                else {
+                    bailedOut = true;
+                    Debug.WriteLine("Not establishing tunnel since there is already an active one for same udid");
+                }
             }
+            catch (Exception ex) {
+                Debug.WriteLine(ex);
+            }
+            finally {
+                if (tun != null && !bailedOut) {
+                    Debug.WriteLine($"Disconnected from tunnel --rsd {tun.Address} {tun.Port}");
+                    await tun.Client.StopTunnel();
+                }
 
-            /* TODO
-            tun = None
-            try:
-                async with start_tunnel(protocol_handler, protocol=protocol) as tun:
-                    if not self.tunnel_exists_for_udid(protocol_handler.remote_identifier):
-                        self.tunnel_tasks[task_identifier].tunnel = tun
-                        self.tunnel_tasks[task_identifier].udid = protocol_handler.remote_identifier
-                        if queue is not None:
-                            queue.put_nowait(tun)
-                            # avoid sending another message if succeeded
-                            queue = None
-                        logger.info(f'[{asyncio.current_task().get_name()}] Created tunnel --rsd {tun.address} {tun.port}')
-                        await tun.client.wait_closed()
-                    else:
-                        bailed_out = True
-                        logger.debug(
-                            f'not establishing tunnel from {asyncio.current_task().get_name()} '
-                            f'since there is already an active one for same udid')
-            except asyncio.CancelledError:
-                pass
-            except (ConnectionResetError, StreamError, InvalidServiceError) as e:
-                logger.debug(f'got {e.__class__.__name__} from {asyncio.current_task().get_name()}')
-            except (asyncio.exceptions.IncompleteReadError, TimeoutError, OSError) as e:
-                logger.debug(f'got {e.__class__.__name__} from tunnel --rsd {tun.address} {tun.port}')
-            except Exception:
-                logger.error(f'got exception from {asyncio.current_task().get_name()}: {traceback.format_exc()}')
-            finally:
-                if queue is not None:
-                    # notify something went wrong
-                    queue.put_nowait(None)
+                if (protocolHandler != null) {
+                    try {
+                        await protocolHandler.Close();
+                    }
+                    catch (Exception) { }
+                }
 
-                if tun is not None and not bailed_out:
-                    logger.info(f'disconnected from tunnel --rsd {tun.address} {tun.port}')
-                    await tun.client.stop_tunnel()
-
-                if protocol_handler is not None:
-                    try:
-                        await protocol_handler.close()
-                    except OSError:
-                        pass
-
-                if task_identifier in self.tunnel_tasks:
-                    # in case the tunnel was removed just now
-                    self.tunnel_tasks.pop(task_identifier)
-
-             */
+                _tunnelTasks.Remove(taskIdentifier);
+            }
         }
     }
 }

@@ -116,7 +116,6 @@ namespace Netimobiledevice.Lockdown.Pairing
                 }
             }
 
-
             // Second look for an iTunes pair record
             pairRecord = GetItunesPairingRecord(identifier, logger);
             if (pairRecord != null && pairRecord.Count > 0) {

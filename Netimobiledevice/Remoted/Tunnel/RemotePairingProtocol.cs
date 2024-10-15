@@ -1,11 +1,11 @@
 ﻿namespace Netimobiledevice.Remoted.Tunnel
 {
-    public abstract class RemotePairingProtocol
+    public abstract class RemotePairingProtocol : StartTcpTunnel
     {
     }
 
     /* TODO
-class RemotePairingProtocol(StartTcpTunnel):
+class RemotePairingProtocol():
     WIRE_PROTOCOL_VERSION = 19
 
     def __init__(self):

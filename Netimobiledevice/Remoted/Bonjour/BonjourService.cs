@@ -33,6 +33,11 @@ namespace Netimobiledevice.Remoted.Bonjour
             return answers;
         }
 
+        public static async Task<List<IZeroconfHost>> BrowseIpv4(string[] serviceNames, int timeout = DEFAULT_BONJOUR_TIMEOUT)
+        {
+            return await Browse(serviceNames, Utils.GetIPv4Interfaces(), timeout);
+        }
+
         public static async Task<List<IZeroconfHost>> BrowseIpv6(string[] serviceNames, int timeout = DEFAULT_BONJOUR_TIMEOUT)
         {
             return await Browse(serviceNames, Utils.GetIPv6Interfaces(), timeout);
@@ -41,6 +46,11 @@ namespace Netimobiledevice.Remoted.Bonjour
         public static async Task<List<IZeroconfHost>> BrowseRemoted(int timeout = DEFAULT_BONJOUR_TIMEOUT)
         {
             return await BrowseIpv6(RemotedServiceNames, timeout);
+        }
+
+        public static async Task<List<IZeroconfHost>> BrowseRemotePairing(int timeout = DEFAULT_BONJOUR_TIMEOUT)
+        {
+            return await BrowseIpv4(RemotedServiceNames, timeout);
         }
     }
 }

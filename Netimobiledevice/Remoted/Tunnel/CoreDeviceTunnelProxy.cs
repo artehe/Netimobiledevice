@@ -1,35 +1,30 @@
-﻿namespace Netimobiledevice.Remoted.Tunnel
+﻿using Netimobiledevice.Lockdown;
+using System.Threading.Tasks;
+
+namespace Netimobiledevice.Remoted.Tunnel
 {
-    public class CoreDeviceTunnelProxy : StartTcpTunnel
+    public class CoreDeviceTunnelProxy(LockdownServiceProvider lockdown) : StartTcpTunnel
     {
-        /* TODO
-    SERVICE_NAME = 'com.apple.internal.devicecompute.CoreDeviceProxy'
+        private const string SERVICE_NAME = "com.apple.internal.devicecompute.CoreDeviceProxy";
 
-    def __init__(self, lockdown: LockdownServiceProvider) -> None:
-        self._lockdown = lockdown
-        self._service: Optional[ServiceConnection] = None
+        private readonly LockdownServiceProvider _lockdown = lockdown;
 
-    @property
-    def remote_identifier(self) -> str:
-        return self._lockdown.udid
+        private ServiceConnection? _service;
 
-    @asynccontextmanager
-    async def start_tcp_tunnel(self) -> AsyncGenerator['TunnelResult', None]:
-        self._service = await self._lockdown.aio_start_lockdown_service(self.SERVICE_NAME)
-        tunnel = RemotePairingTcpTunnel(self._service.reader, self._service.writer)
-        handshake_response = await tunnel.request_tunnel_establish()
-        tunnel.start_tunnel(handshake_response['clientParameters']['address'],
-                            handshake_response['clientParameters']['mtu'])
-        try:
-            yield TunnelResult(
-                tunnel.tun.name, handshake_response['serverAddress'], handshake_response['serverRSDPort'],
-                TunnelProtocol.TCP, tunnel)
-        finally:
-            await tunnel.stop_tunnel()
+        public override string RemoteIdentifier => _lockdown.Udid;
 
-    async def close(self) -> None:
-        if self._service is not None:
-            await self._service.aio_close()
-        */
+        public void Close()
+        {
+            _service?.Close();
+        }
+
+        public override async Task<TunnelResult> StartTunnel()
+        {
+            _service = _lockdown.StartLockdownService(SERVICE_NAME);
+            RemotePairingTcpTunnel tunnel = new RemotePairingTcpTunnel(_service.Stream);
+            dynamic handshakeResponse = await tunnel.RequestTunnelEstablish();
+            tunnel.StartTunnel(handshakeResponse["clientParameters"]["address"], handshakeResponse["clientParameters"]["mtu"]);
+            return new TunnelResult(tunnel.Tun.DeviceIdentification, handshakeResponse["serverAddress"], handshakeResponse["serverRSDPort"], TunnelProtocol.TCP, tunnel);
+        }
     }
 }
