@@ -5,13 +5,29 @@
         private ushort _port;
 
         public string Hostname { get; private set; }
-        public string RemoteIdentifier { get; private set; }
+        public override string RemoteIdentifier { get; }
 
         public RemotePairingTunnelService(string remoteIdentifier, string hostname, ushort port) : base()
         {
             RemoteIdentifier = remoteIdentifier;
             Hostname = hostname;
             _port = port;
+        }
+
+        public void Close()
+        {
+            /* TODO
+    async def close(self) -> None:
+        if self._writer is None:
+            return
+        self._writer.close()
+        try:
+            await self._writer.wait_closed()
+        except ssl.SSLError:
+            pass
+        self._writer = None
+        self._reader = None
+            */
         }
     }
 
@@ -33,17 +49,6 @@ class RemotePairingTunnelService(RemotePairingProtocol):
         except:  # noqa: E722
             await self.close()
             raise
-
-    async def close(self) -> None:
-        if self._writer is None:
-            return
-        self._writer.close()
-        try:
-            await self._writer.wait_closed()
-        except ssl.SSLError:
-            pass
-        self._writer = None
-        self._reader = None
 
     async def receive_response(self) -> dict:
         await self._reader.readexactly(len(REPAIRING_PACKET_MAGIC))

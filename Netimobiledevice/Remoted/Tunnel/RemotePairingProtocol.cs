@@ -1,12 +1,16 @@
 ﻿namespace Netimobiledevice.Remoted.Tunnel
 {
-    public abstract class RemotePairingProtocol
+    public abstract class RemotePairingProtocol : StartTcpTunnel
     {
+        private const int WIRE_PROTOCOL_VERSION = 19;
+
+        public override string RemoteIdentifier => handshakeInfo["peerDeviceInfo"]["identifier"];
+
+        public RemotePairingProtocol() : base() { }
     }
 
     /* TODO
-class RemotePairingProtocol(StartTcpTunnel):
-    WIRE_PROTOCOL_VERSION = 19
+class RemotePairingProtocol():
 
     def __init__(self):
         self.hostname: Optional[str] = None
@@ -21,10 +25,6 @@ class RemotePairingProtocol(StartTcpTunnel):
         self.encryption_key = None
         self.signature = None
         self.logger = logging.getLogger(self.__class__.__name__)
-
-    @abstractmethod
-    async def close(self) -> None:
-        pass
 
     @abstractmethod
     async def receive_response(self) -> dict:
@@ -146,10 +146,6 @@ class RemotePairingProtocol(StartTcpTunnel):
         if self.pair_record_path.exists():
             return plistlib.loads(self.pair_record_path.read_bytes())
         return None
-
-    @property
-    def remote_identifier(self) -> str:
-        return self.handshake_info['peerDeviceInfo']['identifier']
 
     @property
     def remote_device_model(self) -> str:

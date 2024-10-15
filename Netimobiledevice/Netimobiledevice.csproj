@@ -36,4 +36,8 @@
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
 		<PackageReference Include="Zeroconf" Version="3.6.11" />
 	</ItemGroup>
+	
+	<ItemGroup>
+	  <ProjectReference Include="..\UniversalTunTapDriver\UniversalTunTapDriver.csproj" />
+	</ItemGroup>
 </Project>
