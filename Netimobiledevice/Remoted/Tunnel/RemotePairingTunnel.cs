@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using UniversalTunTapDriver;
 
@@ -11,6 +13,7 @@ namespace Netimobiledevice.Remoted.Tunnel
 {
     public abstract class RemotePairingTunnel
     {
+        private CancellationTokenSource cts = new CancellationTokenSource();
         private Task? _tunReadTask;
 
         private byte[] LoopbackHeader => [0x00, 0x00, 0x86, 0xDD];
@@ -35,10 +38,10 @@ namespace Netimobiledevice.Remoted.Tunnel
             throw new ArgumentException(string.Format("Can't find subnetmask for IP address '{0}'", address));
         }
 
-        private async Task TunReadTask()
+        private async Task TunReadTask(CancellationToken cancellationToken)
         {
             var readSize = Tun.GetMTU() + LoopbackHeader.Length;
-            while (true) {
+            while (!cancellationToken.IsCancellationRequested) {
                 if (!OperatingSystem.IsWindows()) {
                     /* TODO
                     async with aiofiles.open(self.tun.fileno(), 'rb', opener=lambda path, flags: path, buffering=0) as f:
@@ -67,6 +70,8 @@ namespace Netimobiledevice.Remoted.Tunnel
 
         public virtual void StartTunnel(string address, int mtu)
         {
+            cts = new CancellationTokenSource();
+
             string dInfo = "tun0";
             if (OperatingSystem.IsWindows()) {
                 dInfo = Guid.NewGuid().ToString();
@@ -75,38 +80,21 @@ namespace Netimobiledevice.Remoted.Tunnel
 
             Tun.ConfigTun(IPAddress.Loopback, IPAddress.Parse(address), GetSubnetMask(IPAddress.Loopback));
             Tun.CreateDeviceIOStream(mtu);
-            _tunReadTask = TunReadTask();
+            _tunReadTask = TunReadTask(cts.Token);
         }
 
-        /* TODO
+        public abstract void Close();
 
-class RemotePairingTunnel(ABC):
-    def __init__(self):
-        self._queue = asyncio.Queue()
-        self._logger = logging.getLogger(f'{__name__}.{self.__class__.__name__}')
-        self.tun = None
+        public abstract void SendPacketToDevice(byte[] packet);
 
-    @abstractmethod
-    async def send_packet_to_device(self, packet: bytes) -> None:
-        pass
+        public abstract Dictionary<string, object> RequestTunnelEstablish();
 
-    @abstractmethod
-    async def request_tunnel_establish(self) -> dict:
-        pass
-
-    @abstractmethod
-    async def wait_closed(self) -> None:
-        pass
-
-    async def stop_tunnel(self) -> None:
-        self._logger.debug('stopping tunnel')
-        self._tun_read_task.cancel()
-        with suppress(CancelledError):
-            await self._tun_read_task
-        if self.tun is not None:
-            self.tun.close()
-        self.tun = None
-
-         */
+        public void StopTunnel()
+        {
+            Debug.WriteLine("Stopping tunnel");
+            cts.Cancel();
+            Tun?.Close();
+            Tun = null;
+        }
     }
 }

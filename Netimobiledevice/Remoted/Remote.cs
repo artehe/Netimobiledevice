@@ -20,6 +20,7 @@ namespace Netimobiledevice.Remoted
         {
             // TODO @sudo_required
             Tunneld tunneld = new Tunneld(protocol, wifi, usb, usbmux, mobdev2);
+            tunneld.Start();
             return tunneld;
         }
     }

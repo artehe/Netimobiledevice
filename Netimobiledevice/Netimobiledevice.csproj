@@ -33,6 +33,7 @@
 	</ItemGroup>
 	
 	<ItemGroup>
+		<PackageReference Include="BinarySerializer" Version="8.6.4.1" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
 		<PackageReference Include="Zeroconf" Version="3.6.11" />
 	</ItemGroup>

@@ -1,3 +1,4 @@
+using BinarySerialization;
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.Remoted.Frames;
 using System;
@@ -28,7 +29,7 @@ namespace Netimobiledevice.Remoted.Xpc
 
         public string Address { get; }
 
-        public RemoteXPCConnection(string ip, ushort port)
+        public RemoteXPCConnection(string ip, int port)
         {
             Address = $"{ip}";
             _client = new TcpClient(ip, port);
@@ -169,7 +170,8 @@ namespace Netimobiledevice.Remoted.Xpc
 
                 XpcMessage? message = null;
                 try {
-                    message = XpcWrapper.Parse([.. _previousFrameData, .. frame.Data]);
+                    var serializer = new BinarySerializer();
+                    message = serializer.Deserialize<XpcMessage>([.. _previousFrameData, .. frame.Data]);
                     _previousFrameData = [];
                 }
                 catch (Exception ex) {

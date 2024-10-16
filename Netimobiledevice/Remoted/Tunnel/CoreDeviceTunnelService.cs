@@ -1,4 +1,7 @@
-﻿namespace Netimobiledevice.Remoted.Tunnel
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace Netimobiledevice.Remoted.Tunnel
 {
     public class CoreDeviceTunnelService : RemotePairingProtocol
     {
@@ -18,28 +21,19 @@
             // TODO await self.service.close()
         }
 
-        /* TODO
-class CoreDeviceTunnelService(RemotePairingProtocol, RemoteService):
-    async def connect(self, autopair: bool = True) -> None:
-        await RemoteService.connect(self)
-        try:
-            response = await self.service.receive_response()
-            self.version = response['ServiceVersion']
-            await RemotePairingProtocol.connect(self, autopair=autopair)
-            self.hostname = self.service.address[0]
-        except Exception as e:  # noqa: E722
-            await self.service.close()
-            if isinstance(e, UserDeniedPairingError):
-                raise
+        public override Task<Dictionary<string, object>> ReceiveResponse()
+        {
+            throw new System.NotImplementedException();
+        }
 
-    async def receive_response(self) -> dict:
-        response = await self.service.receive_response()
-        return response['value']
+        public override Task SendRequest(Dictionary<string, object> data)
+        {
+            throw new System.NotImplementedException();
+        }
 
-    async def send_request(self, data: dict) -> None:
-        return await self.service.send_request({
-            'mangledTypeName': 'RemotePairing.ControlChannelMessageEnvelope', 'value': data})
-
-         */
+        public override Task<TunnelResult> StartTunnel()
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }

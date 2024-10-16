@@ -45,96 +45,37 @@ namespace Netimobiledevice.Remoted.Tunnel
             _tasks.Clear();
 
             _cts = new CancellationTokenSource();
+            if (_usbmuxMonitor) {
+                _tasks.Add(Task.Run(() => MonitorUsbmuxTask(_cts.Token)));
+            }
+
+
+            /* TODO
             if (_usbMonitor) {
                 _tasks.Add(MonitorUsbTask(_cts.Token));
             }
             if (_wifiMonitor) {
                 _tasks.Add(MonitorWifiTask(_cts.Token));
             }
-            if (_usbmuxMonitor) {
-                _tasks.Add(MonitorUsbmuxTask(_cts.Token));
-            }
             if (_mobdev2Monitor) {
                 _tasks.Add(MonitorMobdev2Task(_cts.Token));
             }
-        }
-
-        public async Task MonitorUsbTask(CancellationToken cancellationToken)
-        {
-            try {
-                List<NetworkInterface> previousIps = [];
-                while (!cancellationToken.IsCancellationRequested) {
-                    List<NetworkInterface> currentIps = Utils.GetIPv6Interfaces();
-                    List<NetworkInterface> added = new List<NetworkInterface>(currentIps.Except(previousIps));
-                    List<NetworkInterface> removed = new List<NetworkInterface>(previousIps.Except(currentIps));
-
-                    previousIps = currentIps;
-
-                    foreach (NetworkInterface networkInterface in removed) {
-                        if (_tunnelTasks.TryGetValue(networkInterface.Id, out TunnelTask? value)) {
-                            value.Task.Dispose();
-                            await value.Task;
-                        }
-                    }
-
-                    foreach (NetworkInterface networkInterface in added) {
-                        _tunnelTasks[networkInterface.Id] = new TunnelTask() {
-                            Task = HandleNewPotentialUsbCdcNcmInterfaceTask(networkInterface)
-                        };
-                    }
-
-                    // Wait before re-iterating
-                    await Task.Delay(1000, cancellationToken);
-                }
-            }
-            catch (TaskCanceledException) {
-                return;
-            }
-        }
-
-        public async Task MonitorWifiTask(CancellationToken cancellationToken)
-        {
-            try {
-                while (!cancellationToken.IsCancellationRequested) {
-                    List<RemotePairingTunnelService> services = await TunnelService.GetRemotePairingTunnelServices();
-                    foreach (RemotePairingTunnelService service in services) {
-                        if (_tunnelTasks.ContainsKey(service.Hostname)) {
-                            // skip tunnel if already exists for this ip
-                            service.Close();
-                            continue;
-                        }
-
-                        if (TunnelExistsForUdid(service.RemoteIdentifier)) {
-                            // skip tunnel if already exists for this udid
-                            service.Close();
-                            continue;
-                        }
-
-                        _tunnelTasks[service.Hostname] = new TunnelTask {
-                            Task = StartTunnelTask(service.Hostname, service),
-                            Udid = service.RemoteIdentifier
-                        };
-                    }
-                    await Task.Delay(REMOTEPAIRING_INTERVAL, cancellationToken);
-                }
-            }
-            catch (TaskCanceledException) {
-                return;
-            }
+            */
         }
 
         public async Task MonitorUsbmuxTask(CancellationToken cancellationToken)
         {
+            Debug.WriteLine("Starting MonitorUsbmuxTask");
             try {
                 while (!cancellationToken.IsCancellationRequested) {
                     try {
-                        List<UsbmuxdDevice> muxDevices = Usbmux.GetDeviceList();
-                        foreach (UsbmuxdDevice muxDevice in muxDevices) {
+                        List<UsbmuxdDevice> devices = Usbmux.GetDeviceList();
+                        Debug.WriteLine($"Found {devices.Count} devices for for usbmux monitoring task");
+                        foreach (UsbmuxdDevice muxDevice in devices) {
                             string taskIdentifier = $"usbmux-{muxDevice.Serial}-{muxDevice.ConnectionType}";
                             if (TunnelExistsForUdid(muxDevice.Serial)) {
                                 continue;
                             }
-
                             CoreDeviceTunnelProxy service;
                             try {
                                 service = new CoreDeviceTunnelProxy(MobileDevice.CreateUsingUsbmux(muxDevice.Serial));
@@ -150,45 +91,11 @@ namespace Netimobiledevice.Remoted.Tunnel
                         }
                     }
                     catch (Exception) {
-                        Console.WriteLine("Failed to connect to usbmux. waiting for it to restart");
+                        Debug.WriteLine("Failed to connect to usbmux. waiting for it to restart");
                     }
                     finally {
                         await Task.Delay(USBMUX_INTERVAL, cancellationToken);
                     }
-                }
-            }
-            catch (TaskCanceledException) {
-                return;
-            }
-        }
-
-        public async Task MonitorMobdev2Task(CancellationToken cancellationToken)
-        {
-            try {
-                while (!cancellationToken.IsCancellationRequested) {
-                    var lockdowns = GetMobdev2Lockdowns(onlyPaired: true);
-                    foreach (var lockdown in lockdowns) {
-                        if (TunnelExistsForUdid(lockdown.Udid)) {
-                            // skip tunnel if already exists for this udid
-                            continue;
-                        }
-
-                        string taskIdentifier = $"mobdev2-{lockdown.Udid}-{lockdown.Ip}";
-                        CoreDeviceTunnelProxy tunnelService;
-                        try {
-                            tunnelService = new CoreDeviceTunnelProxy(lockdown);
-                        }
-                        catch (Exception) {
-                            Debug.WriteLine($"[{taskIdentifier}] Failed to start CoreDeviceTunnelProxy - skipping");
-                            continue;
-                        }
-
-                        _tunnelTasks[taskIdentifier] = new TunnelTask {
-                            Task = StartTunnelTask(taskIdentifier, tunnelService),
-                            Udid = lockdown.Udid
-                        };
-                    }
-                    await Task.Delay(MOBDEV2_INTERVAL, cancellationToken);
                 }
             }
             catch (TaskCanceledException) {
@@ -273,7 +180,7 @@ namespace Netimobiledevice.Remoted.Tunnel
                     _tunnelTasks[taskIdentifier].Tunnel = tun;
                     _tunnelTasks[taskIdentifier].Udid = protocolHandler.RemoteIdentifier;
                     Debug.WriteLine($"Created tunnel --rsd {tun.Address} {tun.Port}");
-                    await tun.Client.WaitClosed();
+                    tun.Client.Close();
                 }
                 else {
                     bailedOut = true;
@@ -286,7 +193,7 @@ namespace Netimobiledevice.Remoted.Tunnel
             finally {
                 if (tun != null && !bailedOut) {
                     Debug.WriteLine($"Disconnected from tunnel --rsd {tun.Address} {tun.Port}");
-                    await tun.Client.StopTunnel();
+                    tun.Client.StopTunnel();
                 }
 
                 if (protocolHandler != null) {
@@ -298,6 +205,64 @@ namespace Netimobiledevice.Remoted.Tunnel
 
                 _tunnelTasks.Remove(taskIdentifier);
             }
+        }
+
+        private Dictionary<string, TunnelDefinition> ListTunnels()
+        {
+            Dictionary<string, TunnelDefinition> tunnels = [];
+            foreach (KeyValuePair<string, TunnelTask> item in _tunnelTasks) {
+                TunnelTask task = item.Value;
+                if (string.IsNullOrEmpty(task.Udid) || task.Tunnel == null) {
+                    continue;
+                }
+                if (!tunnels.ContainsKey(task.Udid)) {
+                    tunnels.Add(task.Udid, new TunnelDefinition(task.Tunnel.Address, task.Tunnel.Port, item.Key));
+                }
+            }
+            return tunnels;
+        }
+
+        public async Task<List<RemoteServiceDiscoveryService>> GetTunneldDevices(string host, ushort port)
+        {
+            List<RemoteServiceDiscoveryService> rsds = new List<RemoteServiceDiscoveryService>();
+
+            Dictionary<string, TunnelDefinition> tunnels = ListTunnels();
+            foreach (KeyValuePair<string, TunnelDefinition> tunnel in tunnels) {
+                RemoteServiceDiscoveryService rsd = new RemoteServiceDiscoveryService(tunnel.Value.TunnelAddres, tunnel.Value.TunnelPort, tunnel.Value.InterfaceId);
+                try {
+                    await rsd.Connect();
+                    rsds.Add(rsd);
+                }
+                catch (Exception ex) {
+                    Debug.WriteLine(ex.ToString());
+                }
+            }
+            return rsds;
+        }
+
+        public async Task<RemoteServiceDiscoveryService?> GetDevice(string? udid = null)
+        {
+            List<RemoteServiceDiscoveryService> rsds = await GetTunneldDevices(TUNNELD_DEFAULT_HOST, TUNNELD_DEFAULT_PORT);
+            if (rsds.Count == 0) {
+                return null;
+            }
+
+            RemoteServiceDiscoveryService result;
+            if (string.IsNullOrEmpty(udid)) {
+                result = rsds[0];
+            }
+            else {
+                // Get the specified device
+                result = rsds.First(x => x.Udid == udid);
+            }
+
+            foreach (RemoteServiceDiscoveryService rsd in rsds) {
+                if (rsd.Udid != result.Udid) {
+                    rsd.Close();
+                }
+            }
+
+            return result;
         }
     }
 }

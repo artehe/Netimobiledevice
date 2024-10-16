@@ -11,23 +11,27 @@ namespace Netimobiledevice.Remoted
     {
         public const ushort RSD_PORT = 58783;
 
-        private LockdownClient? _lockdown;
         private XpcDictionaryObject? peerInfo = null;
 
         public override ILogger Logger => throw new NotImplementedException();
 
         public override Version OsVersion => throw new NotImplementedException();
 
+        public LockdownClient? Lockdown { get; private set; }
+
         public RemoteXPCConnection Service { get; private set; }
 
-        public RemoteServiceDiscoveryService(string ip, ushort port) : base()
+        public string? Name { get; private set; }
+
+        public RemoteServiceDiscoveryService(string ip, int port, string? name = null) : base()
         {
             Service = new RemoteXPCConnection(ip, port);
+            Name = name;
         }
 
         public void Close()
         {
-            _lockdown?.Close();
+            Lockdown?.Close();
             Service.Close();
         }
 
@@ -45,7 +49,7 @@ namespace Netimobiledevice.Remoted
                 _lockdown = create_using_remote(self.start_lockdown_service('com.apple.mobile.lockdown.remote.untrusted'))
             }
             */
-            var allValues = _lockdown.GetValue();
+            var allValues = Lockdown.GetValue();
         }
 
         /// <summary>

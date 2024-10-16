@@ -11,7 +11,7 @@ namespace Netimobiledevice.Remoted.Tunnel
         public static async Task<CoreDeviceTunnelService> CreateCoreDeviceTunnelServiceUsingRsd(RemoteServiceDiscoveryService rsd, bool autoPair = true)
         {
             CoreDeviceTunnelService service = new CoreDeviceTunnelService(rsd);
-            await service.Connect(autoPair: autoPair).ConfigureAwait(false);
+            await service.Connect(autoPair).ConfigureAwait(false);
             return service;
         }
 
@@ -64,10 +64,7 @@ namespace Netimobiledevice.Remoted.Tunnel
                 if (protocol != TunnelProtocol.TCP) {
                     throw new NetimobiledeviceException("CoreDeviceTunnelProxy protocol can only be TCP");
                 }
-                /* TODO
-               async with protocol_handler.start_tcp_tunnel() as service:
-                    yield service
-                */
+                return await cdtp.StartTunnel();
             }
             throw new NetimobiledeviceException("Bad value for protocol handler");
         }
