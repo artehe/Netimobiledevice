@@ -14,7 +14,7 @@ namespace NetimobiledeviceTest.Remoted.Xpc
                 0x0, 0xf0, 0x0, 0x0, 0x4, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0
             ];
 
-            XpcWrapper xpcWrapper = XpcWrapper.Create(new Dictionary<string, object>(), 0, false);
+            XpcWrapper xpcWrapper = XpcWrapper.Create([], 0, false);
             byte[] data = xpcWrapper.Serialise();
 
             Assert.AreEqual(data.Length, expectedData.Length);

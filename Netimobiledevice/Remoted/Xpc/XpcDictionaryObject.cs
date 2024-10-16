@@ -74,7 +74,7 @@ namespace Netimobiledevice.Remoted.Xpc
         {
             List<byte> serialisedData = [
                 .. BitConverter.GetBytes((uint) Type),
-                .. BitConverter.GetBytes(Count)];
+                .. BitConverter.GetBytes(Count + sizeof(uint))];
             foreach (KeyValuePair<string, XpcObject> entry in _dictionary) {
                 byte[] keyString = entry.Key.AsCString().GetBytes(Encoding.UTF8);
                 serialisedData.AddRange(keyString);

@@ -37,7 +37,7 @@ namespace Netimobiledevice.Remoted.Xpc
             return [
                 .. BitConverter.GetBytes(Magic),
                 .. BitConverter.GetBytes((uint) Flags),
-                .. Message.Serialise(),
+                .. Message.Serialise()
             ];
         }
     }
