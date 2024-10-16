@@ -17,7 +17,7 @@ namespace NetimobiledeviceTest.Remoted.Xpc
             XpcWrapper xpcWrapper = XpcWrapper.Create([], 0, false);
             byte[] data = xpcWrapper.Serialise();
 
-            Assert.AreEqual(data.Length, expectedData.Length);
+            Assert.AreEqual(expectedData.Length, data.Length);
             for (int i = 0; i < data.Length; i++) {
                 Assert.AreEqual(expectedData[i], data[i]);
             }

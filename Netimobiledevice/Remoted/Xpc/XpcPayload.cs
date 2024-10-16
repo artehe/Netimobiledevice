@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 
 namespace Netimobiledevice.Remoted.Xpc
 {
@@ -11,12 +10,11 @@ namespace Netimobiledevice.Remoted.Xpc
 
         public byte[] Serialise()
         {
-            List<byte> payload = new List<byte>();
-            payload.AddRange(BitConverter.GetBytes(Magic));
-            payload.AddRange(BitConverter.GetBytes(ProtocolVersion));
-            payload.AddRange(Obj.Serialise());
-            payload.AddRange(new byte[4]);
-            return payload.ToArray();
+            return [
+                .. BitConverter.GetBytes(Magic),
+                .. BitConverter.GetBytes(ProtocolVersion),
+                .. Obj.Serialise(),
+            ];
         }
     }
 }

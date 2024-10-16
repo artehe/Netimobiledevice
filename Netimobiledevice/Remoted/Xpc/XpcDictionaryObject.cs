@@ -72,22 +72,26 @@ namespace Netimobiledevice.Remoted.Xpc
 
         public override byte[] Serialise()
         {
-            List<byte> serialisedData = [
-                .. BitConverter.GetBytes((uint) Type),
-                .. BitConverter.GetBytes(Count + sizeof(uint))];
+            List<byte> entries = new List<byte>();
             foreach (KeyValuePair<string, XpcObject> entry in _dictionary) {
                 byte[] keyString = entry.Key.AsCString().GetBytes(Encoding.UTF8);
-                serialisedData.AddRange(keyString);
+                entries.AddRange(keyString);
 
                 // Make sure we align the string to 4
                 int alignmentAmount = keyString.Length % 4;
                 for (int i = 0; i < alignmentAmount; i++) {
-                    serialisedData.Add(0x00);
+                    entries.Add(0x00);
                 }
 
-                serialisedData.AddRange(entry.Value.Serialise());
+                entries.AddRange(entry.Value.Serialise());
             }
-            return [.. serialisedData];
+
+            int size = entries.Count + sizeof(int);
+            return [
+                .. BitConverter.GetBytes((uint) Type),
+                .. BitConverter.GetBytes(size),
+                .. BitConverter.GetBytes(Count)
+            ];
         }
 
         public bool TryGetValue(string key, [MaybeNullWhen(false)] out XpcObject value)
