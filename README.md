@@ -142,8 +142,6 @@ The list of all the services from lockdownd which have been implemented and the 
   * Backup Creation
   * Restore a backup to the iOS device
   * Communication with the Backup service
-- [com.apple.mobilesync](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Mobilesync/Mobilesync.cs)
-  * Sync data (Contacts, Calendar etc) between device and computer
 - [com.apple.os_trace_relay](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/InstallationProxyService.cs)
   * Get pid list
   * More structural syslog lines.
