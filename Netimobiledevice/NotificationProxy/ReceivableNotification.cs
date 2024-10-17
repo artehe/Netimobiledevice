@@ -26,6 +26,8 @@
         ItdbprepDidEnd,
         LanguageChanged,
         AddressBookPreferenceChanged,
-        RequestPair
+        RequestPair,
+        LocalAuthenticationUiPresented,
+        LocalAuthenticationUiDismissed
     }
 }
