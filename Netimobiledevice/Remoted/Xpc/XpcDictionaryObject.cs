@@ -1,8 +1,5 @@
-using Netimobiledevice.Extentions;
-using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Text;
 
 namespace Netimobiledevice.Remoted.Xpc
 {
@@ -15,6 +12,10 @@ namespace Netimobiledevice.Remoted.Xpc
             set => _dictionary[key] = value;
         }
 
+        public override bool IsAligned => false;
+
+        public override bool IsPrefixed => true;
+
         public override XpcMessageType Type => XpcMessageType.Dictionary;
 
         public ICollection<string> Keys => _dictionary.Keys;
@@ -24,6 +25,13 @@ namespace Netimobiledevice.Remoted.Xpc
         public int Count => _dictionary.Count;
 
         public bool IsReadOnly => false;
+
+        public XpcDictionaryObject() { }
+
+        public XpcDictionaryObject(IDictionary<string, XpcObject> data)
+        {
+            _dictionary = data;
+        }
 
         public void Add(string key, XpcObject value)
         {
@@ -68,30 +76,6 @@ namespace Netimobiledevice.Remoted.Xpc
         public bool Remove(KeyValuePair<string, XpcObject> item)
         {
             return _dictionary.Remove(item);
-        }
-
-        public override byte[] Serialise()
-        {
-            List<byte> entries = new List<byte>();
-            foreach (KeyValuePair<string, XpcObject> entry in _dictionary) {
-                byte[] keyString = entry.Key.AsCString().GetBytes(Encoding.UTF8);
-                entries.AddRange(keyString);
-
-                // Make sure we align the string to 4
-                int alignmentAmount = keyString.Length % 4;
-                for (int i = 0; i < alignmentAmount; i++) {
-                    entries.Add(0x00);
-                }
-
-                entries.AddRange(entry.Value.Serialise());
-            }
-
-            int size = entries.Count + sizeof(int);
-            return [
-                .. BitConverter.GetBytes((uint) Type),
-                .. BitConverter.GetBytes(size),
-                .. BitConverter.GetBytes(Count)
-            ];
         }
 
         public bool TryGetValue(string key, [MaybeNullWhen(false)] out XpcObject value)

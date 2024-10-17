@@ -1,4 +1,3 @@
-using BinarySerialization;
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.Remoted.Frames;
 using System;
@@ -60,10 +59,15 @@ namespace Netimobiledevice.Remoted.Xpc
             }).ConfigureAwait(false);
 
             // Send first actual requests
-            await SendRequestAsync(new Dictionary<string, object>()).ConfigureAwait(false);
+            await SendRequestAsync(new Dictionary<string, XpcObject>()).ConfigureAwait(false);
             await SendFrameAsync(new DataFrame() {
                 StreamIdentifier = ROOT_CHANNEL,
-                Data = XpcWrapper.Create(new Dictionary<string, object> { { "size", 0 }, { "flags", 0x0201 }, { "payload", null } }).Serialise()
+                Data = new XpcWrapper {
+                    Flags = (XpcFlags) 0x0201,
+                    Message = new XpcMessage() {
+                        Payload = null
+                    }
+                }.Serialise()
             }).ConfigureAwait(false);
             _nextMessageId[ROOT_CHANNEL]++;
 
@@ -91,7 +95,12 @@ namespace Netimobiledevice.Remoted.Xpc
             }).ConfigureAwait(false);
             await SendFrameAsync(new DataFrame() {
                 StreamIdentifier = streamId,
-                Data = XpcWrapper.Create(new Dictionary<string, object> { { "size", 0 }, { "flags", flags }, { "payload", null } }).Serialise()
+                Data = new XpcWrapper {
+                    Flags = flags,
+                    Message = new XpcMessage() {
+                        Payload = null
+                    }
+                }.Serialise()
             });
         }
 
@@ -143,7 +152,7 @@ namespace Netimobiledevice.Remoted.Xpc
             await _stream.WriteAsync(data.ToArray()).ConfigureAwait(false);
         }
 
-        private async Task SendRequestAsync(Dictionary<string, object> data, bool wantingReply = false)
+        private async Task SendRequestAsync(Dictionary<string, XpcObject> data, bool wantingReply = false)
         {
             XpcWrapper xpcWrapper = XpcWrapper.Create(data, _nextMessageId[ROOT_CHANNEL], wantingReply);
             await SendFrameAsync(new DataFrame() {
@@ -170,8 +179,7 @@ namespace Netimobiledevice.Remoted.Xpc
 
                 XpcMessage? message = null;
                 try {
-                    var serializer = new BinarySerializer();
-                    message = serializer.Deserialize<XpcMessage>([.. _previousFrameData, .. frame.Data]);
+                    message = XpcMessage.Deserialise([.. _previousFrameData, .. frame.Data]);
                     _previousFrameData = [];
                 }
                 catch (Exception ex) {

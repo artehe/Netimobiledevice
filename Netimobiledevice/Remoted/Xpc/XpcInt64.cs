@@ -1,14 +1,17 @@
-﻿using System;
-
-namespace Netimobiledevice.Remoted.Xpc
+﻿namespace Netimobiledevice.Remoted.Xpc
 {
-    internal class XpcInt64 : XpcObject<long>
+    public class XpcInt64 : XpcObject<long>
     {
+        public override bool IsAligned => false;
+        public override bool IsPrefixed => false;
+
         public override XpcMessageType Type => XpcMessageType.Int64;
 
-        public override byte[] Serialise()
+        public XpcInt64() { }
+
+        public XpcInt64(long value)
         {
-            return BitConverter.GetBytes(Data);
+            Data = value;
         }
     }
 }

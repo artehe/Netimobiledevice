@@ -22,5 +22,49 @@ namespace NetimobiledeviceTest.Remoted.Xpc
                 Assert.AreEqual(expectedData[i], data[i]);
             }
         }
+
+        [TestMethod]
+        public void CreatesSerialisedWrapperCorrectly1()
+        {
+            byte[] expectedData = [
+                0x92, 0x0b, 0xb0, 0x29, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+            ];
+
+            XpcWrapper xpcWrapper = new XpcWrapper {
+                Flags = 0x00,
+                Message = new XpcMessage() {
+                    Payload = null
+                }
+            };
+            byte[] data = xpcWrapper.Serialise();
+
+            Assert.AreEqual(expectedData.Length, data.Length);
+            for (int i = 0; i < data.Length; i++) {
+                Assert.AreEqual(expectedData[i], data[i]);
+            }
+        }
+
+        [TestMethod]
+        public void CreatesSerialisedWrapperCorrectly2()
+        {
+            byte[] expectedData = [
+                0x92, 0x0b, 0xb0, 0x29, 0x01, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+            ];
+
+            XpcWrapper xpcWrapper = new XpcWrapper {
+                Flags = (XpcFlags) 0x0201,
+                Message = new XpcMessage() {
+                    Payload = null
+                }
+            };
+            byte[] data = xpcWrapper.Serialise();
+
+            Assert.AreEqual(expectedData.Length, data.Length);
+            for (int i = 0; i < data.Length; i++) {
+                Assert.AreEqual(expectedData[i], data[i]);
+            }
+        }
     }
 }
