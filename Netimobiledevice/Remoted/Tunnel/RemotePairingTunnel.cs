@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using UniversalTunTapDriver;
+using static UniversalTunTapDriver.TunTapHelper;
 
 namespace Netimobiledevice.Remoted.Tunnel
 {
@@ -68,18 +69,20 @@ namespace Netimobiledevice.Remoted.Tunnel
             return new CDTunnelPacket(JsonSerializer.Serialize(data)).GetBytes();
         }
 
-        public virtual void StartTunnel(string address, int mtu)
+        public virtual void StartTunnel(EstablishTunnelResponse handshakeResponse)
         {
             cts = new CancellationTokenSource();
 
             string dInfo = "tun0";
             if (OperatingSystem.IsWindows()) {
                 dInfo = Guid.NewGuid().ToString();
+                dInfo = "4cb7c-bfcde-9c61";
             }
             Tun = new TunTapDevice(dInfo);
 
-            Tun.ConfigTun(IPAddress.Loopback, IPAddress.Parse(address), GetSubnetMask(IPAddress.Loopback));
-            Tun.CreateDeviceIOStream(mtu);
+            Tun.ConfigTun(IPAddress.Parse(handshakeResponse.ClientParameters.Address), IPAddress.Parse(handshakeResponse.ServerAddress), IPAddress.Parse(handshakeResponse.ClientParameters.Netmask));
+            Tun.SetConnectionState(ConnectionStatus.Connected);
+            Tun.CreateDeviceIOStream(handshakeResponse.ClientParameters.Mtu);
             _tunReadTask = TunReadTask(cts.Token);
         }
 
@@ -87,7 +90,7 @@ namespace Netimobiledevice.Remoted.Tunnel
 
         public abstract void SendPacketToDevice(byte[] packet);
 
-        public abstract Dictionary<string, object> RequestTunnelEstablish();
+        public abstract EstablishTunnelResponse RequestTunnelEstablish();
 
         public void StopTunnel()
         {

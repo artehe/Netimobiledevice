@@ -43,7 +43,7 @@ namespace Netimobiledevice.Lockdown
             }
         }
 
-        public NetworkStream Stream => (NetworkStream) networkStream;
+        public Stream Stream => networkStream;
 
         private ServiceConnection(Socket sock, ILogger logger, UsbmuxdDevice? muxDevice = null)
         {

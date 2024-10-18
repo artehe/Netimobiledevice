@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Netimobiledevice.EndianBitConversion;
+using Netimobiledevice.Extentions;
+using System;
 using System.Text;
 
 namespace Netimobiledevice.Remoted.Tunnel
@@ -7,7 +9,7 @@ namespace Netimobiledevice.Remoted.Tunnel
     {
         private byte[] EncodedBody => Encoding.UTF8.GetBytes(JsonBody);
 
-        public static ulong Magic => 0x434454756e6e656c;
+        public static byte[] Magic => Encoding.UTF8.GetBytes("CDTunnel");
         public ushort Length => (ushort) EncodedBody.Length;
         public string JsonBody { get; }
 
@@ -18,19 +20,19 @@ namespace Netimobiledevice.Remoted.Tunnel
 
         public byte[] GetBytes()
         {
-            return [.. BitConverter.GetBytes(Magic), .. BitConverter.GetBytes(Length), .. EncodedBody];
+            ushort bodyLength = (ushort) EncodedBody.Length;
+            return [.. Magic, .. BitConverter.GetBytes(bodyLength).EnsureBigEndian(), .. EncodedBody];
         }
 
         public static CDTunnelPacket Parse(byte[] data)
         {
-            byte[] magicBytes = BitConverter.GetBytes(Magic);
-            for (int i = 0; i < magicBytes.Length; i++) {
-                if (magicBytes[i] != data[i]) {
+            for (int i = 0; i < Magic.Length; i++) {
+                if (Magic[i] != data[i]) {
                     throw new Exception("Data mismatch");
                 }
             }
-            ushort length = BitConverter.ToUInt16(data, magicBytes.Length);
-            string json = Encoding.UTF8.GetString(data, magicBytes.Length + sizeof(ushort), length);
+            ushort length = EndianBitConverter.BigEndian.ToUInt16(data, Magic.Length);
+            string json = Encoding.UTF8.GetString(data, Magic.Length + sizeof(ushort), length);
             return new CDTunnelPacket(json);
         }
     }

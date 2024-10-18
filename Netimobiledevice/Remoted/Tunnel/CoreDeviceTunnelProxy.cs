@@ -22,9 +22,9 @@ namespace Netimobiledevice.Remoted.Tunnel
         {
             _service = _lockdown.StartLockdownService(SERVICE_NAME);
             RemotePairingTcpTunnel tunnel = new RemotePairingTcpTunnel(_service.Stream);
-            dynamic handshakeResponse = tunnel.RequestTunnelEstablish();
-            tunnel.StartTunnel(handshakeResponse["clientParameters"]["address"], handshakeResponse["clientParameters"]["mtu"]);
-            return new TunnelResult(tunnel.Tun.DeviceIdentification, handshakeResponse["serverAddress"], handshakeResponse["serverRSDPort"], TunnelProtocol.TCP, tunnel);
+            EstablishTunnelResponse handshakeResponse = tunnel.RequestTunnelEstablish();
+            tunnel.StartTunnel(handshakeResponse);
+            return new TunnelResult(tunnel.Tun.DeviceIdentification, handshakeResponse.ServerAddress, handshakeResponse.ServerRSDPort, TunnelProtocol.TCP, tunnel);
         }
     }
 }

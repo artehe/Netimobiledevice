@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace Netimobiledevice.Remoted.Tunnel
+﻿namespace Netimobiledevice.Remoted.Tunnel
 {
     public class RemotePairingQuicTunnel : RemotePairingTunnel
     {
@@ -11,7 +9,7 @@ namespace Netimobiledevice.Remoted.Tunnel
             throw new System.NotImplementedException();
         }
 
-        public override Dictionary<string, object> RequestTunnelEstablish()
+        public override EstablishTunnelResponse RequestTunnelEstablish()
         {
             throw new System.NotImplementedException();
         }
