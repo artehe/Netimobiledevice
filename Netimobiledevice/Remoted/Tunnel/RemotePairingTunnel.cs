@@ -7,8 +7,6 @@ using System.Net.Sockets;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using UniversalTunTapDriver;
-using static UniversalTunTapDriver.TunTapHelper;
 
 namespace Netimobiledevice.Remoted.Tunnel
 {
@@ -41,25 +39,18 @@ namespace Netimobiledevice.Remoted.Tunnel
 
         private async Task TunReadTask(CancellationToken cancellationToken)
         {
-            var readSize = Tun.GetMTU() + LoopbackHeader.Length;
+            var readSize = Tun?.Mtu + LoopbackHeader.Length;
             while (!cancellationToken.IsCancellationRequested) {
-                if (!OperatingSystem.IsWindows()) {
-                    /* TODO
-                    async with aiofiles.open(self.tun.fileno(), 'rb', opener=lambda path, flags: path, buffering=0) as f:
-                        while True:
-                            packet = await f.read(read_size)
-                            assert packet.startswith(LOOPBACK_HEADER)
-                            packet = packet[len(LOOPBACK_HEADER):]
-                            await self.send_packet_to_device(packet)
-                     */
+                if (OperatingSystem.IsWindows()) {
+                    while (!cancellationToken.IsCancellationRequested) {
+                        byte[] packet = Tun?.Read() ?? [];
+                        if (packet.Length > 0) {
+                            await SendPacketToDevice(packet);
+                        }
+                    }
                 }
                 else {
-                    /* TODO
-                    while True:
-                        packet = await asyncio.get_running_loop().run_in_executor(None, self.tun.read)
-                        if packet:
-                            await self.send_packet_to_device(packet)
-                     */
+                    throw new InvalidOperationException("Not implemented anything other than WIndows yet");
                 }
             }
         }
@@ -69,26 +60,21 @@ namespace Netimobiledevice.Remoted.Tunnel
             return new CDTunnelPacket(JsonSerializer.Serialize(data)).GetBytes();
         }
 
-        public virtual void StartTunnel(EstablishTunnelResponse handshakeResponse)
+        public virtual void StartTunnel(string address, uint mtu)
         {
             cts = new CancellationTokenSource();
 
-            string dInfo = "tun0";
-            if (OperatingSystem.IsWindows()) {
-                dInfo = Guid.NewGuid().ToString();
-                dInfo = "4cb7c-bfcde-9c61";
-            }
-            Tun = new TunTapDevice(dInfo);
+            Tun = new TunTapDevice();
+            Tun.Address = address;
+            Tun.Mtu = mtu;
 
-            Tun.ConfigTun(IPAddress.Parse(handshakeResponse.ClientParameters.Address), IPAddress.Parse(handshakeResponse.ServerAddress), IPAddress.Parse(handshakeResponse.ClientParameters.Netmask));
-            Tun.SetConnectionState(ConnectionStatus.Connected);
-            Tun.CreateDeviceIOStream(handshakeResponse.ClientParameters.Mtu);
-            _tunReadTask = TunReadTask(cts.Token);
+            Tun.Up();
+            _tunReadTask = Task.Run(() => TunReadTask(cts.Token));
         }
 
         public abstract void Close();
 
-        public abstract void SendPacketToDevice(byte[] packet);
+        public abstract Task SendPacketToDevice(byte[] packet);
 
         public abstract EstablishTunnelResponse RequestTunnelEstablish();
 

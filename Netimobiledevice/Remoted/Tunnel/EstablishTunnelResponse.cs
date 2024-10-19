@@ -10,6 +10,6 @@
     public record ClientParameters(
         string Address,
         string Netmask,
-        int Mtu
+        uint Mtu
     );
 }

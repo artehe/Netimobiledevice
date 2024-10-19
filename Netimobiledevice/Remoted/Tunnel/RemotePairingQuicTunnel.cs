@@ -1,4 +1,6 @@
-﻿namespace Netimobiledevice.Remoted.Tunnel
+﻿using System.Threading.Tasks;
+
+namespace Netimobiledevice.Remoted.Tunnel
 {
     public class RemotePairingQuicTunnel : RemotePairingTunnel
     {
@@ -14,7 +16,7 @@
             throw new System.NotImplementedException();
         }
 
-        public override void SendPacketToDevice(byte[] packet)
+        public override Task SendPacketToDevice(byte[] packet)
         {
             throw new System.NotImplementedException();
         }

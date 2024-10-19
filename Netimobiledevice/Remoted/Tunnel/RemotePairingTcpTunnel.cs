@@ -1,4 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using Netimobiledevice.EndianBitConversion;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -8,6 +11,9 @@ namespace Netimobiledevice.Remoted.Tunnel
     public class RemotePairingTcpTunnel : RemotePairingTunnel
     {
         private const int REQUESTED_MTU = 16000;
+        private const int IPV6_HEADER_SIZE = 40;
+
+        private static byte[] LoopbackHeader => [0x00, 0x00, 0x86, 0xDD];
 
         private readonly Stream _stream;
         private Task? _sockReadTask;
@@ -19,27 +25,31 @@ namespace Netimobiledevice.Remoted.Tunnel
 
         public override void Close()
         {
-            throw new System.NotImplementedException();
+            _stream.Close();
         }
 
         public async Task SockReadTask()
         {
-            /* TODO
-        @asyncio_print_traceback
-        async def sock_read_task(self) -> None:
-            try:
-                while True:
-                    try:
-                        ipv6_header = await self._reader.readexactly(IPV6_HEADER_SIZE)
-                        ipv6_length = struct.unpack('>H', ipv6_header[4:6])[0]
-                        ipv6_body = await self._reader.readexactly(ipv6_length)
-                        self.tun.write(LOOPBACK_HEADER + ipv6_header + ipv6_body)
-                    except asyncio.exceptions.IncompleteReadError:
-                        await asyncio.sleep(1)
-            except OSError as e:
-                self._logger.warning(f'got {e.__class__.__name__} in {asyncio.current_task().get_name()}')
-                await self.wait_closed()
-            */
+            try {
+                while (true) {
+                    try {
+                        byte[] ipv6Header = new byte[IPV6_HEADER_SIZE];
+                        await _stream.ReadExactlyAsync(ipv6Header);
+
+                        ushort ipv6Length = EndianBitConverter.BigEndian.ToUInt16(ipv6Header, 4);
+                        byte[] ipv6Body = new byte[ipv6Length];
+                        await _stream.ReadExactlyAsync(ipv6Body);
+                        Tun?.Write([.. LoopbackHeader, .. ipv6Header, .. ipv6Body]);
+                    }
+                    catch (Exception ex) {
+                        Debug.WriteLine(ex);
+                        await Task.Delay(1000);
+                    }
+                }
+            }
+            catch (Exception ex) {
+                Debug.WriteLine(ex);
+            }
         }
 
         public override EstablishTunnelResponse RequestTunnelEstablish()
@@ -58,14 +68,14 @@ namespace Netimobiledevice.Remoted.Tunnel
             });
         }
 
-        public override void SendPacketToDevice(byte[] packet)
+        public override async Task SendPacketToDevice(byte[] packet)
         {
-            throw new System.NotImplementedException();
+            await _stream.WriteAsync(packet);
         }
 
-        public override void StartTunnel(EstablishTunnelResponse handshakeResponse)
+        public override void StartTunnel(string address, uint mtu)
         {
-            base.StartTunnel(handshakeResponse);
+            base.StartTunnel(address, mtu);
             _sockReadTask = Task.Run(() => SockReadTask());
         }
     }

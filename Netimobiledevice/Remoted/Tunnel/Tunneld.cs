@@ -63,6 +63,69 @@ namespace Netimobiledevice.Remoted.Tunnel
             */
         }
 
+        public async Task MonitorMobdev2Task(CancellationToken cancellationToken)
+        {
+            /* TODO
+            try {
+                while (!cancellationToken.IsCancellationRequested) {
+                    var lockdowns = GetMobdev2Lockdowns(onlyPaired: true);
+                    foreach (var lockdown in lockdowns) {
+                        if (TunnelExistsForUdid(lockdown.Udid)) {
+                            // skip tunnel if already exists for this udid
+                            continue;
+                        }
+                        string taskIdentifier = $"mobdev2-{lockdown.Udid}-{lockdown.Ip}";
+                        CoreDeviceTunnelProxy tunnelService;
+                        try {
+                            tunnelService = new CoreDeviceTunnelProxy(lockdown);
+                        }
+                        catch (Exception) {
+                            Debug.WriteLine($"[{taskIdentifier}] Failed to start CoreDeviceTunnelProxy - skipping");
+                            continue;
+                        }
+                        _tunnelTasks[taskIdentifier] = new TunnelTask {
+                            Task = StartTunnelTask(taskIdentifier, tunnelService),
+                            Udid = lockdown.Udid
+                        };
+                    }
+                    await Task.Delay(MOBDEV2_INTERVAL, cancellationToken);
+                }
+            }
+            catch (TaskCanceledException) {
+                return;
+            }
+            */
+        }
+
+        public async Task MonitorUsbTask(CancellationToken cancellationToken)
+        {
+            try {
+                List<NetworkInterface> previousIps = [];
+                while (!cancellationToken.IsCancellationRequested) {
+                    List<NetworkInterface> currentIps = Utils.GetIPv6Interfaces();
+                    List<NetworkInterface> added = new List<NetworkInterface>(currentIps.Except(previousIps));
+                    List<NetworkInterface> removed = new List<NetworkInterface>(previousIps.Except(currentIps));
+                    previousIps = currentIps;
+                    foreach (NetworkInterface networkInterface in removed) {
+                        if (_tunnelTasks.TryGetValue(networkInterface.Id, out TunnelTask? value)) {
+                            value.Task.Dispose();
+                            await value.Task;
+                        }
+                    }
+                    foreach (NetworkInterface networkInterface in added) {
+                        _tunnelTasks[networkInterface.Id] = new TunnelTask() {
+                            Task = HandleNewPotentialUsbCdcNcmInterfaceTask(networkInterface)
+                        };
+                    }
+                    // Wait before re-iterating
+                    await Task.Delay(1000, cancellationToken);
+                }
+            }
+            catch (TaskCanceledException) {
+                return;
+            }
+        }
+
         public async Task MonitorUsbmuxTask(CancellationToken cancellationToken)
         {
             Debug.WriteLine("Starting MonitorUsbmuxTask");
@@ -96,6 +159,35 @@ namespace Netimobiledevice.Remoted.Tunnel
                     finally {
                         await Task.Delay(USBMUX_INTERVAL, cancellationToken);
                     }
+                }
+            }
+            catch (TaskCanceledException) {
+                return;
+            }
+        }
+
+        public async Task MonitorWifiTask(CancellationToken cancellationToken)
+        {
+            try {
+                while (!cancellationToken.IsCancellationRequested) {
+                    List<RemotePairingTunnelService> services = await TunnelService.GetRemotePairingTunnelServices();
+                    foreach (RemotePairingTunnelService service in services) {
+                        if (_tunnelTasks.ContainsKey(service.Hostname)) {
+                            // skip tunnel if already exists for this ip
+                            service.Close();
+                            continue;
+                        }
+                        if (TunnelExistsForUdid(service.RemoteIdentifier)) {
+                            // skip tunnel if already exists for this udid
+                            service.Close();
+                            continue;
+                        }
+                        _tunnelTasks[service.Hostname] = new TunnelTask {
+                            Task = StartTunnelTask(service.Hostname, service),
+                            Udid = service.RemoteIdentifier
+                        };
+                    }
+                    await Task.Delay(REMOTEPAIRING_INTERVAL, cancellationToken);
                 }
             }
             catch (TaskCanceledException) {
