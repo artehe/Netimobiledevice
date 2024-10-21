@@ -2,17 +2,18 @@
 
 namespace Netimobiledevice.Remoted.Xpc
 {
-    public class XpcInt64(long data) : XpcObject<long>(data)
+    public class XpcDouble(double data) : XpcObject<double>(data)
     {
         public override bool IsAligned => false;
+
         public override bool IsPrefixed => false;
 
-        public override XpcMessageType Type => XpcMessageType.Int64;
+        public override XpcMessageType Type => XpcMessageType.Double;
 
-        public static XpcInt64 Deserialise(byte[] data)
+        public static XpcDouble Deserialise(byte[] data)
         {
-            long value = BitConverter.ToInt64(data, 0);
-            return new XpcInt64(value);
+            double value = BitConverter.ToDouble(data, 0);
+            return new XpcDouble(value);
         }
 
         public override byte[] Serialise()

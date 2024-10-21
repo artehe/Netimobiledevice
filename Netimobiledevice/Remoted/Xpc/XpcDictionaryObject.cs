@@ -1,5 +1,9 @@
+using Netimobiledevice.Extentions;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using System.Text;
 
 namespace Netimobiledevice.Remoted.Xpc
 {
@@ -31,6 +35,25 @@ namespace Netimobiledevice.Remoted.Xpc
         public XpcDictionaryObject(IDictionary<string, XpcObject> data)
         {
             _dictionary = data;
+        }
+
+        private static string DeserialiseAlignedString(byte[] data)
+        {
+            int zeroIndex = -1;
+            for (int i = 0; i < data.Length; i++) {
+                if (data[i] == 0) {
+                    zeroIndex = i;
+                    break;
+                }
+            }
+            return Encoding.UTF8.GetString(data, 0, zeroIndex);
+        }
+
+        private static byte[] SerialiseAlignedString(string str)
+        {
+            byte[] stringBytes = str.AsCString().GetBytes(Encoding.UTF8);
+            byte[] alignedStr = XpcSerialiser.AlignData(stringBytes, 4);
+            return alignedStr;
         }
 
         public void Add(string key, XpcObject value)
@@ -86,6 +109,42 @@ namespace Netimobiledevice.Remoted.Xpc
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
         {
             return _dictionary.GetEnumerator();
+        }
+
+        public static XpcDictionaryObject Deserialise(byte[] data)
+        {
+            XpcDictionaryObject dict = [];
+
+            data = GetPrefixSizeFromData(data);
+
+            int entryCount = BitConverter.ToInt32(data.Take(sizeof(int)).ToArray());
+            data = data.Skip(sizeof(int)).ToArray();
+            for (int i = 0; i < entryCount; i++) {
+                string key = DeserialiseAlignedString(data);
+                int size = SerialiseAlignedString(key).Length;
+                data = data.Skip(size).ToArray();
+
+                XpcObject xpcObject = Deserialise(data);
+                size = XpcSerialiser.Serialise(xpcObject).Length;
+                data = data.Skip(size).ToArray();
+
+                dict.Add(key, xpcObject);
+            }
+            return dict;
+        }
+
+        public override byte[] Serialise()
+        {
+            List<byte> entries = [];
+            foreach (KeyValuePair<string, XpcObject> entry in _dictionary) {
+                entries.AddRange(SerialiseAlignedString(entry.Key));
+                entries.AddRange(XpcSerialiser.Serialise(entry.Value));
+            }
+
+            return [
+                .. BitConverter.GetBytes(Count),
+                .. entries.ToArray()
+            ];
         }
     }
 }

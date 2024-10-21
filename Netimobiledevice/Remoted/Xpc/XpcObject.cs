@@ -1,8 +1,9 @@
 using System;
+using System.Linq;
 
 namespace Netimobiledevice.Remoted.Xpc
 {
-    public abstract class XpcObject : IEquatable<XpcObject>
+    public abstract class XpcObject
     {
         public abstract bool IsAligned { get; }
 
@@ -10,11 +11,19 @@ namespace Netimobiledevice.Remoted.Xpc
 
         public abstract XpcMessageType Type { get; }
 
-        public abstract bool Equals(XpcObject? other);
+        public XpcObject() { }
+
+        public abstract byte[] Serialise();
+
+        protected static byte[] GetPrefixSizeFromData(byte[] data)
+        {
+            int length = BitConverter.ToInt32(data.Take(sizeof(int)).ToArray());
+            return data.Skip(sizeof(int)).Take(length).ToArray();
+        }
     }
 
-    public abstract class XpcObject<T> : XpcObject
+    public abstract class XpcObject<T>(T? data) : XpcObject
     {
-        public virtual T? Data { get; set; }
+        public virtual T? Data { get; set; } = data;
     }
 }
