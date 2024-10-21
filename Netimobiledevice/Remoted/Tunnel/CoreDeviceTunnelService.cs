@@ -17,8 +17,7 @@ namespace Netimobiledevice.Remoted.Tunnel
 
         public override void Close()
         {
-            // TODO  await self.rsd.close()
-            // TODO await self.service.close()
+            throw new System.NotImplementedException();
         }
 
         public override Task<Dictionary<string, object>> ReceiveResponse()

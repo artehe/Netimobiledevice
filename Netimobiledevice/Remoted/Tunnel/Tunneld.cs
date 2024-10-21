@@ -1,23 +1,16 @@
-﻿using Netimobiledevice.Exceptions;
-using Netimobiledevice.Remoted.Bonjour;
-using Netimobiledevice.Usbmuxd;
+﻿using Netimobiledevice.Usbmuxd;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
-using System.Net.NetworkInformation;
 using System.Threading;
 using System.Threading.Tasks;
-using Zeroconf;
 
 namespace Netimobiledevice.Remoted.Tunnel
 {
-    public class Tunneld(
-        TunnelProtocol protocol = TunnelProtocol.QUIC,
-        bool wifiMonitor = true,
-        bool usbMonitor = true,
-        bool usbmuxMonitor = true,
-        bool mobdev2Monitor = true)
+    public class Tunneld
     {
         private const int REATTEMPT_COUNT = 5;
         private const int REATTEMPT_INTERVAL = 5000;
@@ -30,100 +23,62 @@ namespace Netimobiledevice.Remoted.Tunnel
         public const ushort TUNNELD_DEFAULT_PORT = 49151;
 
         private CancellationTokenSource _cts = new CancellationTokenSource();
+        private readonly BackgroundWorker bw = new BackgroundWorker {
+            WorkerSupportsCancellation = true
+        };
 
-        private readonly TunnelProtocol _protocol = protocol;
         private readonly List<Task> _tasks = [];
-        private readonly Dictionary<string, TunnelTask> _tunnelTasks = [];
-        private readonly bool _usbMonitor = usbMonitor;
-        private readonly bool _wifiMonitor = wifiMonitor;
-        private readonly bool _usbmuxMonitor = usbmuxMonitor;
-        private readonly bool _mobdev2Monitor = mobdev2Monitor;
+        private readonly ConcurrentDictionary<string, TunnelTask> _tunnelTasks = [];
+        private readonly TunnelProtocol _protocol;
+        private readonly bool _usbmuxMonitor;
+
+        // TODO implement these monitoring methods
+        private readonly bool _usbMonitor;
+        private readonly bool _wifiMonitor;
+        private readonly bool _mobdev2Monitor;
+
+        public Tunneld(TunnelProtocol protocol = TunnelProtocol.QUIC,
+            bool wifiMonitor = true,
+            bool usbMonitor = true,
+            bool usbmuxMonitor = true,
+            bool mobdev2Monitor = true)
+        {
+            _protocol = protocol;
+            _mobdev2Monitor = mobdev2Monitor;
+            _usbmuxMonitor = usbmuxMonitor;
+            _usbMonitor = usbMonitor;
+            _wifiMonitor = wifiMonitor;
+
+            bw = new BackgroundWorker {
+                WorkerSupportsCancellation = true
+            };
+            bw.DoWork += BackgroundWorker_DoWork;
+        }
+
+        private void BackgroundWorker_DoWork(object? sender, DoWorkEventArgs e)
+        {
+            _cts = new CancellationTokenSource();
+
+            _tasks.Add(TunnelMonitorTask(_cts.Token));
+            if (_usbmuxMonitor) {
+                _tasks.Add(MonitorUsbmuxTask(_cts.Token));
+            }
+
+            while (!bw.CancellationPending) {
+                Task.WaitAll([.. _tasks]);
+            }
+        }
 
         public void Start()
         {
             _cts.Cancel();
-            _tasks.Clear();
-
-            _cts = new CancellationTokenSource();
-            if (_usbmuxMonitor) {
-                _tasks.Add(Task.Run(() => MonitorUsbmuxTask(_cts.Token)));
-            }
-
-
-            /* TODO
-            if (_usbMonitor) {
-                _tasks.Add(MonitorUsbTask(_cts.Token));
-            }
-            if (_wifiMonitor) {
-                _tasks.Add(MonitorWifiTask(_cts.Token));
-            }
-            if (_mobdev2Monitor) {
-                _tasks.Add(MonitorMobdev2Task(_cts.Token));
-            }
-            */
+            bw.RunWorkerAsync();
         }
 
-        public async Task MonitorMobdev2Task(CancellationToken cancellationToken)
+        public void Stop()
         {
-            /* TODO
-            try {
-                while (!cancellationToken.IsCancellationRequested) {
-                    var lockdowns = GetMobdev2Lockdowns(onlyPaired: true);
-                    foreach (var lockdown in lockdowns) {
-                        if (TunnelExistsForUdid(lockdown.Udid)) {
-                            // skip tunnel if already exists for this udid
-                            continue;
-                        }
-                        string taskIdentifier = $"mobdev2-{lockdown.Udid}-{lockdown.Ip}";
-                        CoreDeviceTunnelProxy tunnelService;
-                        try {
-                            tunnelService = new CoreDeviceTunnelProxy(lockdown);
-                        }
-                        catch (Exception) {
-                            Debug.WriteLine($"[{taskIdentifier}] Failed to start CoreDeviceTunnelProxy - skipping");
-                            continue;
-                        }
-                        _tunnelTasks[taskIdentifier] = new TunnelTask {
-                            Task = StartTunnelTask(taskIdentifier, tunnelService),
-                            Udid = lockdown.Udid
-                        };
-                    }
-                    await Task.Delay(MOBDEV2_INTERVAL, cancellationToken);
-                }
-            }
-            catch (TaskCanceledException) {
-                return;
-            }
-            */
-        }
-
-        public async Task MonitorUsbTask(CancellationToken cancellationToken)
-        {
-            try {
-                List<NetworkInterface> previousIps = [];
-                while (!cancellationToken.IsCancellationRequested) {
-                    List<NetworkInterface> currentIps = Utils.GetIPv6Interfaces();
-                    List<NetworkInterface> added = new List<NetworkInterface>(currentIps.Except(previousIps));
-                    List<NetworkInterface> removed = new List<NetworkInterface>(previousIps.Except(currentIps));
-                    previousIps = currentIps;
-                    foreach (NetworkInterface networkInterface in removed) {
-                        if (_tunnelTasks.TryGetValue(networkInterface.Id, out TunnelTask? value)) {
-                            value.Task.Dispose();
-                            await value.Task;
-                        }
-                    }
-                    foreach (NetworkInterface networkInterface in added) {
-                        _tunnelTasks[networkInterface.Id] = new TunnelTask() {
-                            Task = HandleNewPotentialUsbCdcNcmInterfaceTask(networkInterface)
-                        };
-                    }
-                    // Wait before re-iterating
-                    await Task.Delay(1000, cancellationToken);
-                }
-            }
-            catch (TaskCanceledException) {
-                return;
-            }
+            _cts.Cancel();
+            bw.CancelAsync();
         }
 
         public async Task MonitorUsbmuxTask(CancellationToken cancellationToken)
@@ -147,10 +102,10 @@ namespace Netimobiledevice.Remoted.Tunnel
                                 continue;
                             }
 
-                            _tunnelTasks[taskIdentifier] = new TunnelTask {
+                            _tunnelTasks.TryAdd(taskIdentifier, new TunnelTask {
                                 Udid = muxDevice.Serial,
                                 Task = StartTunnelTask(taskIdentifier, service, TunnelProtocol.TCP)
-                            };
+                            });
                         }
                     }
                     catch (Exception) {
@@ -159,35 +114,6 @@ namespace Netimobiledevice.Remoted.Tunnel
                     finally {
                         await Task.Delay(USBMUX_INTERVAL, cancellationToken);
                     }
-                }
-            }
-            catch (TaskCanceledException) {
-                return;
-            }
-        }
-
-        public async Task MonitorWifiTask(CancellationToken cancellationToken)
-        {
-            try {
-                while (!cancellationToken.IsCancellationRequested) {
-                    List<RemotePairingTunnelService> services = await TunnelService.GetRemotePairingTunnelServices();
-                    foreach (RemotePairingTunnelService service in services) {
-                        if (_tunnelTasks.ContainsKey(service.Hostname)) {
-                            // skip tunnel if already exists for this ip
-                            service.Close();
-                            continue;
-                        }
-                        if (TunnelExistsForUdid(service.RemoteIdentifier)) {
-                            // skip tunnel if already exists for this udid
-                            service.Close();
-                            continue;
-                        }
-                        _tunnelTasks[service.Hostname] = new TunnelTask {
-                            Task = StartTunnelTask(service.Hostname, service),
-                            Udid = service.RemoteIdentifier
-                        };
-                    }
-                    await Task.Delay(REMOTEPAIRING_INTERVAL, cancellationToken);
                 }
             }
             catch (TaskCanceledException) {
@@ -205,60 +131,12 @@ namespace Netimobiledevice.Remoted.Tunnel
             return false;
         }
 
-        public async Task HandleNewPotentialUsbCdcNcmInterfaceTask(NetworkInterface ip)
-        {
-            RemoteServiceDiscoveryService? rsd = null;
-            try {
-                List<IZeroconfHost> answers = [];
-                for (int i = 0; i < REATTEMPT_COUNT; i++) {
-                    answers = await BonjourService.Browse(BonjourService.RemotedServiceNames, [ip]);
-                    if (answers.Count > 0) {
-                        break;
-                    }
-                    await Task.Delay(REATTEMPT_INTERVAL);
-                }
-
-                if (answers.Count == 0) {
-                    throw new TaskCanceledException();
-                }
-
-                // establish an untrusted RSD handshake
-                string peerAddress = answers[0].IPAddress;
-                rsd = new RemoteServiceDiscoveryService(peerAddress, RemoteServiceDiscoveryService.RSD_PORT);
-
-                try {
-                    // TODO stop_remoted_if_required()
-                    await rsd.Connect();
-                }
-                finally {
-                    // TODO resume_remoted_if_required()
-                }
-
-                if (_protocol == TunnelProtocol.QUIC && rsd.OsVersion < new Version(17, 0)) {
-                    rsd.Close();
-                    throw new NetimobiledeviceException("Can't use RSD on this device");
-                }
-
-                await StartTunnelTask(ip.Id, await TunnelService.CreateCoreDeviceTunnelServiceUsingRsd(rsd));
-            }
-            catch (Exception ex) {
-                Console.WriteLine($"Error: {ex.Message}");
-            }
-            finally {
-                rsd?.Close();
-                // in case the tunnel was removed just now
-                _tunnelTasks.Remove(ip.Id);
-            }
-        }
-
         public async Task StartTunnelTask(string taskIdentifier, StartTcpTunnel protocolHandler, TunnelProtocol? protocol = null)
         {
             protocol ??= this._protocol;
             if (protocolHandler is CoreDeviceTunnelProxy) {
                 protocol = TunnelProtocol.TCP;
             }
-
-            bool bailedOut = false;
 
             TunnelResult? tun = null;
             try {
@@ -269,33 +147,40 @@ namespace Netimobiledevice.Remoted.Tunnel
 
                 tun = await TunnelService.StartTunnel(protocolHandler, protocol: (TunnelProtocol) protocol);
                 if (!TunnelExistsForUdid(protocolHandler.RemoteIdentifier)) {
-                    _tunnelTasks[taskIdentifier].Tunnel = tun;
-                    _tunnelTasks[taskIdentifier].Udid = protocolHandler.RemoteIdentifier;
+                    _tunnelTasks.AddOrUpdate(
+                        taskIdentifier,
+                        new TunnelTask {
+                            Udid = protocolHandler.RemoteIdentifier,
+                            Tunnel = tun
+                        },
+                        (k, v) => {
+                            v.Tunnel = tun;
+                            v.Udid = protocolHandler.RemoteIdentifier;
+                            return v;
+                        }
+                    );
+
                     Debug.WriteLine($"Created tunnel --rsd {tun.Address} {tun.Port}");
-                    tun.Client.Close();
                 }
                 else {
-                    bailedOut = true;
                     Debug.WriteLine("Not establishing tunnel since there is already an active one for same udid");
                 }
             }
             catch (Exception ex) {
                 Debug.WriteLine(ex);
-            }
-            finally {
-                if (tun != null && !bailedOut) {
-                    Debug.WriteLine($"Disconnected from tunnel --rsd {tun.Address} {tun.Port}");
-                    tun.Client.StopTunnel();
-                }
-
-                if (protocolHandler != null) {
-                    try {
-                        protocolHandler.Close();
+                if (_tunnelTasks.TryRemove(taskIdentifier, out TunnelTask? task)) {
+                    if (task.Tunnel.Client != null) {
+                        Debug.WriteLine($"Disconnected from tunnel --rsd {task.Tunnel.Address} {task.Tunnel.Port}");
+                        task.Tunnel.Client.StopTunnel();
                     }
-                    catch (Exception) { }
-                }
 
-                _tunnelTasks.Remove(taskIdentifier);
+                    if (protocolHandler != null) {
+                        try {
+                            protocolHandler.Close();
+                        }
+                        catch (Exception) { }
+                    }
+                }
             }
         }
 
@@ -314,10 +199,28 @@ namespace Netimobiledevice.Remoted.Tunnel
             return tunnels;
         }
 
+        public async Task TunnelMonitorTask(CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested) {
+                List<KeyValuePair<string, TunnelTask>> toRemove = [];
+                foreach (KeyValuePair<string, TunnelTask> entry in _tunnelTasks) {
+                    if (entry.Value.Tunnel != null && entry.Value.Tunnel.Client != null && entry.Value.Tunnel.Client.IsTunnelClosed) {
+                        toRemove.Add(entry);
+                    }
+                }
+
+                foreach (KeyValuePair<string, TunnelTask> item in toRemove) {
+                    _tunnelTasks.TryRemove(item);
+                }
+
+                // Re-run every 15 seconds
+                await Task.Delay(15 * 1000, cancellationToken);
+            }
+        }
+
         public async Task<List<RemoteServiceDiscoveryService>> GetTunneldDevices(string host, ushort port)
         {
-            List<RemoteServiceDiscoveryService> rsds = new List<RemoteServiceDiscoveryService>();
-
+            List<RemoteServiceDiscoveryService> rsds = [];
             Dictionary<string, TunnelDefinition> tunnels = ListTunnels();
             foreach (KeyValuePair<string, TunnelDefinition> tunnel in tunnels) {
                 RemoteServiceDiscoveryService rsd = new RemoteServiceDiscoveryService(tunnel.Value.TunnelAddres, tunnel.Value.TunnelPort, tunnel.Value.InterfaceId);

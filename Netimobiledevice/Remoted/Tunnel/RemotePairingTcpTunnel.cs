@@ -15,6 +15,8 @@ namespace Netimobiledevice.Remoted.Tunnel
 
         private static byte[] LoopbackHeader => [0x00, 0x00, 0x86, 0xDD];
 
+        public override bool IsTunnelClosed => !_stream.CanWrite || !_stream.CanRead;
+
         private readonly Stream _stream;
         private Task? _sockReadTask;
 

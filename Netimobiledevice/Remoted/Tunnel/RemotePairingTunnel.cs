@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Net;
-using System.Net.NetworkInformation;
-using System.Net.Sockets;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,27 +16,14 @@ namespace Netimobiledevice.Remoted.Tunnel
 
         public TunTapDevice? Tun { get; private set; }
 
+        public abstract bool IsTunnelClosed { get; }
+
         public RemotePairingTunnel()
         {
         }
 
-        private static IPAddress GetSubnetMask(IPAddress address)
-        {
-            foreach (NetworkInterface adapter in NetworkInterface.GetAllNetworkInterfaces()) {
-                foreach (UnicastIPAddressInformation unicastIPAddressInformation in adapter.GetIPProperties().UnicastAddresses) {
-                    if (unicastIPAddressInformation.Address.AddressFamily == AddressFamily.InterNetwork) {
-                        if (address.Equals(unicastIPAddressInformation.Address)) {
-                            return unicastIPAddressInformation.IPv4Mask;
-                        }
-                    }
-                }
-            }
-            throw new ArgumentException(string.Format("Can't find subnetmask for IP address '{0}'", address));
-        }
-
         private async Task TunReadTask(CancellationToken cancellationToken)
         {
-            var readSize = Tun?.Mtu + LoopbackHeader.Length;
             while (!cancellationToken.IsCancellationRequested) {
                 if (OperatingSystem.IsWindows()) {
                     while (!cancellationToken.IsCancellationRequested) {

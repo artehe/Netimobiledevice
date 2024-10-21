@@ -114,6 +114,7 @@ namespace Netimobiledevice.Remoted.Tunnel
         public void Dispose()
         {
             Close();
+            GC.SuppressFinalize(this);
         }
 
         public void Close()
@@ -164,19 +165,5 @@ namespace Netimobiledevice.Remoted.Tunnel
             }
             _session?.SendPacket(packet);
         }
-
-        /* TODO
-class TunTapDevice:
-    def write(self, payload: bytes) -> None:
-        if payload.startswith(b'\x00\x00\x86\xdd'):
-            payload = payload[4:]
-
-        packet_ptr = wintun.WintunAllocateSendPacket(self.session, len(payload))
-        if packet_ptr == 0:
-            raise PyWinTunException('failed to allocate packet')
-
-        ctypes.memmove(packet_ptr, payload, len(payload))
-        wintun.WintunSendPacket(self.session, packet_ptr)
-        */
     }
 }

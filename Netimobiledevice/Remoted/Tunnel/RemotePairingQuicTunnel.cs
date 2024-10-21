@@ -6,6 +6,8 @@ namespace Netimobiledevice.Remoted.Tunnel
     {
         public const int MAX_IDLE_TIMEOUT = 30 * 1000;
 
+        public override bool IsTunnelClosed => throw new System.NotImplementedException();
+
         public override void Close()
         {
             throw new System.NotImplementedException();
