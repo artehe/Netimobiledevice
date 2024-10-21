@@ -134,8 +134,8 @@ namespace Netimobiledevice.Remoted.Frames
 
             // If we are expecting a payload that's bigger than what's in our buffer
             // we should keep reading from the stream
-            if (data.Length - 9 < frameLength) {
-                throw new InvalidDataException("Length of data[] does not match frame length in data");
+            if (frameLength - 9 <= 0) {
+                throw new InvalidDataException("frameLength smaller than amount of data");
             }
 
             byte frameType = data[3]; // 4th byte in frame header is TYPE

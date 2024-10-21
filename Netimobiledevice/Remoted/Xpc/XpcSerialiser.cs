@@ -22,9 +22,6 @@ namespace Netimobiledevice.Remoted.Xpc
         private static byte[] GetPrefixSizeFromData(byte[] data)
         {
             int length = BitConverter.ToInt32(data.Take(sizeof(int)).ToArray());
-            if (data.Length - length - sizeof(uint) > 0) {
-                throw new FormatException($"Expected {length} + 4 bytes but got {data.Length} bytes");
-            }
             return data.Skip(sizeof(int)).Take(length).ToArray();
         }
 

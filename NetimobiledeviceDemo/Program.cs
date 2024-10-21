@@ -11,9 +11,8 @@ public class Program
         Tunneld tunneld = Remote.StartTunneld();
 
         Console.WriteLine("Yay!");
-        Console.ReadLine();
 
-        await Task.Delay(2500);
+        await Task.Delay(5000);
         RemoteServiceDiscoveryService rsd = await tunneld.GetDevice() ?? throw new Exception("No device found");
 
         CancellationTokenSource tokenSource = new CancellationTokenSource();

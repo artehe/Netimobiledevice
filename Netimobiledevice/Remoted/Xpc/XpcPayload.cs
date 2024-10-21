@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 namespace Netimobiledevice.Remoted.Xpc
 {
@@ -21,7 +22,7 @@ namespace Netimobiledevice.Remoted.Xpc
                 throw new InvalidOperationException($"Unexpected protocol version go {protocolVersion} rather than {payload.ProtocolVersion}");
             }
 
-            payload.Obj = XpcSerialiser.Deserialise(data);
+            payload.Obj = XpcSerialiser.Deserialise(data.Skip(8).ToArray());
             return payload;
         }
 

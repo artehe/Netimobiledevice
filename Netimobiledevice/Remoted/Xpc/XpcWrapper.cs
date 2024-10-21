@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Netimobiledevice.Remoted.Xpc
 {
@@ -37,6 +38,21 @@ namespace Netimobiledevice.Remoted.Xpc
                 .. BitConverter.GetBytes((uint) Flags),
                 .. Message.Serialise()
             ];
+        }
+
+        public static XpcWrapper Deserialise(byte[] data)
+        {
+            XpcWrapper wrapper = new XpcWrapper();
+
+            uint magic = BitConverter.ToUInt32(data, 0);
+            if (magic != wrapper.Magic) {
+                throw new DataMisalignedException($"Missing correct magic got {magic} instead of {wrapper.Magic}");
+            }
+
+            wrapper.Flags = (XpcFlags) BitConverter.ToUInt32(data.Skip(4).Take(4).ToArray());
+            wrapper.Message = XpcMessage.Deserialise(data.Skip(8).ToArray());
+
+            return wrapper;
         }
     }
 }

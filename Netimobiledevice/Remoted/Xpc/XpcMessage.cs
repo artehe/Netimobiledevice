@@ -10,7 +10,7 @@ namespace Netimobiledevice.Remoted.Xpc
 
         public static XpcMessage Deserialise(byte[] data)
         {
-            long messageSize = BitConverter.ToInt64(data, 0);
+            ulong messageSize = BitConverter.ToUInt64(data, 0);
             ulong messageId = BitConverter.ToUInt64(data, 8);
             return new XpcMessage() {
                 MessageId = messageId,

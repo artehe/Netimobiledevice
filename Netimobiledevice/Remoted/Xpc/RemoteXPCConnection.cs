@@ -24,7 +24,7 @@ namespace Netimobiledevice.Remoted.Xpc
 
         private readonly TcpClient _client;
         private readonly NetworkStream _stream;
-        private readonly Dictionary<int, ulong> _nextMessageId;
+        private readonly Dictionary<uint, ulong> _nextMessageId;
 
         public string Address { get; }
 
@@ -33,7 +33,7 @@ namespace Netimobiledevice.Remoted.Xpc
             Address = $"{ip}";
             _client = new TcpClient(ip, port);
             _stream = _client.GetStream();
-            _nextMessageId = new Dictionary<int, ulong> {
+            _nextMessageId = new Dictionary<uint, ulong> {
                 { ROOT_CHANNEL, 0 },
                 { REPLY_CHANNEL, 0 }
             };
@@ -59,7 +59,7 @@ namespace Netimobiledevice.Remoted.Xpc
             }).ConfigureAwait(false);
 
             // Send first actual requests
-            await SendRequestAsync(new Dictionary<string, XpcObject>()).ConfigureAwait(false);
+            await SendRequestAsync([]).ConfigureAwait(false);
             await SendFrameAsync(new DataFrame() {
                 StreamIdentifier = ROOT_CHANNEL,
                 Data = new XpcWrapper {
@@ -107,11 +107,11 @@ namespace Netimobiledevice.Remoted.Xpc
         private async Task<Frame> ReceiveFrame()
         {
             byte[] headerBuffer = new byte[FrameHeader.FrameHeaderLength];
-            await _stream.ReadAsync(headerBuffer).ConfigureAwait(false);
+            await _stream.ReadExactlyAsync(headerBuffer).ConfigureAwait(false);
             FrameHeader frameHeader = Frame.ParseFrameHeader(headerBuffer);
 
             byte[] frameBuffer = new byte[frameHeader.Length];
-            await _stream.ReadAsync(frameBuffer).ConfigureAwait(false);
+            await _stream.ReadExactlyAsync(frameBuffer).ConfigureAwait(false);
             Frame frame = Frame.Create(frameHeader.Type);
             frame.ParsePayload(frameBuffer, frameHeader);
 
@@ -177,24 +177,24 @@ namespace Netimobiledevice.Remoted.Xpc
             while (true) {
                 DataFrame frame = await ReceiveNextDataFrame().ConfigureAwait(false);
 
-                XpcMessage? message = null;
+                XpcMessage? message;
                 try {
-                    message = XpcMessage.Deserialise([.. _previousFrameData, .. frame.Data]);
+                    message = XpcWrapper.Deserialise([.. _previousFrameData, .. frame.Data]).Message;
                     _previousFrameData = [];
                 }
-                catch (Exception ex) {
+                catch (Exception) {
                     _previousFrameData = [.. _previousFrameData, .. frame.Data];
                     continue;
                 }
 
-                if (message is null) {
+                if (message is null || message.Payload is null) {
                     continue;
                 }
                 if (message.Payload.Obj is XpcDictionaryObject dict && dict.Count == 0) {
                     continue;
                 }
 
-                _nextMessageId[(int) frame.StreamIdentifier] = message.MessageId + 1;
+                _nextMessageId[frame.StreamIdentifier] = message.MessageId + 1;
                 return (XpcDictionaryObject) message.Payload.Obj;
             }
         }
