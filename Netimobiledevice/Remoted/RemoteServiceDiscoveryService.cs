@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Logging;
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.Lockdown;
+using Netimobiledevice.Lockdown.Pairing;
+using Netimobiledevice.Plist;
 using Netimobiledevice.Remoted.Xpc;
 using System;
 using System.Threading.Tasks;
@@ -9,9 +11,12 @@ namespace Netimobiledevice.Remoted
 {
     public class RemoteServiceDiscoveryService : LockdownServiceProvider
     {
+        private const string TRUSTED_SERVICE_NAME = "com.apple.mobile.lockdown.remote.trusted";
+        private const string UNTRUSTED_SERVICE_NAME = "com.apple.mobile.lockdown.remote.untrusted";
+
         public const ushort RSD_PORT = 58783;
 
-        private XpcDictionaryObject? peerInfo = null;
+        private XpcDictionary? peerInfo = null;
 
         public override ILogger Logger => throw new NotImplementedException();
 
@@ -22,6 +27,10 @@ namespace Netimobiledevice.Remoted
         public RemoteXPCConnection Service { get; private set; }
 
         public string? Name { get; private set; }
+
+        public string Udid { get; private set; }
+
+        public string ProductType { get; private set; }
 
         public RemoteServiceDiscoveryService(string ip, int port, string? name = null) : base()
         {
@@ -39,17 +48,16 @@ namespace Netimobiledevice.Remoted
         {
             await Service.Connect();
             peerInfo = await Service.ReceiveResponse().ConfigureAwait(false);
-            /* TODO
-            var udid = peerInfo["Properties"]["UniqueDeviceID"];
-            var productType = peerInfo["Properties"]["ProductType"];
+            Udid = peerInfo["Properties"].AsXpcDictionary()["UniqueDeviceID"].AsXpcString().Data ?? string.Empty;
+            ProductType = peerInfo["Properties"].AsXpcDictionary()["ProductType"].AsXpcString().Data ?? string.Empty;
+
             try {
-                _lockdown = create_using_remote(self.start_lockdown_service('com.apple.mobile.lockdown.remote.trusted'))
+                Lockdown = MobileDevice.CreateUsingRemote(StartLockdownService(TRUSTED_SERVICE_NAME));
             }
-            catch (Exception ex) {
-                _lockdown = create_using_remote(self.start_lockdown_service('com.apple.mobile.lockdown.remote.untrusted'))
+            catch (Exception) {
+                Lockdown = MobileDevice.CreateUsingRemote(StartLockdownService(UNTRUSTED_SERVICE_NAME));
             }
-            */
-            var allValues = Lockdown.GetValue();
+            PropertyNode? allValues = Lockdown.GetValue();
         }
 
         /// <summary>
@@ -59,17 +67,49 @@ namespace Netimobiledevice.Remoted
         /// <returns>Port discovered service runs on</returns>
         public ushort GetServicePort(string name)
         {
-            bool found = ((XpcDictionaryObject) peerInfo["Services"]).TryGetValue(name, out XpcObject? serviceObject);
-            if (found) {
-                XpcDictionaryObject service = (XpcDictionaryObject) serviceObject;
-                return (ushort) ((XpcInt64) service["Port"]).Data;
+            if (peerInfo == null) {
+                throw new NetimobiledeviceException("peerInfo not set");
+            }
+
+            if (peerInfo["Services"].AsXpcDictionary().TryGetValue(name, out XpcObject? serviceObject)) {
+                XpcDictionary service = serviceObject.AsXpcDictionary();
+                string portString = service["Port"].AsXpcString().Data ?? string.Empty;
+                return Convert.ToUInt16(portString);
             }
             throw new NetimobiledeviceException($"No such service {name}");
         }
 
         public override ServiceConnection StartLockdownService(string name, bool useEscrowBag = false, bool useTrustedConnection = true)
         {
-            throw new NotImplementedException();
+            ServiceConnection serviceConnection = StartLockdownServiceWithoutCheckin(name);
+
+            DictionaryNode checkin = new DictionaryNode() {
+                { "Label", new StringNode("Netimobiledevice") },
+                { "ProtocolVersion", new StringNode("2") },
+                { "Request", new StringNode("RSDCheckin") }
+            };
+            if (useEscrowBag) {
+                DictionaryNode pairingRecord = PairRecords.GetLocalPairingRecord(PairRecords.GetRemotePairingRecordFilename(Udid), null, Logger) ?? [];
+                string encodedPairRecord = Convert.ToBase64String(pairingRecord["remote_unlock_host_key"].AsDataNode().Value);
+                checkin.Add("EscrowBag", new StringNode(encodedPairRecord));
+            }
+
+            DictionaryNode response = serviceConnection.SendReceivePlist(checkin)?.AsDictionaryNode() ?? [];
+            if (response["Request"].AsStringNode().Value != "RSDCheckin") {
+                throw new NetimobiledeviceException($"Invalid response for RSDCheckIn: {response}. Expected \"RSDCheckIn\"");
+            }
+
+            response = serviceConnection.ReceivePlist()?.AsDictionaryNode() ?? [];
+            if (response["Request"].AsStringNode().Value != "StartService") {
+                throw new NetimobiledeviceException($"Invalid response for RSDCheckIn: {response}. Expected \"ServiceService\"");
+            }
+
+            return serviceConnection;
+        }
+
+        public ServiceConnection StartLockdownServiceWithoutCheckin(string name)
+        {
+            return ServiceConnection.CreateUsingTcp(Service.Address, GetServicePort(name));
         }
 
         public RemoteXPCConnection StartRemoteService(string name)

@@ -7,7 +7,7 @@ using System.Text;
 
 namespace Netimobiledevice.Remoted.Xpc
 {
-    public class XpcDictionaryObject : XpcObject, IDictionary<string, XpcObject>
+    public class XpcDictionary : XpcObject, IDictionary<string, XpcObject>
     {
         private readonly IDictionary<string, XpcObject> _dictionary = new Dictionary<string, XpcObject>();
 
@@ -30,9 +30,9 @@ namespace Netimobiledevice.Remoted.Xpc
 
         public bool IsReadOnly => false;
 
-        public XpcDictionaryObject() { }
+        public XpcDictionary() { }
 
-        public XpcDictionaryObject(IDictionary<string, XpcObject> data)
+        public XpcDictionary(IDictionary<string, XpcObject> data)
         {
             _dictionary = data;
         }
@@ -111,9 +111,9 @@ namespace Netimobiledevice.Remoted.Xpc
             return _dictionary.GetEnumerator();
         }
 
-        public static XpcDictionaryObject Deserialise(byte[] data)
+        public static XpcDictionary Deserialise(byte[] data)
         {
-            XpcDictionaryObject dict = [];
+            XpcDictionary dict = [];
 
             data = GetPrefixSizeFromData(data);
 
@@ -124,7 +124,7 @@ namespace Netimobiledevice.Remoted.Xpc
                 int size = SerialiseAlignedString(key).Length;
                 data = data.Skip(size).ToArray();
 
-                XpcObject xpcObject = Deserialise(data);
+                XpcObject xpcObject = XpcSerialiser.Deserialise(data);
                 size = XpcSerialiser.Serialise(xpcObject).Length;
                 data = data.Skip(size).ToArray();
 

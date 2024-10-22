@@ -12,7 +12,7 @@ public class Program
 
         Console.WriteLine("Yay!");
 
-        await Task.Delay(5000);
+        await Task.Delay(5 * 1000);
         RemoteServiceDiscoveryService rsd = await tunneld.GetDevice() ?? throw new Exception("No device found");
 
         CancellationTokenSource tokenSource = new CancellationTokenSource();

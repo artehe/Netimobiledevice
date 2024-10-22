@@ -12,6 +12,13 @@ namespace Netimobiledevice.Remoted.Xpc
         {
             ulong messageSize = BitConverter.ToUInt64(data, 0);
             ulong messageId = BitConverter.ToUInt64(data, 8);
+
+            XpcMessage message = new XpcMessage() {
+                MessageId = messageId
+            };
+            if (messageSize == 0) {
+                return message;
+            }
             return new XpcMessage() {
                 MessageId = messageId,
                 Payload = XpcPayload.Deserialise(data.Skip(16).ToArray())

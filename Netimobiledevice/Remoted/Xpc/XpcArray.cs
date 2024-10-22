@@ -83,7 +83,7 @@ namespace Netimobiledevice.Remoted.Xpc
             int entryCount = BitConverter.ToInt32(data.Take(sizeof(int)).ToArray());
             data = data.Skip(sizeof(int)).ToArray();
             for (int i = 0; i < entryCount; i++) {
-                XpcObject xpcObject = Deserialise(data);
+                XpcObject xpcObject = XpcSerialiser.Deserialise(data);
                 int size = XpcSerialiser.Serialise(xpcObject).Length;
                 data = data.Skip(size).ToArray();
 
