@@ -20,6 +20,19 @@ namespace Netimobiledevice.Remoted.Xpc
             int length = BitConverter.ToInt32(data.Take(sizeof(int)).ToArray());
             return data.Skip(sizeof(int)).Take(length).ToArray();
         }
+        public XpcDictionary AsXpcDictionary()
+        {
+            return (XpcDictionary) this;
+        }
+        public XpcString AsXpcString()
+        {
+            return (XpcString) this;
+        }
+
+        public XpcUuid AsXpcUuid()
+        {
+            return (XpcUuid) this;
+        }
     }
 
     public abstract class XpcObject<T>(T? data) : XpcObject

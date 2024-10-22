@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Authentication;
@@ -56,8 +57,9 @@ namespace Netimobiledevice.Lockdown
 
         internal static ServiceConnection CreateUsingTcp(string hostname, ushort port, ILogger? logger = null)
         {
-            Socket sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.IP);
-            sock.Connect(hostname, port);
+            IPAddress ip = IPAddress.Parse(hostname);
+            Socket sock = new Socket(SocketType.Stream, ProtocolType.IP);
+            sock.Connect(ip, port);
             return new ServiceConnection(sock, logger ?? NullLogger.Instance);
         }
 

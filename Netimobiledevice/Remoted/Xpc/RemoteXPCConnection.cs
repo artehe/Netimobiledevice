@@ -107,11 +107,11 @@ namespace Netimobiledevice.Remoted.Xpc
         private async Task<Frame> ReceiveFrame()
         {
             byte[] headerBuffer = new byte[FrameHeader.FrameHeaderLength];
-            await _stream.ReadExactlyAsync(headerBuffer).ConfigureAwait(false);
+            await _stream.ReadAsync(headerBuffer).ConfigureAwait(false);
             FrameHeader frameHeader = Frame.ParseFrameHeader(headerBuffer);
 
             byte[] frameBuffer = new byte[frameHeader.Length];
-            await _stream.ReadExactlyAsync(frameBuffer).ConfigureAwait(false);
+            await _stream.ReadAsync(frameBuffer).ConfigureAwait(false);
             Frame frame = Frame.Create(frameHeader.Type);
             frame.ParsePayload(frameBuffer, frameHeader);
 
@@ -172,7 +172,7 @@ namespace Netimobiledevice.Remoted.Xpc
             await DoHandshake().ConfigureAwait(false);
         }
 
-        public async Task<XpcDictionaryObject> ReceiveResponse()
+        public async Task<XpcDictionary> ReceiveResponse()
         {
             while (true) {
                 DataFrame frame = await ReceiveNextDataFrame().ConfigureAwait(false);
@@ -190,12 +190,15 @@ namespace Netimobiledevice.Remoted.Xpc
                 if (message is null || message.Payload is null) {
                     continue;
                 }
-                if (message.Payload.Obj is XpcDictionaryObject dict && dict.Count == 0) {
+                if (message.Payload.Obj == null) {
+                    continue;
+                }
+                if (message.Payload.Obj.AsXpcDictionary().Count == 0) {
                     continue;
                 }
 
                 _nextMessageId[frame.StreamIdentifier] = message.MessageId + 1;
-                return (XpcDictionaryObject) message.Payload.Obj;
+                return message.Payload.Obj.AsXpcDictionary();
             }
         }
     }

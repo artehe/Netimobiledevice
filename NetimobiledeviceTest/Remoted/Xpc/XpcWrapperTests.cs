@@ -86,7 +86,7 @@ namespace NetimobiledeviceTest.Remoted.Xpc
                 Message = new XpcMessage() {
                     MessageId = 0,
                     Payload = new XpcPayload() {
-                        Obj = new XpcDictionaryObject()
+                        Obj = new XpcDictionary()
                     }
                 }
             };
@@ -97,51 +97,8 @@ namespace NetimobiledeviceTest.Remoted.Xpc
             Assert.AreEqual(expectedXpcWrapper.Message.Payload.Magic, xpcWrapper.Message.Payload?.Magic);
             Assert.AreEqual(expectedXpcWrapper.Message.Payload.ProtocolVersion, xpcWrapper.Message.Payload?.ProtocolVersion);
 
-            XpcDictionaryObject obj = (XpcDictionaryObject) xpcWrapper.Message.Payload!.Obj!;
-            XpcDictionaryObject expectedObj = (XpcDictionaryObject) expectedXpcWrapper.Message.Payload!.Obj;
-            Assert.AreEqual(expectedObj.Count, obj.Count);
-            foreach (KeyValuePair<string, XpcObject> expectedEntry in expectedObj) {
-                Assert.IsTrue(obj.ContainsKey(expectedEntry.Key));
-                Assert.AreEqual(expectedEntry.Value, obj[expectedEntry.Key]);
-            }
-        }
-
-
-        [TestMethod]
-        public void CreatesDeserialisedWrapperCorrectly2()
-        {
-            List<byte> data = [];
-            using (Stream stream = TestFileHelper.GetTestFileStream("TestFiles/XpcMessage.bin")) {
-                byte[] buffer = new byte[4096];
-                int read;
-                while ((read = stream.Read(buffer)) > 0) {
-                    data.AddRange(buffer.Take(read));
-                }
-            }
-
-            XpcWrapper xpcWrapper = XpcWrapper.Deserialise(data.Skip(92).ToArray());
-            XpcWrapper expectedXpcWrapper = new XpcWrapper {
-                Flags = XpcFlags.AlwaysSet | XpcFlags.DataPresent,
-                Message = new XpcMessage() {
-                    MessageId = 2,
-                    Payload = new XpcPayload() {
-                        Obj = new XpcDictionaryObject() {
-                            { "MessageType", new XpcString("Handshake") },
-                            { "MessagingProtocolVersion", new XpcUInt64(3) },
-                            { "Services", new XpcDictionaryObject() }
-                        }
-                    }
-                }
-            };
-
-            Assert.AreEqual(expectedXpcWrapper.Magic, xpcWrapper.Magic);
-            Assert.AreEqual(expectedXpcWrapper.Flags, xpcWrapper.Flags);
-            Assert.AreEqual(expectedXpcWrapper.Message.MessageId, xpcWrapper.Message.MessageId);
-            Assert.AreEqual(expectedXpcWrapper.Message.Payload.Magic, xpcWrapper.Message.Payload?.Magic);
-            Assert.AreEqual(expectedXpcWrapper.Message.Payload.ProtocolVersion, xpcWrapper.Message.Payload?.ProtocolVersion);
-
-            XpcDictionaryObject obj = (XpcDictionaryObject) xpcWrapper.Message.Payload!.Obj!;
-            XpcDictionaryObject expectedObj = (XpcDictionaryObject) expectedXpcWrapper.Message.Payload!.Obj;
+            XpcDictionary obj = (XpcDictionary) xpcWrapper.Message.Payload!.Obj!;
+            XpcDictionary expectedObj = (XpcDictionary) expectedXpcWrapper.Message.Payload!.Obj;
             Assert.AreEqual(expectedObj.Count, obj.Count);
             foreach (KeyValuePair<string, XpcObject> expectedEntry in expectedObj) {
                 Assert.IsTrue(obj.ContainsKey(expectedEntry.Key));

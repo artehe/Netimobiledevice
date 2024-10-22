@@ -25,7 +25,7 @@ namespace Netimobiledevice.Remoted.Xpc
                 Message = new XpcMessage() {
                     MessageId = (uint) messageId,
                     Payload = new XpcPayload() {
-                        Obj = new XpcDictionaryObject(data)
+                        Obj = new XpcDictionary(data)
                     }
                 }
             };

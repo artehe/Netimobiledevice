@@ -40,7 +40,34 @@ namespace Netimobiledevice.Lockdown.Pairing
             return null;
         }
 
-        private static DictionaryNode? GetLocalPairingRecord(string identifier, DirectoryInfo? pairingRecordsCacheDirectory, ILogger logger)
+        public static DirectoryInfo? CreatePairingRecordsCacheFolder(string pairingRecordsCacheFolder = "")
+        {
+            if (string.IsNullOrEmpty(pairingRecordsCacheFolder)) {
+                pairingRecordsCacheFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Netimobiledevice");
+            }
+            try {
+                Directory.CreateDirectory(pairingRecordsCacheFolder);
+            }
+            catch (Exception) {
+                return null;
+            }
+            return new DirectoryInfo(pairingRecordsCacheFolder);
+        }
+
+        public static string GenerateHostId(string hostname = "")
+        {
+            if (string.IsNullOrEmpty(hostname)) {
+                hostname = Dns.GetHostName();
+            }
+
+            bool success = Guid.TryParse(hostname, out Guid result);
+            if (success) {
+                return result.ToString().ToUpperInvariant();
+            }
+            return Guid.NewGuid().ToString().ToUpperInvariant();
+        }
+
+        public static DictionaryNode? GetLocalPairingRecord(string identifier, DirectoryInfo? pairingRecordsCacheDirectory, ILogger logger)
         {
             logger.LogDebug("Looking for Netimobiledevice pairing record");
             string filePath = $"{identifier}.plist";
@@ -57,33 +84,6 @@ namespace Netimobiledevice.Lockdown.Pairing
                 logger.LogDebug("No Netimobiledevice pairing record found for device {identifier}", identifier);
                 return null;
             }
-        }
-
-        public static string GenerateHostId(string hostname = "")
-        {
-            if (string.IsNullOrEmpty(hostname)) {
-                hostname = Dns.GetHostName();
-            }
-
-            bool success = Guid.TryParse(hostname, out Guid result);
-            if (success) {
-                return result.ToString().ToUpperInvariant();
-            }
-            return Guid.NewGuid().ToString().ToUpperInvariant();
-        }
-
-        public static DirectoryInfo? CreatePairingRecordsCacheFolder(string pairingRecordsCacheFolder = "")
-        {
-            if (string.IsNullOrEmpty(pairingRecordsCacheFolder)) {
-                pairingRecordsCacheFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Netimobiledevice");
-            }
-            try {
-                Directory.CreateDirectory(pairingRecordsCacheFolder);
-            }
-            catch (Exception) {
-                return null;
-            }
-            return new DirectoryInfo(pairingRecordsCacheFolder);
         }
 
         /// <summary>
@@ -132,6 +132,11 @@ namespace Netimobiledevice.Lockdown.Pairing
 
             // We didn't find any records so throw a not paired exception
             throw new NotPairedException();
+        }
+
+        public static string GetRemotePairingRecordFilename(string identifier)
+        {
+            return $"remote_{identifier}";
         }
     }
 }

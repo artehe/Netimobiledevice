@@ -324,7 +324,7 @@ namespace Netimobiledevice.Lockdown
             }
         }
 
-        protected void HandleAutoPair(bool autoPair, float timeout)
+        protected virtual void HandleAutoPair(bool autoPair, float timeout)
         {
             if (ValidatePairing()) {
                 return;
@@ -442,7 +442,7 @@ namespace Netimobiledevice.Lockdown
         /// Start a pairing operation.
         /// </summary>
         /// <returns>Return <see langword="true"/> if the user accept pairng else <see langword="false"/>.</returns>
-        public Task<bool> PairAsync()
+        public virtual Task<bool> PairAsync()
         {
             return PairAsync(new Progress<PairingState>(), CancellationToken.None);
         }
@@ -452,7 +452,7 @@ namespace Netimobiledevice.Lockdown
         /// </summary>
         /// <param name="cancellationToken">A cancelation token used to cancel stop the operation</param>
         /// <returns>Return <see langword="true"/> if the user accept pairng else <see langword="false"/>.</returns>
-        public Task<bool> PairAsync(CancellationToken cancellationToken)
+        public virtual Task<bool> PairAsync(CancellationToken cancellationToken)
         {
             return PairAsync(new Progress<PairingState>(), cancellationToken);
         }
@@ -462,7 +462,7 @@ namespace Netimobiledevice.Lockdown
         /// </summary>
         /// <param name="progress">Used to report the progress</param>
         /// <returns>Return <see langword="true"/> if the user accept pairng else <see langword="false"/>.</returns>
-        public Task<bool> PairAsync(IProgress<PairingState> progress)
+        public virtual Task<bool> PairAsync(IProgress<PairingState> progress)
         {
             return PairAsync(progress, CancellationToken.None);
         }
@@ -473,7 +473,7 @@ namespace Netimobiledevice.Lockdown
         /// <param name="progress">Used to report the progress</param>
         /// <param name="cancellationToken">A cancelation token used to cancel stop the operation</param>
         /// <returns>Return <see langword="true"/> if the user accept pairng else <see langword="false"/>.</returns>
-        public async Task<bool> PairAsync(IProgress<PairingState> progress, CancellationToken cancellationToken)
+        public virtual async Task<bool> PairAsync(IProgress<PairingState> progress, CancellationToken cancellationToken)
         {
             using (NotificationProxyService np = new NotificationProxyService(this, true)) {
                 np.ObserveNotification(ReceivableNotification.RequestPair);
@@ -526,7 +526,7 @@ namespace Netimobiledevice.Lockdown
         /// <param name="timeout">How long to wait when pairing the iOS device</param>
         /// <returns>If the device is currently paired or if the pairing was successful or not</returns>
         /// <exception cref="FatalPairingException">Exception thrown when pairing should have succeeded but failed for some reason.</exception>
-        public bool PairDevice()
+        public virtual bool PairDevice()
         {
             bool currentlyPaired = ValidatePairing();
             if (currentlyPaired) {
@@ -597,7 +597,7 @@ namespace Netimobiledevice.Lockdown
         /// <summary>
         /// Try to unpair the device.
         /// </summary>
-        public void Unpair()
+        public virtual void Unpair()
         {
             if (_pairRecord != null) {
                 DictionaryNode options = new DictionaryNode() {

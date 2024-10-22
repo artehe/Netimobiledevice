@@ -35,12 +35,13 @@ namespace Netimobiledevice.Remoted.Xpc
             XpcObject xpcObject = type switch {
                 XpcMessageType.Array => XpcArray.Deserialise(data),
                 XpcMessageType.Bool => XpcBool.Deserialise(data),
-                XpcMessageType.Dictionary => XpcDictionaryObject.Deserialise(data),
+                XpcMessageType.Dictionary => XpcDictionary.Deserialise(data),
                 XpcMessageType.Double => XpcDouble.Deserialise(data),
                 XpcMessageType.Int64 => XpcInt64.Deserialise(data),
                 XpcMessageType.Null => XpcNull.Deserialise(data),
                 XpcMessageType.String => XpcString.Deserialise(data),
                 XpcMessageType.Uint64 => XpcUInt64.Deserialise(data),
+                XpcMessageType.Uuid => XpcUuid.Deserialise(data),
                 _ => throw new InvalidOperationException($"Not supported XpcObject type {type}")
             };
             return xpcObject;
