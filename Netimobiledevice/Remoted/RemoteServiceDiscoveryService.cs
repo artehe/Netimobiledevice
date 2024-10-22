@@ -22,7 +22,7 @@ namespace Netimobiledevice.Remoted
 
         public override Version OsVersion => throw new NotImplementedException();
 
-        public LockdownClient? Lockdown { get; private set; }
+        public RemoteLockdownClient? Lockdown { get; private set; }
 
         public RemoteXPCConnection Service { get; private set; }
 
