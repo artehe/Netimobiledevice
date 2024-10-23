@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.Exceptions;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
@@ -44,7 +45,9 @@ namespace Netimobiledevice.NotificationProxy
             { ReceivableNotification.ItdbprepDidEnd, "com.apple.itdbprep.notification.didEnd" },
             { ReceivableNotification.LanguageChanged, "com.apple.language.changed" },
             { ReceivableNotification.AddressBookPreferenceChanged, "com.apple.AddressBook.PreferenceChanged" },
-            { ReceivableNotification.RequestPair, "com.apple.mobile.lockdown.request_pair" }
+            { ReceivableNotification.RequestPair, "com.apple.mobile.lockdown.request_pair" },
+            { ReceivableNotification.LocalAuthenticationUiPresented , "com.apple.LocalAuthentication.ui.presented" },
+            { ReceivableNotification.LocalAuthenticationUiDismissed, "com.apple.LocalAuthentication.ui.dismissed" }
         };
         /// <summary>
         /// Host-To-Device notifications.
@@ -89,16 +92,16 @@ namespace Netimobiledevice.NotificationProxy
                     if (dict.ContainsKey("Command") && dict["Command"].AsStringNode().Value == "RelayNotification") {
                         if (dict.ContainsKey("Name")) {
                             string notificationName = dict["Name"].AsStringNode().Value;
-                            Lockdown.Logger.LogDebug($"Got notification {notificationName}");
+                            Lockdown.Logger.LogDebug("Got notification {notificationName}", notificationName);
                             return notificationName;
                         }
                     }
                     else if (dict.ContainsKey("Command") && dict["Command"].AsStringNode().Value == "ProxyDeath") {
                         Lockdown.Logger.LogError("NotificationProxy died");
-                        throw new Exception("Notification proxy died, can't listen to notifications anymore");
+                        throw new NetimobiledeviceException("Notification proxy died, can't listen to notifications anymore");
                     }
                     else if (dict.ContainsKey("Command")) {
-                        Lockdown.Logger.LogWarning($"Unknown NotificationProxy command {dict["Command"]}");
+                        Lockdown.Logger.LogWarning("Unknown NotificationProxy command {command}", dict["Command"]);
                     }
                 }
             }
@@ -148,7 +151,7 @@ namespace Netimobiledevice.NotificationProxy
                 }
                 catch (Exception ex) {
                     if (!notificationListener.CancellationPending) {
-                        Lockdown.Logger.LogError($"Notification proxy listener has an error: {ex}");
+                        Lockdown.Logger.LogError(ex, "Notification proxy listener has an error");
                         throw;
                     }
                 }
