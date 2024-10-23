@@ -26,6 +26,9 @@ namespace Netimobiledevice.Backup
         private const string LOCKDOWN_SERVICE_NAME = "com.apple.mobilebackup2";
         private const string RSD_SERVICE_NAME = "com.apple.mobilebackup2.shim.remote";
 
+        private CancellationTokenSource _internalCts = new CancellationTokenSource();
+        private bool _passcodeRequired;
+
         /// <summary>
         /// iTunes files to be inserted into the Info.plist file.
         /// </summary>
@@ -323,32 +326,9 @@ namespace Netimobiledevice.Backup
             return dl;
         }
 
-        // TODO switch this to use the newer method that I know about.
-        private bool IsPasscodeRequiredBeforeBackup()
+        private static ServiceConnection GetServiceConnection(LockdownClient client)
         {
-            // iOS versions 15.7.1 and anything 16.1 or newer will require you to input a passcode before
-            // it can start a backup so we make sure to notify the user about this.
-            if ((Lockdown.OsVersion >= new Version(15, 7, 1) && Lockdown.OsVersion < new Version(16, 0)) ||
-                Lockdown.OsVersion >= new Version(16, 1)) {
-                using (DiagnosticsService diagnosticsService = new DiagnosticsService(Lockdown)) {
-                    string queryString = "PasswordConfigured";
-                    try {
-                        DictionaryNode queryResponse = diagnosticsService.MobileGestalt(new List<string>() { queryString });
-                        if (queryResponse.TryGetValue(queryString, out PropertyNode? passcodeSetNode)) {
-                            bool passcodeSet = passcodeSetNode.AsBooleanNode().Value;
-                            if (passcodeSet) {
-                                return true;
-                            }
-                        }
-                    }
-                    catch (DeprecatedException) {
-                        // Assume that the passcode is set for now
-                        // TODO Try and find a new way to tell if the devices passcode is set 
-                        return true;
-                    }
-                }
-            }
-            return false;
+            return client.StartLockdownService(SERVICE_NAME, useEscrowBag: true);
         }
 
         /// <summary>
@@ -383,10 +363,12 @@ namespace Netimobiledevice.Backup
         /// <returns></returns>
         public async Task<ResultCode> Backup(bool fullBackup = true, string backupDirectory = ".", CancellationToken cancellationToken = default)
         {
+            _internalCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
             string deviceDirectory = Path.Combine(backupDirectory, Lockdown.Udid);
             Directory.CreateDirectory(deviceDirectory);
 
-            using (DeviceLinkService dl = await GetDeviceLink(backupDirectory, cancellationToken).ConfigureAwait(false)) {
+            using (DeviceLinkService dl = await GetDeviceLink(backupDirectory, _internalCts.Token).ConfigureAwait(false)) {
                 dl.BeforeReceivingFile += DeviceLink_BeforeReceivingFile;
                 dl.Completed += DeviceLink_Completed;
                 dl.Error += DeviceLink_Error;
@@ -399,16 +381,21 @@ namespace Netimobiledevice.Backup
                 dl.Started += DeviceLink_Started;
 
                 using (NotificationProxyService np = new NotificationProxyService(this.Lockdown)) {
+                    np.ReceivedNotification += NotificationProxy_ReceivedNotification;
+                    np.ObserveNotification(ReceivableNotification.SyncCancelRequest);
+                    np.ObserveNotification(ReceivableNotification.LocalAuthenticationUiPresented);
+                    np.ObserveNotification(ReceivableNotification.LocalAuthenticationUiDismissed);
+
                     using (AfcService afc = new AfcService(this.Lockdown)) {
                         using (BackupLock backupLock = new BackupLock(afc, np)) {
-                            await backupLock.AquireBackupLock(cancellationToken).ConfigureAwait(false);
+                            await backupLock.AquireBackupLock(_internalCts.Token).ConfigureAwait(false);
 
                             // Create Info.plist
                             string infoPlistPath = Path.Combine(deviceDirectory, "Info.plist");
-                            DictionaryNode infoPlist = await CreateInfoPlist(afc, cancellationToken).ConfigureAwait(false);
+                            DictionaryNode infoPlist = await CreateInfoPlist(afc, _internalCts.Token).ConfigureAwait(false);
                             using (FileStream fs = File.OpenWrite(infoPlistPath)) {
                                 byte[] infoPlistData = PropertyList.SaveAsByteArray(infoPlist, PlistFormat.Xml);
-                                await fs.WriteAsync(infoPlistData, cancellationToken).ConfigureAwait(false);
+                                await fs.WriteAsync(infoPlistData, _internalCts.Token).ConfigureAwait(false);
                             }
 
                             // Create Status.plist file if doesn't exist.
@@ -423,7 +410,7 @@ namespace Netimobiledevice.Backup
                                     { "SnapshotState", new StringNode(nameof(SnapshotState.Finished).ToLowerInvariant()) },
                                     { "UUID", new StringNode(Guid.NewGuid().ToString()) }
                                 };
-                                await File.WriteAllBytesAsync(statusPlistPath, PropertyList.SaveAsByteArray(statusPlist, PlistFormat.Binary), cancellationToken).ConfigureAwait(false);
+                                await File.WriteAllBytesAsync(statusPlistPath, PropertyList.SaveAsByteArray(statusPlist, PlistFormat.Binary), _internalCts.Token).ConfigureAwait(false);
                             }
 
                             // Create Manifest.plist if doesn't exist.
@@ -439,14 +426,36 @@ namespace Netimobiledevice.Backup
                             };
                             dl.SendProcessMessage(message);
 
-                            if (IsPasscodeRequiredBeforeBackup()) {
-                                PasscodeRequiredForBackup?.Invoke(this, EventArgs.Empty);
+                            // Wait for 3 seconds to see if the device passcode is requested
+                            await Task.Delay(3000, _internalCts.Token).ConfigureAwait(false);
+                            while (_passcodeRequired) {
+                                // Keep waiting till the passcode has been entered
+                                await Task.Delay(3000, _internalCts.Token).ConfigureAwait(false);
                             }
 
-                            return await dl.DlLoop(cancellationToken).ConfigureAwait(false);
+                            return await dl.DlLoop(_internalCts.Token).ConfigureAwait(false);
                         }
                     }
                 }
+            }
+        }
+
+        private void NotificationProxy_ReceivedNotification(object? sender, ReceivedNotificationEventArgs e)
+        {
+            if (e.Event == ReceivableNotification.LocalAuthenticationUiPresented) {
+                // iOS versions 15.7.1 and anything 16.1 or newer will require you to input a passcode before
+                // it can start a backup so we make sure to notify the user about this.
+                if ((Lockdown.OsVersion >= new Version(15, 7, 1) && Lockdown.OsVersion < new Version(16, 0)) ||
+                    Lockdown.OsVersion >= new Version(16, 1)) {
+                    _passcodeRequired = true;
+                    PasscodeRequiredForBackup?.Invoke(this, EventArgs.Empty);
+                }
+            }
+            else if (e.Event == ReceivableNotification.LocalAuthenticationUiDismissed) {
+                _passcodeRequired = false;
+            }
+            else if (e.Event == ReceivableNotification.SyncCancelRequest) {
+                _internalCts.Cancel();
             }
         }
 
