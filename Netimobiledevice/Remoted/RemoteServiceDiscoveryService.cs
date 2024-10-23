@@ -116,5 +116,10 @@ namespace Netimobiledevice.Remoted
         {
             return new RemoteXPCConnection(Service.Address, GetServicePort(name));
         }
+
+        public override PropertyNode? GetValue(string? domain, string? key)
+        {
+            return Lockdown.GetValue(domain, key);
+        }
     }
 }

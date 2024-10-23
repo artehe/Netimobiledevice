@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.Lockdown;
-using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
@@ -13,10 +12,13 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.NotificationProxy
 {
-    public sealed class NotificationProxyService : BaseService
+    public sealed class NotificationProxyService : LockdownService
     {
-        private const string SERVICE_NAME = "com.apple.mobile.notification_proxy";
-        private const string SERVICE_NAME_INSECURE = "com.apple.mobile.insecure_notification_proxy";
+        private const string LOCKDOWN_SERVICE_NAME = "com.apple.mobile.notification_proxy";
+        private const string RSD_SERVICE_NAME = "com.apple.mobile.notification_proxy.shim.remote";
+
+        private const string INSECURE_LOCKDOWN_SERVICE_NAME = "com.apple.mobile.insecure_notification_proxy";
+        private const string RSD_INSECURE_SERVICE_NAME = "com.apple.mobile.insecure_notification_proxy.shim.remote";
 
         private static readonly SemaphoreSlim serviceLockSemaphoreSlim = new SemaphoreSlim(1, 1);
 
@@ -61,16 +63,37 @@ namespace Netimobiledevice.NotificationProxy
 
         private readonly BackgroundWorker notificationListener;
 
-        protected override string ServiceName => SERVICE_NAME;
+        private static string ServiceNameUsed { get; set; } = LOCKDOWN_SERVICE_NAME;
 
         public event EventHandler<ReceivedNotificationEventArgs>? ReceivedNotification;
 
-        public NotificationProxyService(LockdownClient client, bool useInsecureService = false) : base(client, GetServiceConnection(client, useInsecureService))
+        public NotificationProxyService(LockdownServiceProvider lockdown, bool useInsecureService = false, ILogger? logger = null) : base(lockdown, RSD_SERVICE_NAME, GetNotificationProxyServiceConnection(lockdown, useInsecureService), logger: logger)
         {
             notificationListener = new BackgroundWorker {
                 WorkerSupportsCancellation = true
             };
             notificationListener.DoWork += NotificationListener_DoWork;
+        }
+
+        private static ServiceConnection? GetNotificationProxyServiceConnection(LockdownServiceProvider lockdown, bool useInsecureService)
+        {
+            if (lockdown is LockdownClient) {
+                if (useInsecureService) {
+                    ServiceNameUsed = INSECURE_LOCKDOWN_SERVICE_NAME;
+                }
+                else {
+                    ServiceNameUsed = LOCKDOWN_SERVICE_NAME;
+                }
+            }
+            else {
+                if (useInsecureService) {
+                    ServiceNameUsed = RSD_INSECURE_SERVICE_NAME;
+                }
+                else {
+                    ServiceNameUsed = RSD_SERVICE_NAME;
+                }
+            }
+            return lockdown.StartLockdownService(ServiceNameUsed);
         }
 
         public override void Dispose()
@@ -92,38 +115,26 @@ namespace Netimobiledevice.NotificationProxy
                     if (dict.ContainsKey("Command") && dict["Command"].AsStringNode().Value == "RelayNotification") {
                         if (dict.ContainsKey("Name")) {
                             string notificationName = dict["Name"].AsStringNode().Value;
-                            Lockdown.Logger.LogDebug("Got notification {notificationName}", notificationName);
+                            Logger.LogDebug("Got notification {notificationName}", notificationName);
                             return notificationName;
                         }
                     }
                     else if (dict.ContainsKey("Command") && dict["Command"].AsStringNode().Value == "ProxyDeath") {
-                        Lockdown.Logger.LogError("NotificationProxy died");
+                        Logger.LogError("NotificationProxy died");
                         throw new NetimobiledeviceException("Notification proxy died, can't listen to notifications anymore");
                     }
                     else if (dict.ContainsKey("Command")) {
-                        Lockdown.Logger.LogWarning("Unknown NotificationProxy command {command}", dict["Command"]);
+                        Logger.LogWarning("Unknown NotificationProxy command {command}", dict["Command"]);
                     }
                 }
             }
             catch (ArgumentException ex) {
-                Lockdown.Logger.LogError($"Error: {ex}");
+                Logger.LogError(ex, "Error");
             }
             finally {
                 serviceLockSemaphoreSlim.Release();
             }
             return null;
-        }
-
-        private static ServiceConnection GetServiceConnection(LockdownClient client, bool useInsecureService)
-        {
-            ServiceConnection service;
-            if (useInsecureService) {
-                service = client.StartLockdownService(SERVICE_NAME_INSECURE, useTrustedConnection: false);
-            }
-            else {
-                service = client.StartLockdownService(SERVICE_NAME);
-            }
-            return service;
         }
 
         private async void NotificationListener_DoWork(object? sender, DoWorkEventArgs e)
@@ -147,11 +158,11 @@ namespace Netimobiledevice.NotificationProxy
                     break;
                 }
                 catch (TimeoutException) {
-                    Lockdown.Logger.LogDebug("No notifications received yet, trying again");
+                    Logger.LogDebug("No notifications received yet, trying again");
                 }
                 catch (Exception ex) {
                     if (!notificationListener.CancellationPending) {
-                        Lockdown.Logger.LogError(ex, "Notification proxy listener has an error");
+                        Logger.LogError(ex, "Notification proxy listener has an error");
                         throw;
                     }
                 }

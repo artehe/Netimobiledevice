@@ -1,15 +1,12 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice.Afc;
 using Netimobiledevice.DeviceLink;
-using Netimobiledevice.Diagnostics;
-using Netimobiledevice.Exceptions;
 using Netimobiledevice.InstallationProxy;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.NotificationProxy;
 using Netimobiledevice.Plist;
 using Netimobiledevice.SpringBoardServices;
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -324,11 +321,6 @@ namespace Netimobiledevice.Backup
             await dl.VersionExchange(MOBILEBACKUP2_VERSION_MAJOR, MOBILEBACKUP2_VERSION_MINOR, cancellationToken).ConfigureAwait(false);
             await VersionExchange(dl, cancellationToken).ConfigureAwait(false);
             return dl;
-        }
-
-        private static ServiceConnection GetServiceConnection(LockdownClient client)
-        {
-            return client.StartLockdownService(SERVICE_NAME, useEscrowBag: true);
         }
 
         /// <summary>
