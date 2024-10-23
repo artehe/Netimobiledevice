@@ -5,7 +5,6 @@ using Netimobiledevice.Diagnostics;
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.InstallationProxy;
 using Netimobiledevice.Lockdown;
-using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.NotificationProxy;
 using Netimobiledevice.Plist;
 using Netimobiledevice.SpringBoardServices;
@@ -19,17 +18,18 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Backup
 {
-    public sealed class Mobilebackup2Service : BaseService
+    public sealed class Mobilebackup2Service : LockdownService
     {
         private const int MOBILEBACKUP2_VERSION_MAJOR = 400;
         private const int MOBILEBACKUP2_VERSION_MINOR = 0;
 
-        private const string SERVICE_NAME = "com.apple.mobilebackup2";
+        private const string LOCKDOWN_SERVICE_NAME = "com.apple.mobilebackup2";
+        private const string RSD_SERVICE_NAME = "com.apple.mobilebackup2.shim.remote";
 
         /// <summary>
         /// iTunes files to be inserted into the Info.plist file.
         /// </summary>
-        private static readonly string[] iTunesFiles = new string[] {
+        private static readonly string[] iTunesFiles = [
             "ApertureAlbumPrefs",
             "IC-Info.sidb",
             "IC-Info.sidv",
@@ -41,9 +41,7 @@ namespace Netimobiledevice.Backup
             "iTunesApplicationIDs",
             "iTunesPrefs",
             "iTunesPrefs.plist"
-        };
-
-        protected override string ServiceName => SERVICE_NAME;
+        ];
 
         /// <summary>
         /// Event raised when a file is about to be transferred from the device.
@@ -86,7 +84,9 @@ namespace Netimobiledevice.Backup
         /// </summary>
         public event EventHandler<StatusEventArgs>? Status;
 
-        public Mobilebackup2Service(LockdownClient client) : base(client, GetServiceConnection(client)) { }
+        public Mobilebackup2Service(LockdownServiceProvider lockdown, ILogger? logger = null) : base(lockdown, RSD_SERVICE_NAME, useEscrowBag: true, logger: logger) { }
+
+        public Mobilebackup2Service(LockdownClient lockdown, ILogger? logger = null) : base(lockdown, LOCKDOWN_SERVICE_NAME, useEscrowBag: true, logger: logger) { }
 
         private static bool BackupExists(string backupDirectory, string identifier)
         {
@@ -99,7 +99,7 @@ namespace Netimobiledevice.Backup
 
         private async Task<ResultCode> ChangeBackupEncryptionPassword(string? oldPassword, string? newPassword, BackupEncryptionFlags flag, CancellationToken cancellationToken)
         {
-            DictionaryNode backupDomain = Lockdown.GetValue("com.apple.mobile.backup", null)?.AsDictionaryNode() ?? new DictionaryNode();
+            DictionaryNode backupDomain = Lockdown.GetValue("com.apple.mobile.backup", null)?.AsDictionaryNode() ?? [];
             backupDomain.TryGetValue("WillEncrypt", out PropertyNode? willEncryptNode);
             bool willEncryptBackup = willEncryptNode?.AsBooleanNode().Value ?? false;
 
@@ -161,24 +161,24 @@ namespace Netimobiledevice.Backup
         /// <returns>The created Info.plist as a DictionaryNode.</returns>
         private async Task<DictionaryNode> CreateInfoPlist(AfcService afc, CancellationToken cancellationToken)
         {
-            DictionaryNode rootNode = Lockdown.GetValue()?.AsDictionaryNode() ?? new DictionaryNode();
+            DictionaryNode rootNode = Lockdown.GetValue()?.AsDictionaryNode() ?? [];
             PropertyNode? itunesSettings = Lockdown.GetValue("com.apple.iTunes", null);
 
             // Get the minimum required iTunes version from the device or use a specified default 
             PropertyNode minItunesVersion = Lockdown.GetValue("com.apple.mobile.iTunes", "MinITunesVersion") ?? new StringNode("10.0.1");
 
-            DictionaryNode appDict = new DictionaryNode();
-            ArrayNode installedApps = new ArrayNode();
+            DictionaryNode appDict = [];
+            ArrayNode installedApps = [];
             using (InstallationProxyService installationProxyService = new InstallationProxyService(Lockdown)) {
                 using (SpringBoardServicesService springBoardServicesService = new SpringBoardServicesService(Lockdown)) {
                     try {
                         ArrayNode apps = await installationProxyService.Browse(
                             new DictionaryNode() { { "ApplicationType", new StringNode("User") } },
-                            new ArrayNode() {
+                            [
                                 new StringNode("CFBundleIdentifier"),
                                 new StringNode("ApplicationSINF"),
                                 new StringNode("iTunesMetadata")
-                            },
+                            ],
                             cancellationToken).ConfigureAwait(false);
                         foreach (DictionaryNode app in apps.Cast<DictionaryNode>()) {
                             if (app.TryGetValue("CFBundleIdentifier", out PropertyNode? bundleIdNode)) {
@@ -199,11 +199,11 @@ namespace Netimobiledevice.Backup
                         Logger.LogWarning(ex, "Failed to create application list for Info.plist");
                     }
 
-                    DictionaryNode files = new DictionaryNode();
+                    DictionaryNode files = [];
                     foreach (string iTuneFile in iTunesFiles) {
                         try {
                             string filePath = $"/iTunes_Control/iTunes/${iTuneFile}";
-                            byte[] dataBuffer = await afc.GetFileContents(filePath, cancellationToken).ConfigureAwait(false) ?? Array.Empty<byte>();
+                            byte[] dataBuffer = await afc.GetFileContents(filePath, cancellationToken).ConfigureAwait(false) ?? [];
                             files.Add(iTuneFile, new DataNode(dataBuffer));
                         }
                         catch (AfcException ex) {
@@ -248,7 +248,7 @@ namespace Netimobiledevice.Backup
                     }
 
                     try {
-                        byte[] dataBuffer = await afc.GetFileContents("/Books/iBooksData2.plist", cancellationToken).ConfigureAwait(false) ?? Array.Empty<byte>();
+                        byte[] dataBuffer = await afc.GetFileContents("/Books/iBooksData2.plist", cancellationToken).ConfigureAwait(false) ?? [];
                         info.Add("iBooks Data 2", new DataNode(dataBuffer));
                     }
                     catch (AfcException ex) {
@@ -323,11 +323,6 @@ namespace Netimobiledevice.Backup
             return dl;
         }
 
-        private static ServiceConnection GetServiceConnection(LockdownClient client)
-        {
-            return client.StartLockdownService(SERVICE_NAME, useEscrowBag: true);
-        }
-
         // TODO switch this to use the newer method that I know about.
         private bool IsPasscodeRequiredBeforeBackup()
         {
@@ -362,10 +357,10 @@ namespace Netimobiledevice.Backup
         /// <param name="dl">Initialized device link.</param>
         private static async Task VersionExchange(DeviceLinkService dl, CancellationToken cancellationToken)
         {
-            ArrayNode supportedVersions = new ArrayNode {
+            ArrayNode supportedVersions = [
                 new RealNode(2.0),
                 new RealNode(2.1)
-            };
+            ];
             dl.SendProcessMessage(new DictionaryNode() {
                 {"MessageName", new StringNode("Hello") },
                 {"SupportedProtocolVersions", supportedVersions }

@@ -31,7 +31,7 @@ namespace Netimobiledevice.DeviceLink
         /// <summary>
         /// A list of the files whose transfer failed due to a device error.
         /// </summary>
-        private List<BackupFile> FailedFiles { get; } = new List<BackupFile>();
+        private List<BackupFile> FailedFiles { get; } = [];
 
         /// <summary>
         /// Event raised when a file is about to be transferred from the device.
@@ -109,7 +109,7 @@ namespace Netimobiledevice.DeviceLink
         private async Task ContentsOfDirectory(ArrayNode msg, CancellationToken cancellationToken)
         {
             string path = Path.Combine(_rootPath, msg[1].AsStringNode().Value);
-            DictionaryNode dirList = new DictionaryNode();
+            DictionaryNode dirList = [];
             DirectoryInfo dir = new DirectoryInfo(path);
             if (dir.Exists) {
                 foreach (FileSystemInfo entry in dir.GetFileSystemInfos()) {
@@ -190,15 +190,15 @@ namespace Netimobiledevice.DeviceLink
 
         private void Disconnect()
         {
-            Task.Run(async () => await DisconnectAsync(new ArrayNode(), CancellationToken.None).ConfigureAwait(false)).GetAwaiter().GetResult();
+            Task.Run(async () => await DisconnectAsync([], CancellationToken.None).ConfigureAwait(false)).GetAwaiter().GetResult();
         }
 
         private async Task DisconnectAsync(ArrayNode msg, CancellationToken cancellationToken)
         {
-            ArrayNode message = new ArrayNode {
+            ArrayNode message = [
                 new StringNode("DLMessageDisconnect"),
                 new StringNode("___EmptyParameterString___")
-            };
+            ];
             try {
                 await _service.SendPlistAsync(message, PlistFormat.Binary, cancellationToken).ConfigureAwait(false);
             }
@@ -213,7 +213,7 @@ namespace Netimobiledevice.DeviceLink
         /// <param name="msg">The message received from the device.</param>
         private async Task DownloadFiles(ArrayNode msg, CancellationToken cancellationToken)
         {
-            DictionaryNode errList = new DictionaryNode();
+            DictionaryNode errList = [];
             ArrayNode files = msg[1].AsArrayNode();
             foreach (StringNode filename in files.Cast<StringNode>()) {
                 _logger.LogDebug("Sending file: {filename}", filename);
@@ -235,16 +235,16 @@ namespace Netimobiledevice.DeviceLink
 
                     int bytesRead;
                     while ((bytesRead = await fs.ReadAsync(chunk, cancellationToken).ConfigureAwait(false)) > 0) {
-                        List<byte> data = new List<byte> {
-                            (byte) ResultCode.FileData
-                        };
-                        data.AddRange(chunk.Take(bytesRead));
-                        await SendPrefixed(data.ToArray(), data.Count, cancellationToken).ConfigureAwait(false);
+                        List<byte> data = [
+                            (byte) ResultCode.FileData,
+                            .. chunk.Take(bytesRead)
+                        ];
+                        await SendPrefixed([.. data], data.Count, cancellationToken).ConfigureAwait(false);
                     }
                 }
 
                 if (errorCode == 0) {
-                    byte[] buffer = new byte[] { (byte) ResultCode.Success };
+                    byte[] buffer = [(byte) ResultCode.Success];
                     await SendPrefixed(buffer, buffer.Length, cancellationToken).ConfigureAwait(false);
                 }
                 else {
@@ -542,11 +542,10 @@ namespace Netimobiledevice.DeviceLink
         public async Task SendError(DictionaryNode errorReport, CancellationToken cancellationToken)
         {
             byte[] errBytes = Encoding.UTF8.GetBytes(errorReport["DLFileErrorString"].AsStringNode().Value);
-            List<byte> buffer = new List<byte> {
-                (byte) ResultCode.LocalError
-            };
-            buffer.AddRange(errBytes);
-            await SendPrefixed(buffer.ToArray(), buffer.Count, cancellationToken).ConfigureAwait(false);
+            List<byte> buffer = [
+                (byte) ResultCode.LocalError, .. errBytes
+            ];
+            await SendPrefixed([.. buffer], buffer.Count, cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -573,24 +572,12 @@ namespace Netimobiledevice.DeviceLink
         /// <param name="errorList">A PropertyNode with additional value(s).</param>
         private async Task SendStatusReport(int errorCode, string? errorMessage = null, PropertyNode? errorList = null, CancellationToken cancellationToken = default)
         {
-            ArrayNode array = new ArrayNode {
+            ArrayNode array = [
                 new StringNode("DLMessageStatusResponse"),
-                new IntegerNode(errorCode)
-            };
-
-            if (errorMessage != null) {
-                array.Add(new StringNode(errorMessage));
-            }
-            else {
-                array.Add(new StringNode("___EmptyParameterString___"));
-            }
-
-            if (errorList != null) {
-                array.Add(errorList);
-            }
-            else {
-                array.Add(new DictionaryNode());
-            }
+                new IntegerNode(errorCode),
+                errorMessage != null ? new StringNode(errorMessage) : new StringNode("___EmptyParameterString___"),
+                errorList ?? new DictionaryNode(),
+            ];
 
             await _service.SendPlistAsync(array, PlistFormat.Binary, cancellationToken).ConfigureAwait(false);
         }
@@ -691,7 +678,7 @@ namespace Netimobiledevice.DeviceLink
         {
             PropertyNode? message = await _service.ReceivePlistAsync(cancellationToken).ConfigureAwait(false);
             if (message == null) {
-                return new ArrayNode();
+                return [];
             }
             return message.AsArrayNode();
         }

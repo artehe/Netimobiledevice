@@ -234,11 +234,10 @@ public class Program
 
         await Task.Delay(5 * 1000);
         RemoteServiceDiscoveryService rsd = await tunneld.GetDevice() ?? throw new Exception("No device found");
-
-        RemoteLockdownClient remoteLockdownClient = rsd.Lockdown;
-
+        using (Mobilebackup2Service mb2 = new Mobilebackup2Service(rsd)) {
+            await mb2.Backup(true, "backups", tokenSource.Token);
+        }
         await Task.Delay(5 * 1000);
-
         tunneld.Stop();
     }
 }

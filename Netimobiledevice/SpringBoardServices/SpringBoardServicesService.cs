@@ -1,15 +1,18 @@
-﻿using Netimobiledevice.Lockdown;
-using Netimobiledevice.Lockdown.Services;
+﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.Exceptions;
+using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
-using System;
 
 namespace Netimobiledevice.SpringBoardServices
 {
-    public sealed class SpringBoardServicesService : BaseService
+    public sealed class SpringBoardServicesService : LockdownService
     {
-        protected override string ServiceName => "com.apple.springboardservices";
+        private const string LOCKDOWN_SERVICE_NAME = "com.apple.springboardservices";
+        private const string RSD_SERVICE_NAME = "com.apple.springboardservices.shim.remote";
 
-        public SpringBoardServicesService(LockdownClient lockdownClient) : base(lockdownClient) { }
+        public SpringBoardServicesService(LockdownServiceProvider lockdown, ILogger? logger = null) : base(lockdown, RSD_SERVICE_NAME, logger: logger) { }
+
+        public SpringBoardServicesService(LockdownClient lockdown, ILogger? logger = null) : base(lockdown, LOCKDOWN_SERVICE_NAME, logger: logger) { }
 
         private static DictionaryNode CreateCommand(string command)
         {
@@ -21,11 +24,11 @@ namespace Netimobiledevice.SpringBoardServices
 
         private PropertyNode ExecuteCommand(DictionaryNode command, string responseNode)
         {
-            DictionaryNode response = Service.SendReceivePlist(command)?.AsDictionaryNode() ?? new DictionaryNode();
+            DictionaryNode response = Service.SendReceivePlist(command)?.AsDictionaryNode() ?? [];
             if (response.ContainsKey(responseNode)) {
                 return response[responseNode];
             }
-            throw new Exception($"Node {responseNode} doesn't exist in response");
+            throw new NetimobiledeviceException($"Node {responseNode} doesn't exist in response");
         }
 
         /// <summary>
@@ -66,9 +69,9 @@ namespace Netimobiledevice.SpringBoardServices
         public DictionaryNode SetIconState(DictionaryNode? newState = null)
         {
             DictionaryNode command = CreateCommand("setIconState");
-            newState ??= new DictionaryNode();
+            newState ??= [];
             command.Add("iconState", newState);
-            return Service.SendReceivePlist(command)?.AsDictionaryNode() ?? new DictionaryNode();
+            return Service.SendReceivePlist(command)?.AsDictionaryNode() ?? [];
         }
     }
 }

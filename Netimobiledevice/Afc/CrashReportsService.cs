@@ -55,7 +55,7 @@ namespace Netimobiledevice.Afc
         /// </summary>
         public async Task Clear(CancellationToken cancellationToken = default)
         {
-            List<string> undeletedFiles = new List<string>();
+            List<string> undeletedFiles = [];
             foreach (string filename in await GetCrashReportsList("/", cancellationToken: cancellationToken).ConfigureAwait(false)) {
                 undeletedFiles.AddRange(await _afcService.Rm(filename, cancellationToken, force: true).ConfigureAwait(false));
             }
@@ -78,7 +78,7 @@ namespace Netimobiledevice.Afc
         public async Task<List<string>> GetCrashReportsList(string path = "/", int depth = 1, CancellationToken cancellationToken = default)
         {
             // Get the results then skip the root path '/'
-            List<string> results = new List<string>();
+            List<string> results = [];
             await foreach (string item in _afcService.LsDirectory(path, cancellationToken, depth).ConfigureAwait(false)) {
                 results.Add(item);
             }
@@ -95,7 +95,7 @@ namespace Netimobiledevice.Afc
         {
             await _afcService.Pull(entry, outDir, cancellationToken).ConfigureAwait(false);
             if (erase) {
-                string[] paths = new string[] { ".", "/" };
+                string[] paths = [".", "/"];
                 if (paths.Contains(entry.Trim())) {
                     await Clear(cancellationToken).ConfigureAwait(false);
                 }

@@ -23,26 +23,14 @@ namespace Netimobiledevice.Afc
 
         private ulong _packetNumber;
 
-        public AfcService(LockdownServiceProvider lockdown, string serviceName, ILogger? logger = null) : base(lockdown, GetServiceName(lockdown, serviceName), logger: logger)
+        public AfcService(LockdownServiceProvider lockdown, string serviceName, ILogger? logger) : base(lockdown, serviceName, logger: logger)
         {
             _packetNumber = 0;
         }
 
-        public AfcService(LockdownServiceProvider client) : this(client, string.Empty) { }
+        public AfcService(LockdownServiceProvider lockdown, ILogger? logger = null) : this(lockdown, RSD_SERVICE_NAME, logger) { }
 
-        private static string GetServiceName(LockdownServiceProvider lockdown, string providedServiceName)
-        {
-            string serviceName = providedServiceName;
-            if (string.IsNullOrEmpty(serviceName)) {
-                if (lockdown is LockdownClient) {
-                    serviceName = LOCKDOWN_SERVICE_NAME;
-                }
-                else {
-                    serviceName = RSD_SERVICE_NAME;
-                }
-            }
-            return serviceName;
-        }
+        public AfcService(LockdownClient lockdown, ILogger? logger = null) : this(lockdown, LOCKDOWN_SERVICE_NAME, logger) { }
 
         private async Task DispatchPacket(AfcOpCode opCode, AfcPacket packet, CancellationToken cancellationToken, ulong? thisLength = null)
         {
@@ -62,7 +50,7 @@ namespace Netimobiledevice.Afc
 
         private async Task<byte[]> FileRead(ulong handle, ulong size, CancellationToken cancellationToken)
         {
-            List<byte> data = new List<byte>();
+            List<byte> data = [];
             while (size > 0) {
                 ulong toRead;
                 if (size > MAXIMUM_READ_SIZE) {
@@ -87,7 +75,7 @@ namespace Netimobiledevice.Afc
                 data.AddRange(chunk);
             }
 
-            return data.ToArray();
+            return [.. data];
         }
 
         public async Task<DictionaryNode> GetFileInfo(string filename, CancellationToken cancellationToken)
@@ -128,17 +116,17 @@ namespace Netimobiledevice.Afc
         private static List<string> ParseFileInfoResponseForMessage(byte[] data)
         {
             string decodedData = Encoding.UTF8.GetString(data);
-            List<string> seperatedData = decodedData.Split('\0').ToList();
+            List<string> seperatedData = [.. decodedData.Split('\0')];
             seperatedData.RemoveAt(seperatedData.Count - 1);
             return seperatedData;
         }
 
         private static Dictionary<string, string> ParseFileInfoResponseToDict(byte[] data)
         {
-            Dictionary<string, string> result = new Dictionary<string, string>();
+            Dictionary<string, string> result = [];
 
             string decodedData = Encoding.UTF8.GetString(data);
-            List<string> seperatedData = decodedData.Split('\0').ToList();
+            List<string> seperatedData = [.. decodedData.Split('\0')];
 
             seperatedData.RemoveAt(seperatedData.Count - 1);
             if (seperatedData.Count % 2 != 0) {
@@ -169,7 +157,7 @@ namespace Netimobiledevice.Afc
             byte[] response = await Service.ReceiveAsync(AfcHeader.GetSize(), cancellationToken).ConfigureAwait(false);
 
             AfcError status = AfcError.Success;
-            byte[] data = Array.Empty<byte>();
+            byte[] data = [];
 
             if (response.Length > 0) {
                 AfcHeader header = AfcHeader.FromBytes(response);
@@ -195,7 +183,7 @@ namespace Netimobiledevice.Afc
             DictionaryNode info = await GetFileInfo(filename, cancellationToken).ConfigureAwait(false);
             if (info.ContainsKey("st_ifmt") && info["st_ifmt"].AsStringNode().Value == "S_IFLNK") {
                 string target = info["LinkTarget"].AsStringNode().Value;
-                if (!target.StartsWith("/", StringComparison.InvariantCulture)) {
+                if (!target.StartsWith('/')) {
                     // Relative path
                     string filePath = Path.GetDirectoryName(filename) ?? string.Empty;
                     filename = Path.Combine(filePath, target);
@@ -295,7 +283,7 @@ namespace Netimobiledevice.Afc
             int chunksCount = data.Length / chunkSize;
             Logger?.LogDebug("Writing {dataSize} bytes in {chunksCount} chunks", dataSize, chunksCount);
 
-            List<byte> writtenData = new List<byte>();
+            List<byte> writtenData = [];
             for (int i = 0; i < chunksCount; i++) {
                 cancellationToken.ThrowIfCancellationRequested();
                 Logger?.LogDebug("Writing chunk {i}", i);
@@ -333,7 +321,7 @@ namespace Netimobiledevice.Afc
 
         public async Task<List<string>> GetDirectoryList(CancellationToken cancellationToken)
         {
-            List<string> directoryList = new List<string>();
+            List<string> directoryList = [];
             try {
                 AfcFileInfoRequest request = new AfcFileInfoRequest("/");
                 byte[] response = await RunOperation(AfcOpCode.ReadDir, request, cancellationToken).ConfigureAwait(false);
@@ -354,8 +342,8 @@ namespace Netimobiledevice.Afc
 
         private async IAsyncEnumerable<Tuple<string, List<string>, List<string>>> Walk(string directory, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
-            List<string> directories = new List<string>();
-            List<string> files = new List<string>();
+            List<string> directories = [];
+            List<string> files = [];
 
             foreach (string fd in await ListDirectory(directory, cancellationToken).ConfigureAwait(false)) {
                 if (new string[] { ".", "..", "" }.Contains(fd)) {
@@ -409,9 +397,7 @@ namespace Netimobiledevice.Afc
                     continue;
                 }
 
-                List<string> results = new List<string>();
-                results.AddRange(dirs.ToArray());
-                results.AddRange(files.ToArray());
+                List<string> results = [.. dirs.ToArray(), .. files.ToArray()];
                 foreach (string entry in results) {
                     yield return $"{folder}/{entry}";
                 }
@@ -469,20 +455,20 @@ namespace Netimobiledevice.Afc
         {
             if (!await Exists(filename, cancellationToken).ConfigureAwait(false)) {
                 if (!await RmSingle(filename, cancellationToken, force: force).ConfigureAwait(false)) {
-                    return new List<string>() { filename };
+                    return [filename];
                 }
             }
 
             // Single file
             if (!await IsDir(filename, cancellationToken).ConfigureAwait(false)) {
                 if (await RmSingle(filename, cancellationToken, force: force).ConfigureAwait(false)) {
-                    return new List<string>();
+                    return [];
                 }
-                return new List<string>() { filename };
+                return [filename];
             }
 
             // Directory Content
-            List<string> undeletedItems = new List<string>();
+            List<string> undeletedItems = [];
             foreach (string entry in await ListDirectory(filename, cancellationToken).ConfigureAwait(false)) {
                 string currentFile = $"{filename}/{entry}";
                 if (await IsDir(currentFile, cancellationToken).ConfigureAwait(false)) {
@@ -517,7 +503,7 @@ namespace Netimobiledevice.Afc
                 throw new AfcException($"Failed to delete paths: {string.Join(", ", undeletedItems)}");
             }
 
-            return new List<string>();
+            return [];
         }
 
         public async Task SetFileContents(string filename, byte[] data, CancellationToken cancellationToken)

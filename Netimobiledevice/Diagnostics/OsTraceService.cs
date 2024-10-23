@@ -1,6 +1,7 @@
-﻿using Netimobiledevice.EndianBitConversion;
+﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.EndianBitConversion;
+using Netimobiledevice.Exceptions;
 using Netimobiledevice.Lockdown;
-using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
@@ -16,26 +17,30 @@ namespace Netimobiledevice.Diagnostics
     /// Provides the service to show process lists, stream formatted and/or filtered syslogs
     /// as well as getting old stored syslog archives in the PAX format.
     /// </summary>
-    public sealed class OsTraceService : BaseService
+    public sealed class OsTraceService : LockdownService
     {
-        protected override string ServiceName => "com.apple.os_trace_relay";
 
-        public OsTraceService(LockdownClient client) : base(client) { }
+        private const string LOCKDOWN_SERVICE_NAME = "com.apple.os_trace_relay";
+        private const string RSD_SERVICE_NAME = "com.apple.os_trace_relay.shim.remote";
 
-        private SyslogEntry ParseSyslogData(List<byte> data)
+        public OsTraceService(LockdownServiceProvider lockdown, ILogger? logger = null) : base(lockdown, RSD_SERVICE_NAME, logger: logger) { }
+
+        public OsTraceService(LockdownClient lockdown, ILogger? logger = null) : base(lockdown, LOCKDOWN_SERVICE_NAME, logger: logger) { }
+
+        private static SyslogEntry ParseSyslogData(List<byte> data)
         {
             data.RemoveRange(0, 9); // Skip the first 9 bytes            
-            int pid = EndianBitConverter.LittleEndian.ToInt32(data.ToArray(), 0);
+            int pid = EndianBitConverter.LittleEndian.ToInt32([.. data], 0);
             data.RemoveRange(0, sizeof(int) + 42); // Skip size of int + 42 bytes
-            DateTime timestamp = OsTraceService.ParseTimeStamp(data.Take(12));
+            DateTime timestamp = ParseTimeStamp(data.Take(12));
             data.RemoveRange(0, 12 + 1); // Remove the size of the timestamp + 1 byte
             SyslogLevel level = (SyslogLevel) data[0];
             data.RemoveRange(0, 1 + 38); // Remove the enum byte followed by the next 38 bytes
-            short imageNameSize = EndianBitConverter.LittleEndian.ToInt16(data.ToArray(), 0);
-            short messageSize = EndianBitConverter.LittleEndian.ToInt16(data.ToArray(), 2);
+            short imageNameSize = EndianBitConverter.LittleEndian.ToInt16([.. data], 0);
+            short messageSize = EndianBitConverter.LittleEndian.ToInt16([.. data], 2);
             data.RemoveRange(0, sizeof(short) + sizeof(short) + 6); // Skip size of the two shorts + 6 bytes
-            int subsystemSize = EndianBitConverter.LittleEndian.ToInt32(data.ToArray(), 0);
-            int categorySize = EndianBitConverter.LittleEndian.ToInt32(data.ToArray(), 4);
+            int subsystemSize = EndianBitConverter.LittleEndian.ToInt32([.. data], 0);
+            int categorySize = EndianBitConverter.LittleEndian.ToInt32([.. data], 4);
             data.RemoveRange(0, sizeof(int) + sizeof(int) + 6); // Skip size of the two ints + 4 bytes
 
             int filenameSize = 0;
@@ -83,7 +88,7 @@ namespace Netimobiledevice.Diagnostics
             // Ignore the first received unknown byte
             await Service.ReceiveAsync(1, cancellationToken);
 
-            DictionaryNode response = (await Service.ReceivePlistAsync(cancellationToken))?.AsDictionaryNode() ?? new DictionaryNode();
+            DictionaryNode response = (await Service.ReceivePlistAsync(cancellationToken))?.AsDictionaryNode() ?? [];
             return response;
         }
 
@@ -107,12 +112,12 @@ namespace Netimobiledevice.Diagnostics
 
             int value = Service.Receive(1)[0];
             if (value != 1) {
-                throw new Exception($"Invalid response got {value} instead of 1");
+                throw new NetimobiledeviceException($"Invalid response got {value} instead of 1");
             }
 
-            DictionaryNode plistResponse = Service.ReceivePlist()?.AsDictionaryNode() ?? new DictionaryNode();
+            DictionaryNode plistResponse = Service.ReceivePlist()?.AsDictionaryNode() ?? [];
             if (!plistResponse.TryGetValue("Status", out PropertyNode? status) || status.AsStringNode().Value != "RequestSuccessful") {
-                throw new Exception($"Invalid status: {PropertyList.SaveAsString(plistResponse, PlistFormat.Xml)}");
+                throw new NetimobiledeviceException($"Invalid status: {PropertyList.SaveAsString(plistResponse, PlistFormat.Xml)}");
             }
 
             using (FileStream f = new FileStream(outputPath, FileMode.Create, FileAccess.Write)) {
@@ -120,7 +125,7 @@ namespace Netimobiledevice.Diagnostics
                     try {
                         value = Service.Receive(1)[0];
                         if (value != 3) {
-                            throw new Exception("Invalid magic");
+                            throw new NetimobiledeviceException("Invalid magic");
                         }
                     }
                     catch (Exception) {
@@ -158,20 +163,20 @@ namespace Netimobiledevice.Diagnostics
             DictionaryNode response = PropertyList.LoadFromByteArray(responseBytes).AsDictionaryNode();
 
             if (!response.ContainsKey("Status") || response["Status"].AsStringNode().Value != "RequestSuccessful") {
-                throw new Exception($"Received an invalid response: {response}");
+                throw new NetimobiledeviceException($"Received an invalid response: {response}");
             }
 
             while (true) {
                 byte checkValue = Service.Receive(1)[0];
                 if (checkValue != 0x02) {
-                    throw new Exception($"Entry started with incorrect byte value: {checkValue}");
+                    throw new NetimobiledeviceException($"Entry started with incorrect byte value: {checkValue}");
                 }
 
                 lengthBytes = Service.Receive(4);
                 length = EndianBitConverter.LittleEndian.ToInt32(lengthBytes, 0);
 
                 byte[] lineBytes = Service.Receive(length);
-                yield return ParseSyslogData(lineBytes.ToList());
+                yield return ParseSyslogData([.. lineBytes]);
             }
         }
     }

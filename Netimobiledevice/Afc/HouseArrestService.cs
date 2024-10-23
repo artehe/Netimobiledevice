@@ -13,7 +13,7 @@ namespace Netimobiledevice.Afc
 
         private readonly bool documentsOnly;
 
-        public HouseArrestService(LockdownServiceProvider lockdown, string bundleId, bool documentsOnly, ILogger? logger = null) : base(lockdown, GetServiceName(lockdown), logger)
+        public HouseArrestService(LockdownServiceProvider lockdown, string serviceName, string bundleId, bool documentsOnly = false, ILogger? logger = null) : base(lockdown, serviceName, logger)
         {
             string cmd = VEND_CONTAINER;
             if (documentsOnly) {
@@ -30,15 +30,9 @@ namespace Netimobiledevice.Afc
             }
         }
 
-        public HouseArrestService(LockdownServiceProvider lockdown, string bundleId, ILogger? logger = null) : this(lockdown, bundleId, false, logger) { }
+        public HouseArrestService(LockdownServiceProvider lockdown, string bundleId, ILogger? logger = null) : this(lockdown, RSD_SERVICE_NAME, bundleId, false, logger) { }
 
-        private static string GetServiceName(LockdownServiceProvider lockdown)
-        {
-            if (lockdown is LockdownClient) {
-                return SERVICE_NAME;
-            }
-            return RSD_SERVICE_NAME;
-        }
+        public HouseArrestService(LockdownClient lockdown, string bundleId, ILogger? logger = null) : this(lockdown, SERVICE_NAME, bundleId, false, logger) { }
 
         public void SendCommand(string bundleId, string cmd = VEND_CONTAINER)
         {

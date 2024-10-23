@@ -359,13 +359,7 @@ namespace Netimobiledevice.Lockdown
             GC.SuppressFinalize(this);
         }
 
-        /// <summary>
-        /// Gets the value for the specified domain and key.
-        /// </summary>
-        /// <param name="domain">The domain to obtain the value from.</param>
-        /// <param name="key">The key of the property to obtain.</param>
-        /// <returns>The value obtained.</returns>
-        public PropertyNode? GetValue(string? domain, string? key)
+        public override PropertyNode? GetValue(string? domain, string? key)
         {
             DictionaryNode options = new DictionaryNode();
             if (!string.IsNullOrEmpty(domain)) {
@@ -388,25 +382,6 @@ namespace Netimobiledevice.Lockdown
                 }
                 throw;
             }
-        }
-
-        /// <summary>
-        /// Gets the value for the specified key in the root domain.
-        /// </summary>
-        /// <param name="key">The key of the property to obtain.</param>
-        /// <returns>The string value obtained.</returns>
-        public PropertyNode? GetValue(string? key)
-        {
-            return GetValue(null, key);
-        }
-
-        /// <summary>
-        /// Get every value for the specified in the root domain.
-        /// </summary>
-        /// <returns>The values obtained.</returns>
-        public PropertyNode? GetValue()
-        {
-            return GetValue(null, null);
         }
 
         /// <summary>

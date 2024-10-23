@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice.Afc;
 using Netimobiledevice.Lockdown;
-using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
 using System.IO;
@@ -11,23 +10,16 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.InstallationProxy
 {
-    public sealed class InstallationProxyService : BaseService
+    public sealed class InstallationProxyService : LockdownService
     {
         private const string LOCKDOWN_SERVICE_NAME = "com.apple.mobile.installation_proxy";
         private const string RSD_SERVICE_NAME = "com.apple.mobile.installation_proxy.shim.remote";
 
         private const string TEMP_REMOTE_IPA_FILE = "/netimobiledevice.ipa";
 
-        protected override string ServiceName {
-            get {
-                if (Lockdown is not null) {
-                    return LOCKDOWN_SERVICE_NAME;
-                }
-                return RSD_SERVICE_NAME;
-            }
-        }
+        public InstallationProxyService(LockdownServiceProvider lockdown, ILogger? logger = null) : base(lockdown, RSD_SERVICE_NAME, logger: logger) { }
 
-        public InstallationProxyService(LockdownClient client) : base(client) { }
+        public InstallationProxyService(LockdownClient lockdown, ILogger? logger = null) : base(lockdown, LOCKDOWN_SERVICE_NAME, logger: logger) { }
 
         private static byte[] CreateIpaFromDirectory(string directory)
         {
@@ -75,7 +67,7 @@ namespace Netimobiledevice.InstallationProxy
         /// <returns></returns>
         private async Task InstallFromLocal(string ipaPath, string command, CancellationToken cancellationToken, DictionaryNode? options = null, IProgress<int>? progress = null)
         {
-            options ??= new DictionaryNode();
+            options ??= [];
 
             byte[] ipaContents;
             if (Directory.Exists(ipaPath)) {
@@ -132,7 +124,7 @@ namespace Netimobiledevice.InstallationProxy
 
         public async Task<ArrayNode> Browse(DictionaryNode? options = null, ArrayNode? attributes = null, CancellationToken cancellationToken = default)
         {
-            options ??= new DictionaryNode();
+            options ??= [];
             if (attributes != null) {
                 options.Add("ReturnAttributes", attributes);
             }
@@ -143,7 +135,7 @@ namespace Netimobiledevice.InstallationProxy
             };
             Service.SendPlist(command);
 
-            ArrayNode result = new ArrayNode();
+            ArrayNode result = [];
             while (true) {
                 PropertyNode? response = await Service.ReceivePlistAsync(cancellationToken);
                 if (response == null) {
@@ -194,7 +186,7 @@ namespace Netimobiledevice.InstallationProxy
                 { "ApplicationIdentifier", new StringNode(bundleIdentifier) }
             };
 
-            options ??= new DictionaryNode();
+            options ??= [];
             cmd.Add("ClientOptions", options);
 
             await Service.SendPlistAsync(cmd, cancellationToken: cancellationToken).ConfigureAwait(false);
