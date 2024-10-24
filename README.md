@@ -15,8 +15,9 @@ Netimobiledevice is a pure C# implementation for working with iOS devices (iPhon
 
  - Backup an iOS device in the normal iTunes way or as customised as you like. 
  - Device discovery and connection via Usbmux.
- - Interact with iOS services
+ - Interact with iOS services using Lockdownd or Remoted
  - Handle all property lists files (.plist) whether they are in XML or Binary format
+ - Use remoted Apples new framework for working with iOS devices. This uses the RemoteXPC protocol and you can read more about it [here](https://github.com/doronz88/pymobiledevice3/blob/master/misc/RemoteXPC.md)
 
 ## Installation
 
@@ -142,8 +143,6 @@ The list of all the services from lockdownd which have been implemented and the 
   * Backup Creation
   * Restore a backup to the iOS device
   * Communication with the Backup service
-- [com.apple.mobilesync](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Mobilesync/Mobilesync.cs)
-  * Sync data (Contacts, Calendar etc) between device and computer
 - [com.apple.os_trace_relay](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/InstallationProxyService.cs)
   * Get pid list
   * More structural syslog lines.
@@ -170,3 +169,4 @@ This library was based on the following repositories with either some refactorin
 - **[MobileDeviceSharp](https://github.com/mveril/MobileDeviceSharp):** A C# object oriented wrapper around Libimobiledevice
 - **[PList-Net](https://github.com/PList-Net/PList-Net):** .Net Library for working with Apple *.plist Files.
 - **[pymobiledevice3](https://github.com/doronz88/pymobiledevice3):** A pure python3 implementation to work with iOS devices.
+- **[UniversalTunTapDriver](https://github.com/HBSnail/UniversalTunTapDriver/tree/master):** A driver for TUN/TAP devices to support basic operations on both linux and windows platform. 

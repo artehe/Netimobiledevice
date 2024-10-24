@@ -1,5 +1,6 @@
-﻿using Netimobiledevice.Lockdown;
-using Netimobiledevice.Lockdown.Services;
+﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.Exceptions;
+using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
@@ -10,27 +11,32 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Misagent
 {
-    public class MisagentService : BaseService
+    public class MisagentService : LockdownService
     {
-        protected override string ServiceName => "com.apple.misagent";
+        private const string LOCKDOWN_SERVICE_NAME = "com.apple.misagent";
+        private const string RSD_SERVICE_NAME = "com.apple.misagent.shim.remote";
 
-        public MisagentService(LockdownClient client) : base(client) { }
+        public MisagentService(LockdownServiceProvider lockdown, ILogger? logger = null) : base(lockdown, RSD_SERVICE_NAME, logger: logger) { }
+
+        public MisagentService(LockdownClient lockdown, ILogger? logger = null) : base(lockdown, LOCKDOWN_SERVICE_NAME, logger: logger) { }
 
         private static List<PropertyNode> ParseProfiles(ArrayNode rawProfiles)
         {
-            List<PropertyNode> parsedProfiles = new List<PropertyNode>();
+            List<PropertyNode> parsedProfiles = [];
             foreach (DataNode profile in rawProfiles.Cast<DataNode>()) {
                 byte[] buf = profile.Value;
 
-                byte[] filteredBuffer = SplitArray(buf, Encoding.UTF8.GetBytes("<?xml"))[1].ToArray();
-                filteredBuffer = SplitArray(filteredBuffer, Encoding.UTF8.GetBytes("</plist>"))[0].ToArray();
+                byte[] filteredBuffer = [.. SplitArray(buf, Encoding.UTF8.GetBytes("<?xml"))[1]];
+                filteredBuffer = [.. SplitArray(filteredBuffer, Encoding.UTF8.GetBytes("</plist>"))[0]];
 
-                List<byte> xmlList = new List<byte>();
-                xmlList.AddRange(Encoding.UTF8.GetBytes("<?xml"));
-                xmlList.AddRange(filteredBuffer);
-                xmlList.AddRange(Encoding.UTF8.GetBytes("</plist>"));
+                List<byte> xmlList =
+                [
+                    .. Encoding.UTF8.GetBytes("<?xml"),
+                    .. filteredBuffer,
+                    .. Encoding.UTF8.GetBytes("</plist>"),
+                ];
 
-                PropertyNode parsedProfile = PropertyList.LoadFromByteArray(xmlList.ToArray());
+                PropertyNode parsedProfile = PropertyList.LoadFromByteArray([.. xmlList]);
                 parsedProfiles.Add(parsedProfile);
             }
             return parsedProfiles;
@@ -42,16 +48,16 @@ namespace Netimobiledevice.Misagent
             DictionaryNode? dict = response?.AsDictionaryNode();
             if (dict != null) {
                 if (dict.ContainsKey("Status") && dict["Status"].AsIntegerNode().Value != 0) {
-                    throw new Exception($"Status Error response: {dict["Status"].AsIntegerNode().Value}");
+                    throw new NetimobiledeviceException($"Status Error response: {dict["Status"].AsIntegerNode().Value}");
                 }
                 return dict;
             }
-            throw new Exception("Missing response from misagent service request");
+            throw new NetimobiledeviceException("Missing response from misagent service request");
         }
 
         private static List<ArraySegment<byte>> SplitArray(byte[] arr, byte[] delimiter)
         {
-            List<ArraySegment<byte>> result = new List<ArraySegment<byte>>();
+            List<ArraySegment<byte>> result = [];
             int segStart = 0;
             for (int i = 0, j = 0; i < arr.Length; i++) {
                 if (arr[i] != delimiter[j]) {

@@ -1,11 +1,9 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.Lockdown;
-using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace Netimobiledevice.Diagnostics
 {
@@ -13,10 +11,11 @@ namespace Netimobiledevice.Diagnostics
     /// Provides a service to query MobileGestalt & IORegistry keys, as well functionality to
     /// reboot, shutdown, or put the device into sleep mode.
     /// </summary>
-    public sealed class DiagnosticsService : BaseService
+    public sealed class DiagnosticsService : LockdownService
     {
-        private const string SERVICE_NAME_NEW = "com.apple.mobile.diagnostics_relay";
-        private const string SERVICE_NAME_OLD = "com.apple.iosdiagnostics.relay";
+        private const string LOCKDOWN_SERVICE_NAME_NEW = "com.apple.mobile.diagnostics_relay";
+        private const string LOCKDOWN_SERVICE_NAME_OLD = "com.apple.iosdiagnostics.relay";
+        private const string RSD_SERVICE_NAME = "com.apple.mobile.diagnostics_relay.shim.remote";
 
         private readonly string[] _mobileGestaltKeys = new string[] {
             "AllDeviceCapabilities",
@@ -103,21 +102,27 @@ namespace Netimobiledevice.Diagnostics
             "WirelessBoardSnum"
         };
 
-        protected override string ServiceName => SERVICE_NAME_NEW;
+        private static string ServiceNameUsed { get; set; } = LOCKDOWN_SERVICE_NAME_NEW;
 
-        public DiagnosticsService(LockdownClient client) : base(client, GetDiagnosticsServiceConnection(client)) { }
+        public DiagnosticsService(LockdownServiceProvider lockdown, ILogger? logger = null) : base(lockdown, ServiceNameUsed, GetDiagnosticsServiceConnection(lockdown), logger: logger) { }
 
-        private static ServiceConnection GetDiagnosticsServiceConnection(LockdownClient client)
+        private static ServiceConnection? GetDiagnosticsServiceConnection(LockdownServiceProvider lockdown)
         {
-            ServiceConnection service;
-            try {
-                service = client.StartLockdownService(SERVICE_NAME_NEW);
+            ServiceConnection? service = null;
+            if (lockdown is LockdownClient) {
+                try {
+                    service = lockdown.StartLockdownService(LOCKDOWN_SERVICE_NAME_NEW);
+                    ServiceNameUsed = LOCKDOWN_SERVICE_NAME_NEW;
+                }
+                catch (Exception ex) {
+                    lockdown.Logger.LogWarning(ex, "Failed to start the new lockdown service, falling back to the old service.");
+                    service = lockdown.StartLockdownService(LOCKDOWN_SERVICE_NAME_OLD);
+                    ServiceNameUsed = LOCKDOWN_SERVICE_NAME_OLD;
+                }
             }
-            catch (Exception ex) {
-                client.Logger.LogWarning($"Failed to star the new service, falling back to the old service: {ex.Message}");
-                service = client.StartLockdownService(SERVICE_NAME_OLD);
+            else {
+                ServiceNameUsed = RSD_SERVICE_NAME;
             }
-
             return service;
         }
 
@@ -127,7 +132,7 @@ namespace Netimobiledevice.Diagnostics
                 { "Request", action }
             };
 
-            DictionaryNode response = Service.SendReceivePlist(command)?.AsDictionaryNode() ?? new DictionaryNode();
+            DictionaryNode response = Service.SendReceivePlist(command)?.AsDictionaryNode() ?? [];
             if (response.ContainsKey("Status") && response["Status"].AsStringNode().Value != "Success") {
                 throw new DiagnosticsException($"Failed to perform action: {action.Value}");
             }
@@ -150,7 +155,7 @@ namespace Netimobiledevice.Diagnostics
                 dict.Add("EntryClass", new StringNode(ioClass));
             }
 
-            DictionaryNode response = Service.SendReceivePlist(dict)?.AsDictionaryNode() ?? new DictionaryNode();
+            DictionaryNode response = Service.SendReceivePlist(dict)?.AsDictionaryNode() ?? [];
             if (response.ContainsKey("Status") && response["Status"].AsStringNode().Value != "Success") {
                 throw new DiagnosticsException($"Got invalid response: {response}");
             }
@@ -159,7 +164,7 @@ namespace Netimobiledevice.Diagnostics
                 DictionaryNode diagnosticsDict = response["Diagnostics"].AsDictionaryNode();
                 return diagnosticsDict["IORegistry"].AsDictionaryNode();
             }
-            return new DictionaryNode();
+            return [];
         }
 
         public DictionaryNode GetBattery()
@@ -169,8 +174,8 @@ namespace Netimobiledevice.Diagnostics
 
         public Dictionary<string, ulong> GetStorageDetails()
         {
-            Dictionary<string, ulong> storageData = new();
-            DictionaryNode storageList = MobileGestalt(new List<string>() { "DiskUsage" });
+            Dictionary<string, ulong> storageData = [];
+            DictionaryNode storageList = MobileGestalt(["DiskUsage"]);
             if (storageList.ContainsKey("DiskUsage")) {
                 foreach (KeyValuePair<string, PropertyNode> kvp in storageList["DiskUsage"].AsDictionaryNode()) {
                     storageData.Add(kvp.Key, kvp.Value.AsIntegerNode().Value);
@@ -181,8 +186,8 @@ namespace Netimobiledevice.Diagnostics
 
         public Dictionary<string, object> GetBatteryDetails()
         {
-            Dictionary<string, object> batteryDetails = new();
-            List<string> keys = new List<string>() { "BatteryCurrentCapacity", "BatteryIsCharging", "BatteryIsFullyCharged", "BatterySerialNumber" };
+            Dictionary<string, object> batteryDetails = [];
+            List<string> keys = ["BatteryCurrentCapacity", "BatteryIsCharging", "BatteryIsFullyCharged", "BatterySerialNumber"];
             DictionaryNode batteryData = MobileGestalt(keys);
 
             foreach (string key in keys) {
@@ -215,13 +220,13 @@ namespace Netimobiledevice.Diagnostics
             DictionaryNode request = new DictionaryNode() {
                 { "Request", new StringNode("MobileGestalt") },
             };
-            ArrayNode mobileGestaltKeys = new ArrayNode();
+            ArrayNode mobileGestaltKeys = [];
             foreach (string key in keys) {
                 mobileGestaltKeys.Add(new StringNode(key));
             }
             request.Add("MobileGestaltKeys", mobileGestaltKeys);
 
-            DictionaryNode response = Service.SendReceivePlist(request)?.AsDictionaryNode() ?? new DictionaryNode();
+            DictionaryNode response = Service.SendReceivePlist(request)?.AsDictionaryNode() ?? [];
             if (response.ContainsKey("Status") && response["Status"].AsStringNode().Value != "Success") {
                 throw new DiagnosticsException("Failed to query MobileGestalt");
             }
@@ -244,7 +249,7 @@ namespace Netimobiledevice.Diagnostics
         /// <returns></returns>
         public DictionaryNode MobileGestalt()
         {
-            return MobileGestalt(_mobileGestaltKeys.ToList());
+            return MobileGestalt([.. _mobileGestaltKeys]);
         }
 
         public void Restart()

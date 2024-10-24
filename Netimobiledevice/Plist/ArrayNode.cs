@@ -9,7 +9,7 @@ namespace Netimobiledevice.Plist
 {
     public sealed class ArrayNode : PropertyNode, IList<PropertyNode>
     {
-        private readonly IList<PropertyNode> _list = new List<PropertyNode>();
+        private readonly IList<PropertyNode> _list = [];
 
         internal override int BinaryLength => _list.Count;
         /// <summary>
@@ -37,7 +37,6 @@ namespace Netimobiledevice.Plist
         /// <param name="index">Index.</param>
         public PropertyNode this[int index] {
             get => _list[index];
-
             set => _list[index] = value;
         }
 

@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Exceptions;
 using Netimobiledevice.Plist;
@@ -7,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Authentication;
@@ -42,6 +44,8 @@ namespace Netimobiledevice.Lockdown
             }
         }
 
+        public Stream Stream => networkStream;
+
         private ServiceConnection(Socket sock, ILogger logger, UsbmuxdDevice? muxDevice = null)
         {
             this.logger = logger;
@@ -53,9 +57,10 @@ namespace Netimobiledevice.Lockdown
 
         internal static ServiceConnection CreateUsingTcp(string hostname, ushort port, ILogger? logger = null)
         {
-            Socket sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.IP);
-            sock.Connect(hostname, port);
-            return new ServiceConnection(sock, logger);
+            IPAddress ip = IPAddress.Parse(hostname);
+            Socket sock = new Socket(SocketType.Stream, ProtocolType.IP);
+            sock.Connect(ip, port);
+            return new ServiceConnection(sock, logger ?? NullLogger.Instance);
         }
 
         internal static ServiceConnection CreateUsingUsbmux(string udid, ushort port, UsbmuxdConnectionType? connectionType = null, string usbmuxAddress = "", ILogger? logger = null)

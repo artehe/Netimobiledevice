@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown
 {
-    public class LockdownClient : LockdownServiceProvider, IDisposable
+    public abstract class LockdownClient : LockdownServiceProvider, IDisposable
     {
         public const string DEFAULT_CLIENT_NAME = "Netimobiledevice";
         public const ushort SERVICE_PORT = 62078;
@@ -324,7 +324,7 @@ namespace Netimobiledevice.Lockdown
             }
         }
 
-        protected void HandleAutoPair(bool autoPair, float timeout)
+        protected virtual void HandleAutoPair(bool autoPair, float timeout)
         {
             if (ValidatePairing()) {
                 return;
@@ -348,34 +348,10 @@ namespace Netimobiledevice.Lockdown
             _pairRecord = PairRecords.GetPreferredPairRecord(Identifier, _pairingRecordsCacheDirectory, logger: Logger);
         }
 
-        /// <summary>
-        /// Create a LockdownClient instance
-        /// </summary>
-        /// <param name="service">lockdownd connection handler</param>
-        /// <param name="identifier">Used as an identifier to look for the device pair record</param>
-        /// <param name="systemBuid">System's unique identifier</param>
-        /// <param name="label">lockdownd user-agent</param>
-        /// <param name="autopair">Attempt to pair with device (blocking) if not already paired</param>
-        /// <param name="pairTimeout">Timeout for autopair</param>
-        /// <param name="localHostname">Used as a seed to generate the HostID</param>
-        /// <param name="pairRecord">Use this pair record instead of the default behavior (search in host/create our own)</param>
-        /// <param name="pairingRecordsCacheFolder">Use the following location to search and save pair records</param>
-        /// <param name="port">lockdownd service port</param>
-        /// <returns>A new LockdownClient instance</returns>
-        public static LockdownClient Create(ServiceConnection service, string identifier = "", string systemBuid = SYSTEM_BUID, string label = DEFAULT_CLIENT_NAME,
-            bool autopair = true, float? pairTimeout = null, string localHostname = "", DictionaryNode? pairRecord = null, string pairingRecordsCacheFolder = "",
-            ushort port = SERVICE_PORT, ILogger? logger = null)
+        public void Close()
         {
-            string hostId = PairRecords.GenerateHostId(localHostname);
-            DirectoryInfo? pairingRecordsCacheDirectory = PairRecords.CreatePairingRecordsCacheFolder(pairingRecordsCacheFolder);
-
-            LockdownClient lockdownClient = new(service, hostId: hostId, identifier: identifier, label: label, systemBuid: systemBuid, pairRecord: pairRecord,
-                pairingRecordsCacheDirectory: pairingRecordsCacheDirectory, port: port, logger: logger);
-
-            lockdownClient.HandleAutoPair(autopair, pairTimeout ?? -1);
-            return lockdownClient;
+            Dispose();
         }
-
 
         public void Dispose()
         {
@@ -383,13 +359,7 @@ namespace Netimobiledevice.Lockdown
             GC.SuppressFinalize(this);
         }
 
-        /// <summary>
-        /// Gets the value for the specified domain and key.
-        /// </summary>
-        /// <param name="domain">The domain to obtain the value from.</param>
-        /// <param name="key">The key of the property to obtain.</param>
-        /// <returns>The value obtained.</returns>
-        public PropertyNode? GetValue(string? domain, string? key)
+        public override PropertyNode? GetValue(string? domain, string? key)
         {
             DictionaryNode options = new DictionaryNode();
             if (!string.IsNullOrEmpty(domain)) {
@@ -415,29 +385,10 @@ namespace Netimobiledevice.Lockdown
         }
 
         /// <summary>
-        /// Gets the value for the specified key in the root domain.
-        /// </summary>
-        /// <param name="key">The key of the property to obtain.</param>
-        /// <returns>The string value obtained.</returns>
-        public PropertyNode? GetValue(string? key)
-        {
-            return GetValue(null, key);
-        }
-
-        /// <summary>
-        /// Get every value for the specified in the root domain.
-        /// </summary>
-        /// <returns>The values obtained.</returns>
-        public PropertyNode? GetValue()
-        {
-            return GetValue(null, null);
-        }
-
-        /// <summary>
         /// Start a pairing operation.
         /// </summary>
         /// <returns>Return <see langword="true"/> if the user accept pairng else <see langword="false"/>.</returns>
-        public Task<bool> PairAsync()
+        public virtual Task<bool> PairAsync()
         {
             return PairAsync(new Progress<PairingState>(), CancellationToken.None);
         }
@@ -447,7 +398,7 @@ namespace Netimobiledevice.Lockdown
         /// </summary>
         /// <param name="cancellationToken">A cancelation token used to cancel stop the operation</param>
         /// <returns>Return <see langword="true"/> if the user accept pairng else <see langword="false"/>.</returns>
-        public Task<bool> PairAsync(CancellationToken cancellationToken)
+        public virtual Task<bool> PairAsync(CancellationToken cancellationToken)
         {
             return PairAsync(new Progress<PairingState>(), cancellationToken);
         }
@@ -457,7 +408,7 @@ namespace Netimobiledevice.Lockdown
         /// </summary>
         /// <param name="progress">Used to report the progress</param>
         /// <returns>Return <see langword="true"/> if the user accept pairng else <see langword="false"/>.</returns>
-        public Task<bool> PairAsync(IProgress<PairingState> progress)
+        public virtual Task<bool> PairAsync(IProgress<PairingState> progress)
         {
             return PairAsync(progress, CancellationToken.None);
         }
@@ -468,7 +419,7 @@ namespace Netimobiledevice.Lockdown
         /// <param name="progress">Used to report the progress</param>
         /// <param name="cancellationToken">A cancelation token used to cancel stop the operation</param>
         /// <returns>Return <see langword="true"/> if the user accept pairng else <see langword="false"/>.</returns>
-        public async Task<bool> PairAsync(IProgress<PairingState> progress, CancellationToken cancellationToken)
+        public virtual async Task<bool> PairAsync(IProgress<PairingState> progress, CancellationToken cancellationToken)
         {
             using (NotificationProxyService np = new NotificationProxyService(this, true)) {
                 np.ObserveNotification(ReceivableNotification.RequestPair);
@@ -521,7 +472,7 @@ namespace Netimobiledevice.Lockdown
         /// <param name="timeout">How long to wait when pairing the iOS device</param>
         /// <returns>If the device is currently paired or if the pairing was successful or not</returns>
         /// <exception cref="FatalPairingException">Exception thrown when pairing should have succeeded but failed for some reason.</exception>
-        public bool PairDevice()
+        public virtual bool PairDevice()
         {
             bool currentlyPaired = ValidatePairing();
             if (currentlyPaired) {
@@ -592,7 +543,7 @@ namespace Netimobiledevice.Lockdown
         /// <summary>
         /// Try to unpair the device.
         /// </summary>
-        public void Unpair()
+        public virtual void Unpair()
         {
             if (_pairRecord != null) {
                 DictionaryNode options = new DictionaryNode() {

@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
 using System;
 using System.ComponentModel;
@@ -6,20 +7,21 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Netimobiledevice.Lockdown.Services
+namespace Netimobiledevice.Heartbeat
 {
     /// <summary>
     /// Used to keep an active connection with lockdownd
     /// </summary>
-    public sealed class HeartbeatService : BaseService
+    public sealed class HeartbeatService : LockdownService
     {
+        private const string LOCKDOWN_SERVICE_NAME = "com.apple.mobile.heartbeat";
+        private const string RSD_SERVICE_NAME = "com.apple.mobile.heartbeat.shim.remote";
+
         private readonly BackgroundWorker heartbeatWorker;
         // Have the interval be 10 seconds as default
         private int interval = 10 * 1000;
 
-        protected override string ServiceName => "com.apple.mobile.heartbeat";
-
-        public HeartbeatService(LockdownClient client) : base(client)
+        private HeartbeatService(LockdownServiceProvider lockdown, string serviceName, ILogger? logger) : base(lockdown, serviceName, logger: logger)
         {
             heartbeatWorker = new BackgroundWorker {
                 WorkerSupportsCancellation = true
@@ -27,13 +29,17 @@ namespace Netimobiledevice.Lockdown.Services
             heartbeatWorker.DoWork += HeartbeatWorker_DoWork;
         }
 
+        public HeartbeatService(LockdownServiceProvider lockdown, ILogger? logger = null) : this(lockdown, RSD_SERVICE_NAME, logger) { }
+
+        public HeartbeatService(LockdownClient lockdown, ILogger? logger = null) : this(lockdown, LOCKDOWN_SERVICE_NAME, logger) { }
+
         private async void HeartbeatWorker_DoWork(object? sender, DoWorkEventArgs e)
         {
             Service.SetTimeout(500);
             do {
                 try {
                     PropertyNode? response = await Service.ReceivePlistAsync(CancellationToken.None);
-                    DictionaryNode responseDict = response?.AsDictionaryNode() ?? new DictionaryNode();
+                    DictionaryNode responseDict = response?.AsDictionaryNode() ?? [];
 
                     // Update the interval adding an extra second to be certain we have waited long enough
                     interval = ((int) responseDict["Interval"].AsIntegerNode().Value + 1) * 1000;
@@ -51,11 +57,11 @@ namespace Netimobiledevice.Lockdown.Services
                     break;
                 }
                 catch (TimeoutException) {
-                    Lockdown.Logger.LogDebug("No heartbeat received, trying again");
+                    Logger.LogDebug("No heartbeat received, trying again");
                 }
                 catch (Exception ex) {
                     if (!heartbeatWorker.CancellationPending) {
-                        Lockdown.Logger.LogError($"Heartbeat service has an error: {ex}");
+                        Logger.LogError(ex, "Heartbeat service has an error");
                         throw;
                     }
                 }

@@ -4,12 +4,14 @@ using Netimobiledevice.Afc;
 using Netimobiledevice.Backup;
 using Netimobiledevice.Diagnostics;
 using Netimobiledevice.Exceptions;
+using Netimobiledevice.Heartbeat;
 using Netimobiledevice.InstallationProxy;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Pairing;
-using Netimobiledevice.Lockdown.Services;
 using Netimobiledevice.Misagent;
 using Netimobiledevice.Plist;
+using Netimobiledevice.Remoted;
+using Netimobiledevice.Remoted.Tunnel;
 using Netimobiledevice.SpringBoardServices;
 using Netimobiledevice.Usbmuxd;
 
@@ -39,7 +41,7 @@ public class Program
 
         List<UsbmuxdDevice> devices = Usbmux.GetDeviceList();
 
-        if (!devices.Any()) {
+        if (devices.Count == 0) {
             logger.LogError("No device is connected to the system.");
             return;
         }
@@ -224,5 +226,17 @@ public class Program
     {
         Console.WriteLine("NewErrorCallbackExecuted");
         Console.WriteLine(ex.Message);
+    }
+
+    private static async Task Remoted()
+    {
+        Tunneld tunneld = Remote.StartTunneld();
+        await Task.Delay(5 * 1000);
+        RemoteServiceDiscoveryService rsd = await tunneld.GetDevice() ?? throw new Exception("No device found");
+        using (Mobilebackup2Service mb2 = new Mobilebackup2Service(rsd)) {
+            await mb2.Backup(true, "backups", tokenSource.Token);
+        }
+        await Task.Delay(5 * 1000);
+        tunneld.Stop();
     }
 }
