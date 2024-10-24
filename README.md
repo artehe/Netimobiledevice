@@ -15,8 +15,9 @@ Netimobiledevice is a pure C# implementation for working with iOS devices (iPhon
 
  - Backup an iOS device in the normal iTunes way or as customised as you like. 
  - Device discovery and connection via Usbmux.
- - Interact with iOS services
+ - Interact with iOS services using Lockdownd or Remoted
  - Handle all property lists files (.plist) whether they are in XML or Binary format
+ - Use remoted Apples new framework for working with iOS devices. This uses the RemoteXPC protocol and you can read more about it [here](https://github.com/doronz88/pymobiledevice3/blob/master/misc/RemoteXPC.md)
 
 ## Installation
 
