@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Afc
 {
-    public class AfcService : LockdownService
+    public class AfcService(LockdownServiceProvider lockdown, string serviceName = "", ILogger? logger = null) : LockdownService(lockdown, GetServiceName(lockdown, serviceName), logger: logger)
     {
         private const string LOCKDOWN_SERVICE_NAME = "com.apple.afc";
         private const string RSD_SERVICE_NAME = "com.apple.afc.shim.remote";
@@ -23,14 +23,18 @@ namespace Netimobiledevice.Afc
 
         private ulong _packetNumber;
 
-        public AfcService(LockdownServiceProvider lockdown, string serviceName, ILogger? logger) : base(lockdown, serviceName, logger: logger)
+        private static string GetServiceName(LockdownServiceProvider lockdown, string serviceName)
         {
-            _packetNumber = 0;
+            if (string.IsNullOrEmpty(serviceName)) {
+                if (lockdown is LockdownClient) {
+                    return LOCKDOWN_SERVICE_NAME;
+                }
+                else {
+                    return RSD_SERVICE_NAME;
+                }
+            }
+            return serviceName;
         }
-
-        public AfcService(LockdownServiceProvider lockdown, ILogger? logger = null) : this(lockdown, RSD_SERVICE_NAME, logger) { }
-
-        public AfcService(LockdownClient lockdown, ILogger? logger = null) : this(lockdown, LOCKDOWN_SERVICE_NAME, logger) { }
 
         private async Task DispatchPacket(AfcOpCode opCode, AfcPacket packet, CancellationToken cancellationToken, ulong? thisLength = null)
         {
