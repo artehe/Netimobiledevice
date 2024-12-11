@@ -67,7 +67,7 @@ namespace Netimobiledevice.NotificationProxy
 
         public event EventHandler<ReceivedNotificationEventArgs>? ReceivedNotification;
 
-        public NotificationProxyService(LockdownServiceProvider lockdown, bool useInsecureService = false, ILogger? logger = null) : base(lockdown, RSD_SERVICE_NAME, GetNotificationProxyServiceConnection(lockdown, useInsecureService), logger: logger)
+        public NotificationProxyService(LockdownServiceProvider lockdown, bool useInsecureService = false, ILogger? logger = null) : base(lockdown, ServiceNameUsed, GetNotificationProxyServiceConnection(lockdown, useInsecureService), logger: logger)
         {
             notificationListener = new BackgroundWorker {
                 WorkerSupportsCancellation = true

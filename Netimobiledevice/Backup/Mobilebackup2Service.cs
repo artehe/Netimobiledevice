@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Backup
 {
-    public sealed class Mobilebackup2Service : LockdownService
+    public sealed class Mobilebackup2Service(LockdownServiceProvider lockdown, ILogger? logger = null) : LockdownService(lockdown, LOCKDOWN_SERVICE_NAME, RSD_SERVICE_NAME, useEscrowBag: true, logger: logger)
     {
         private const int MOBILEBACKUP2_VERSION_MAJOR = 400;
         private const int MOBILEBACKUP2_VERSION_MINOR = 0;
@@ -83,10 +83,6 @@ namespace Netimobiledevice.Backup
         /// Event raised for signaling different kinds of the backup status.
         /// </summary>
         public event EventHandler<StatusEventArgs>? Status;
-
-        public Mobilebackup2Service(LockdownServiceProvider lockdown, ILogger? logger = null) : base(lockdown, RSD_SERVICE_NAME, useEscrowBag: true, logger: logger) { }
-
-        public Mobilebackup2Service(LockdownClient lockdown, ILogger? logger = null) : base(lockdown, LOCKDOWN_SERVICE_NAME, useEscrowBag: true, logger: logger) { }
 
         private static bool BackupExists(string backupDirectory, string identifier)
         {
@@ -201,9 +197,9 @@ namespace Netimobiledevice.Backup
 
                     DictionaryNode files = [];
                     foreach (string iTuneFile in iTunesFiles) {
+                        string filePath = $"/iTunes_Control/iTunes/${iTuneFile}";
                         try {
-                            string filePath = $"/iTunes_Control/iTunes/${iTuneFile}";
-                            byte[] dataBuffer = await afc.GetFileContents(filePath, cancellationToken).ConfigureAwait(false) ?? [];
+                            byte[] dataBuffer = await afc.GetFileContents(filePath, cancellationToken) ?? [];
                             files.Add(iTuneFile, new DataNode(dataBuffer));
                         }
                         catch (AfcException ex) {

@@ -5,14 +5,10 @@ using Netimobiledevice.Plist;
 
 namespace Netimobiledevice.SpringBoardServices
 {
-    public sealed class SpringBoardServicesService : LockdownService
+    public sealed class SpringBoardServicesService(LockdownServiceProvider lockdown, ILogger? logger = null) : LockdownService(lockdown, LOCKDOWN_SERVICE_NAME, RSD_SERVICE_NAME, logger: logger)
     {
         private const string LOCKDOWN_SERVICE_NAME = "com.apple.springboardservices";
         private const string RSD_SERVICE_NAME = "com.apple.springboardservices.shim.remote";
-
-        public SpringBoardServicesService(LockdownServiceProvider lockdown, ILogger? logger = null) : base(lockdown, RSD_SERVICE_NAME, logger: logger) { }
-
-        public SpringBoardServicesService(LockdownClient lockdown, ILogger? logger = null) : base(lockdown, LOCKDOWN_SERVICE_NAME, logger: logger) { }
 
         private static DictionaryNode CreateCommand(string command)
         {

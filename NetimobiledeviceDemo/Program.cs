@@ -1,19 +1,10 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice;
-using Netimobiledevice.Afc;
 using Netimobiledevice.Backup;
-using Netimobiledevice.Diagnostics;
-using Netimobiledevice.Exceptions;
-using Netimobiledevice.Heartbeat;
-using Netimobiledevice.InstallationProxy;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Pairing;
-using Netimobiledevice.Misagent;
-using Netimobiledevice.Plist;
-using Netimobiledevice.Remoted;
-using Netimobiledevice.Remoted.Tunnel;
-using Netimobiledevice.SpringBoardServices;
 using Netimobiledevice.Usbmuxd;
+using System.ComponentModel;
 
 namespace NetimobiledeviceDemo;
 
@@ -51,18 +42,6 @@ public class Program
             Console.WriteLine($"Device found: {device.DeviceId} - {device.Serial}");
         }
 
-        // Connect via usbmuxd
-        using (UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
-            using (CrashReportsService crs = new CrashReportsService(lockdown)) {
-                if (Directory.Exists("CrashDir")) {
-                    Directory.Delete("CrashDir", true);
-                }
-
-                List<string> crashList = await crs.GetCrashReportsList();
-                await crs.GetCrashReport("CrashDir");
-            }
-        }
-
         using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
             Progress<PairingState> progress = new();
             progress.ProgressChanged += Progress_ProgressChanged;
@@ -71,143 +50,72 @@ public class Program
             }
         }
 
-        using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
-            using (HeartbeatService heartbeatService = new HeartbeatService(lockdown)) {
-                heartbeatService.Start();
-                await Task.Delay(10000);
-            }
-
-            using (OsTraceService osTrace = new OsTraceService(lockdown)) {
-                int counter = 0;
-                foreach (SyslogEntry entry in osTrace.WatchSyslog()) {
-                    Console.WriteLine($"[{entry.Level}] {entry.Timestamp} {entry.Label?.Subsystem} - {entry.Message}");
-                    if (counter >= 100) {
-                        break;
-                    }
-                    counter++;
-                }
-            }
-
-            await Task.Delay(1000);
-
-            using (DiagnosticsService diagnosticsService = new DiagnosticsService(lockdown)) {
-                try {
-                    Dictionary<string, ulong> storageInfo = diagnosticsService.GetStorageDetails();
-                    ulong totalDiskValue = 0;
-                    storageInfo?.TryGetValue("TotalDiskCapacity", out totalDiskValue);
-                    logger.LogInformation("Total disk capacity in bytes: {totalDiskValue} bytes", totalDiskValue);
-                }
-                catch (DeprecatedException) {
-                    logger.LogError("This functionality has been deprecated as of iOS 17.4 (beta)");
-                }
-            }
-
-            using (DiagnosticsService diagnosticsService = new DiagnosticsService(lockdown)) {
-                try {
-                    Dictionary<string, object> batteryInfo = diagnosticsService.GetBatteryDetails();
-                    ulong batteryPercentage = 0;
-                    if (batteryInfo != null && batteryInfo.TryGetValue("BatteryCurrentCapacity", out object? batteryCurrentCapacity)) {
-                        if (batteryCurrentCapacity is ulong capacity) {
-                            batteryPercentage = capacity;
-                        }
-                        else if (batteryCurrentCapacity is int capacityInt) {
-                            batteryPercentage = (ulong) capacityInt;
-                        }
-                        else if (batteryCurrentCapacity is uint capacityUInt) {
-                            batteryPercentage = capacityUInt;
-                        }
-                    }
-                    logger.LogInformation("Current battery percentage: {percent}", batteryPercentage);
-
-                    bool isMobileCharging = false;
-                    if (batteryInfo != null && batteryInfo.TryGetValue("BatteryIsCharging", out object? chargingStatus) && chargingStatus is bool charging) {
-                        isMobileCharging = charging;
-                    }
-                    logger.LogInformation("Battery is charging: {isCharging}", isMobileCharging);
-
-                    bool isFullyCharged = false;
-                    if (batteryInfo != null && batteryInfo.TryGetValue("BatteryIsFullyCharged", out object? fullyChargedStatus) && fullyChargedStatus is bool fullyCharged) {
-                        isFullyCharged = fullyCharged;
-                    }
-                    logger.LogInformation("Battery is fully charged: {isFullyCharged}", isFullyCharged);
-
-                    string batterySerialNumber = string.Empty;
-                    if (batteryInfo != null && batteryInfo.TryGetValue("BatterySerialNumber", out object? serialNumber) && serialNumber is string serial) {
-                        batterySerialNumber = serial;
-                    }
-                    logger.LogInformation("Battery serial number: {serialNumber}", batterySerialNumber);
-                }
-                catch (Exception ex) {
-                    logger.LogError(ex, "Error in getting battery details");
-                }
-            }
-        }
-
-        using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
-            string product = lockdown.ProductType;
-            string productName = lockdown.ProductFriendlyName;
-            logger.LogInformation("Connected device is a {productName} ({product})", productName, product);
-        }
-
-        Usbmux.Subscribe(SubscriptionCallback, SubscriptionErrorCallback);
-        Usbmux.Unsubscribe();
-
-        using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
+        using (UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux()) {
             using (Mobilebackup2Service mb2 = new Mobilebackup2Service(lockdown)) {
+                mb2.BeforeReceivingFile += BackupJob_BeforeReceivingFile;
+                mb2.Completed += BackupJob_Completed;
+                mb2.Error += BackupJob_Error;
+                mb2.FileReceived += BackupJob_FileReceived;
+                mb2.FileReceiving += BackupJob_FileReceiving;
+                mb2.FileTransferError += BackupJob_FileTransferError;
+                mb2.PasscodeRequiredForBackup += BackupJob_PasscodeRequiredForBackup;
+                mb2.Progress += BackupJob_Progress;
+                mb2.Status += BackupJob_Status;
+                mb2.Started += BackupJob_Started;
+
                 await mb2.Backup(true, "backups", tokenSource.Token);
             }
-            Console.WriteLine($"Backup done!");
         }
+    }
 
-        using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
-            using (MisagentService misagentService = new MisagentService(lockdown)) {
-                await misagentService.GetInstalledProvisioningProfiles();
-            }
+    private static void BackupJob_Started(object? sender, EventArgs e)
+    {
+        Console.WriteLine($"BackupJob_Started");
+    }
 
-            using (InstallationProxyService installationProxyService = new InstallationProxyService(lockdown)) {
-                ArrayNode apps = await installationProxyService.Browse();
-            }
+    private static void BackupJob_Status(object? sender, StatusEventArgs e)
+    {
+        Console.WriteLine($"BackupJob_Status");
+    }
 
-            using (SpringBoardServicesService springBoard = new SpringBoardServicesService(lockdown)) {
-                PropertyNode png = springBoard.GetIconPNGData("net.whatsapp.WhatsApp");
-            }
+    private static void BackupJob_Progress(object? sender, ProgressChangedEventArgs e)
+    {
+        Console.WriteLine($"BackupJob_Progress");
+    }
 
-            using (DiagnosticsService diagnosticsService = new DiagnosticsService(lockdown)) {
-                DictionaryNode info = diagnosticsService.GetBattery();
-            }
+    private static void BackupJob_PasscodeRequiredForBackup(object? sender, EventArgs e)
+    {
+        Console.WriteLine($"BackupJob_PasscodeRequiredForBackup");
+    }
 
-            using (SyslogService syslog = new SyslogService(lockdown)) {
-                int counter = 0;
-                foreach (string line in syslog.Watch()) {
-                    logger.LogDebug("{line}", line);
-                    if (counter >= 100) {
-                        break;
-                    }
-                    counter++;
-                }
-            }
+    private static void BackupJob_FileTransferError(object? sender, BackupFileErrorEventArgs e)
+    {
+        Console.WriteLine($"BackupJob_FileTransferError");
+    }
 
-            // Get the list of directories in the Connected iOS device.
-            using (AfcService afcService = new AfcService(lockdown)) {
-                List<string> pathList = await afcService.GetDirectoryList(CancellationToken.None);
-                logger.LogInformation("Path's available in the connected iOS device are as below.\n");
-                logger.LogInformation("{pathList}", string.Join(", " + Environment.NewLine, pathList));
-            }
-        }
+    private static void BackupJob_FileReceiving(object? sender, BackupFileEventArgs e)
+    {
+        Console.WriteLine($"BackupJob_FileReceiving");
+    }
 
-        // Connect via usbmuxd
-        using (UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
-            int count = 0;
-            foreach (string line in new SyslogService(lockdown).Watch()) {
-                if (count > 100) {
-                    break;
-                }
-                count++;
+    private static void BackupJob_Completed(object? sender, BackupResultEventArgs e)
+    {
+        Console.WriteLine($"BackupJob_Completed");
+    }
 
-                // Print all syslog lines as is
-                Console.WriteLine(line);
-            }
-        }
+    private static void BackupJob_Error(object? sender, ErrorEventArgs e)
+    {
+        Console.WriteLine($"BackupJob_Error");
+    }
+
+    private static void BackupJob_FileReceived(object? sender, BackupFileEventArgs e)
+    {
+        Console.WriteLine($"BackupJob_FileReceived");
+    }
+
+    private static void BackupJob_BeforeReceivingFile(object? sender, BackupFileEventArgs e)
+    {
+        Console.WriteLine($"BackupJob_BeforeReceivingFile");
     }
 
     private static void Progress_ProgressChanged(object? sender, PairingState e)
@@ -226,17 +134,5 @@ public class Program
     {
         Console.WriteLine("NewErrorCallbackExecuted");
         Console.WriteLine(ex.Message);
-    }
-
-    private static async Task Remoted()
-    {
-        Tunneld tunneld = Remote.StartTunneld();
-        await Task.Delay(5 * 1000);
-        RemoteServiceDiscoveryService rsd = await tunneld.GetDevice() ?? throw new Exception("No device found");
-        using (Mobilebackup2Service mb2 = new Mobilebackup2Service(rsd)) {
-            await mb2.Backup(true, "backups", tokenSource.Token);
-        }
-        await Task.Delay(5 * 1000);
-        tunneld.Stop();
     }
 }

@@ -21,17 +21,13 @@ namespace Netimobiledevice.Heartbeat
         // Have the interval be 10 seconds as default
         private int interval = 10 * 1000;
 
-        private HeartbeatService(LockdownServiceProvider lockdown, string serviceName, ILogger? logger) : base(lockdown, serviceName, logger: logger)
+        public HeartbeatService(LockdownServiceProvider lockdown, ILogger? logger) : base(lockdown, LOCKDOWN_SERVICE_NAME, RSD_SERVICE_NAME, logger: logger)
         {
             heartbeatWorker = new BackgroundWorker {
                 WorkerSupportsCancellation = true
             };
             heartbeatWorker.DoWork += HeartbeatWorker_DoWork;
         }
-
-        public HeartbeatService(LockdownServiceProvider lockdown, ILogger? logger = null) : this(lockdown, RSD_SERVICE_NAME, logger) { }
-
-        public HeartbeatService(LockdownClient lockdown, ILogger? logger = null) : this(lockdown, LOCKDOWN_SERVICE_NAME, logger) { }
 
         private async void HeartbeatWorker_DoWork(object? sender, DoWorkEventArgs e)
         {

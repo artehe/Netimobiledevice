@@ -10,16 +10,12 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.InstallationProxy
 {
-    public sealed class InstallationProxyService : LockdownService
+    public sealed class InstallationProxyService(LockdownServiceProvider lockdown, ILogger? logger = null) : LockdownService(lockdown, LOCKDOWN_SERVICE_NAME, RSD_SERVICE_NAME, logger: logger)
     {
         private const string LOCKDOWN_SERVICE_NAME = "com.apple.mobile.installation_proxy";
         private const string RSD_SERVICE_NAME = "com.apple.mobile.installation_proxy.shim.remote";
 
         private const string TEMP_REMOTE_IPA_FILE = "/netimobiledevice.ipa";
-
-        public InstallationProxyService(LockdownServiceProvider lockdown, ILogger? logger = null) : base(lockdown, RSD_SERVICE_NAME, logger: logger) { }
-
-        public InstallationProxyService(LockdownClient lockdown, ILogger? logger = null) : base(lockdown, LOCKDOWN_SERVICE_NAME, logger: logger) { }
 
         private static byte[] CreateIpaFromDirectory(string directory)
         {
