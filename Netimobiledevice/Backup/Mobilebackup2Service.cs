@@ -197,7 +197,7 @@ namespace Netimobiledevice.Backup
 
                     DictionaryNode files = [];
                     foreach (string iTuneFile in iTunesFiles) {
-                        string filePath = $"/iTunes_Control/iTunes/${iTuneFile}";
+                        string filePath = $"/iTunes_Control/iTunes/{iTuneFile}";
                         try {
                             byte[] dataBuffer = await afc.GetFileContents(filePath, cancellationToken) ?? [];
                             files.Add(iTuneFile, new DataNode(dataBuffer));
