@@ -5,6 +5,7 @@ using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -82,7 +83,7 @@ namespace Netimobiledevice.Afc
             return [.. data];
         }
 
-        public async Task<DictionaryNode> GetFileInfo(string filename, CancellationToken cancellationToken)
+        public async Task<DictionaryNode?> GetFileInfo(string filename, CancellationToken cancellationToken)
         {
             Dictionary<string, string> stat;
             try {
@@ -97,19 +98,23 @@ namespace Netimobiledevice.Afc
                 throw new AfcFileNotFoundException(ex.AfcError, filename);
             }
 
+            if (stat.Count == 0) {
+                return null;
+            }
+
             // Convert timestamps from unix epoch ticks (nanoseconds) to DateTime
             long divisor = (long) Math.Pow(10, 6);
-            long mTimeMilliseconds = long.Parse(stat["st_mtime"]) / divisor;
-            long birthTimeMilliseconds = long.Parse(stat["st_birthtime"]) / divisor;
+            long mTimeMilliseconds = long.Parse(stat["st_mtime"], CultureInfo.InvariantCulture.NumberFormat) / divisor;
+            long birthTimeMilliseconds = long.Parse(stat["st_birthtime"], CultureInfo.InvariantCulture.NumberFormat) / divisor;
 
             DateTime mTime = DateTimeOffset.FromUnixTimeMilliseconds(mTimeMilliseconds).LocalDateTime;
             DateTime birthTime = DateTimeOffset.FromUnixTimeMilliseconds(birthTimeMilliseconds).LocalDateTime;
 
             DictionaryNode fileInfo = new DictionaryNode {
                 { "st_ifmt", new StringNode(stat["st_ifmt"]) },
-                { "st_size", new IntegerNode(ulong.Parse(stat["st_size"])) },
-                { "st_blocks", new IntegerNode(ulong.Parse(stat["st_blocks"])) },
-                { "st_nlink", new IntegerNode(ulong.Parse(stat["st_nlink"])) },
+                { "st_size", new IntegerNode(ulong.Parse(stat["st_size"], CultureInfo.InvariantCulture.NumberFormat)) },
+                { "st_blocks", new IntegerNode(ulong.Parse(stat["st_blocks"], CultureInfo.InvariantCulture.NumberFormat)) },
+                { "st_nlink", new IntegerNode(ulong.Parse(stat["st_nlink"], CultureInfo.InvariantCulture.NumberFormat)) },
                 { "st_mtime", new DateNode(mTime) },
                 { "st_birthtime", new DateNode(birthTime) }
             };
@@ -184,8 +189,8 @@ namespace Netimobiledevice.Afc
 
         private async Task<string> ResolvePath(string filename, CancellationToken cancellationToken)
         {
-            DictionaryNode info = await GetFileInfo(filename, cancellationToken).ConfigureAwait(false);
-            if (info.ContainsKey("st_ifmt") && info["st_ifmt"].AsStringNode().Value == "S_IFLNK") {
+            DictionaryNode info = await GetFileInfo(filename, cancellationToken).ConfigureAwait(false) ?? [];
+            if (info.TryGetValue("st_ifmt", out PropertyNode? stIfmt) && stIfmt.AsStringNode().Value == "S_IFLNK") {
                 string target = info["LinkTarget"].AsStringNode().Value;
                 if (!target.StartsWith('/')) {
                     // Relative path
@@ -242,8 +247,12 @@ namespace Netimobiledevice.Afc
         {
             filename = await ResolvePath(filename, cancellationToken).ConfigureAwait(false);
 
-            DictionaryNode info = await GetFileInfo(filename, cancellationToken).ConfigureAwait(false);
-            if (info["st_ifmt"].AsStringNode().Value != "S_IFREG") {
+            DictionaryNode info = await GetFileInfo(filename, cancellationToken).ConfigureAwait(false) ?? [];
+            if (!info.TryGetValue("st_ifmt", out PropertyNode? stIfmtNode)) {
+                throw new AfcException(AfcError.ObjectNotFound, "couldn't find st_ifmt in file info");
+            }
+
+            if (stIfmtNode.AsStringNode().Value != "S_IFREG") {
                 throw new AfcException(AfcError.InvalidArg, $"{filename} isn't a file");
             }
 
@@ -354,8 +363,8 @@ namespace Netimobiledevice.Afc
                     continue;
                 }
 
-                DictionaryNode fileInfo = await GetFileInfo($"{directory}/{fd}", cancellationToken).ConfigureAwait(false);
-                if (fileInfo != null && fileInfo.TryGetValue("st_ifmt", out PropertyNode? value)) {
+                DictionaryNode fileInfo = await GetFileInfo($"{directory}/{fd}", cancellationToken).ConfigureAwait(false) ?? [];
+                if (fileInfo.TryGetValue("st_ifmt", out PropertyNode? value)) {
                     if (value is StringNode node && node.Value == "S_IFDIR") {
                         directories.Add(fd);
                     }
@@ -375,7 +384,7 @@ namespace Netimobiledevice.Afc
 
         public async Task<bool> IsDir(string filename, CancellationToken cancellationToken)
         {
-            DictionaryNode stat = await GetFileInfo(filename, cancellationToken).ConfigureAwait(false);
+            DictionaryNode stat = await GetFileInfo(filename, cancellationToken).ConfigureAwait(false) ?? [];
             if (stat.TryGetValue("st_ifmt", out PropertyNode? value)) {
                 return value.AsStringNode().Value == "S_IFDIR";
             }
