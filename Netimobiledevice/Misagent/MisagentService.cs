@@ -11,14 +11,10 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Misagent
 {
-    public class MisagentService : LockdownService
+    public class MisagentService(LockdownServiceProvider lockdown, ILogger? logger = null) : LockdownService(lockdown, LOCKDOWN_SERVICE_NAME, RSD_SERVICE_NAME, logger: logger)
     {
         private const string LOCKDOWN_SERVICE_NAME = "com.apple.misagent";
         private const string RSD_SERVICE_NAME = "com.apple.misagent.shim.remote";
-
-        public MisagentService(LockdownServiceProvider lockdown, ILogger? logger = null) : base(lockdown, RSD_SERVICE_NAME, logger: logger) { }
-
-        public MisagentService(LockdownClient lockdown, ILogger? logger = null) : base(lockdown, LOCKDOWN_SERVICE_NAME, logger: logger) { }
 
         private static List<PropertyNode> ParseProfiles(ArrayNode rawProfiles)
         {

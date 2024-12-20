@@ -11,13 +11,13 @@ namespace Netimobiledevice.Diagnostics
     /// Provides a service to query MobileGestalt & IORegistry keys, as well functionality to
     /// reboot, shutdown, or put the device into sleep mode.
     /// </summary>
-    public sealed class DiagnosticsService : LockdownService
+    public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger? logger = null) : LockdownService(lockdown, ServiceNameUsed, GetDiagnosticsServiceConnection(lockdown), logger: logger)
     {
         private const string LOCKDOWN_SERVICE_NAME_NEW = "com.apple.mobile.diagnostics_relay";
         private const string LOCKDOWN_SERVICE_NAME_OLD = "com.apple.iosdiagnostics.relay";
         private const string RSD_SERVICE_NAME = "com.apple.mobile.diagnostics_relay.shim.remote";
 
-        private readonly string[] _mobileGestaltKeys = new string[] {
+        private readonly string[] _mobileGestaltKeys = [
             "AllDeviceCapabilities",
             "AllowYouTube",
             "AllowYouTubePlugin",
@@ -100,11 +100,9 @@ namespace Netimobiledevice.Diagnostics
             "wi-fi",
             "WifiAddress",
             "WirelessBoardSnum"
-        };
+        ];
 
         private static string ServiceNameUsed { get; set; } = LOCKDOWN_SERVICE_NAME_NEW;
-
-        public DiagnosticsService(LockdownServiceProvider lockdown, ILogger? logger = null) : base(lockdown, ServiceNameUsed, GetDiagnosticsServiceConnection(lockdown), logger: logger) { }
 
         private static ServiceConnection? GetDiagnosticsServiceConnection(LockdownServiceProvider lockdown)
         {
