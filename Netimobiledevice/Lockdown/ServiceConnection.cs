@@ -270,14 +270,9 @@ namespace Netimobiledevice.Lockdown
 
         public void StartSSL(byte[] certData, byte[] privateKeyData)
         {
-            X509Certificate2 cert;
-            string tmpPath = Path.GetTempFileName();
-            using (FileStream fs = new FileStream(tmpPath, FileMode.OpenOrCreate, FileAccess.ReadWrite)) {
-                fs.Write(certData);
-                fs.Write(Encoding.UTF8.GetBytes("\n"));
-                fs.Write(privateKeyData);
-            }
-            cert = X509Certificate2.CreateFromPemFile(tmpPath);
+            string certText = Encoding.UTF8.GetString(certData);
+            string privateKeyText = Encoding.UTF8.GetString(privateKeyData);
+            X509Certificate2 cert = X509Certificate2.CreateFromPem(certText, privateKeyText);
 
             networkStream.Flush();
 
@@ -285,7 +280,7 @@ namespace Netimobiledevice.Lockdown
             try {
                 // NOTE: For some reason we need to re-export and then import the cert again ¯\_(ツ)_/¯
                 // see this for more details: https://github.com/dotnet/runtime/issues/45680
-                sslStream.AuthenticateAsClient(string.Empty, new X509CertificateCollection() { new X509Certificate2(cert.Export(X509ContentType.Pkcs12)) }, SslProtocols.None, false);
+                sslStream.AuthenticateAsClient(string.Empty, [new X509Certificate2(cert.Export(X509ContentType.Pkcs12))], SslProtocols.None, false);
             }
             catch (AuthenticationException ex) {
                 logger.LogError(ex, "SSL authentication failed");
