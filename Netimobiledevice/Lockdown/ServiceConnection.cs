@@ -5,7 +5,6 @@ using Netimobiledevice.Exceptions;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -24,25 +23,22 @@ namespace Netimobiledevice.Lockdown
     /// </summary>
     public class ServiceConnection : IDisposable
     {
-        private const int MAX_READ_SIZE = 4096;
-
-        /// <summary>
-        /// The main stream once SSL is established, unless you specifically need to use this stream you should use the Stream 
-        /// property instead
-        /// </summary>
-        private SslStream? _sslStream;
+        private const int MAX_READ_SIZE = 32768;
 
         /// <summary>
         /// The internal logger
         /// </summary>
-        private readonly ILogger logger;
+        private readonly ILogger _logger;
         /// <summary>
         /// The initial stream used for the ServiceConnection until the SSL stream starts, unless you specifically need to use this stream
         /// you should use the Stream property instead
         /// </summary>
         private readonly NetworkStream _networkStream;
-
-        private readonly byte[] receiveBuffer = new byte[MAX_READ_SIZE];
+        /// <summary>
+        /// The main stream once SSL is established, unless you specifically need to use this stream you should use the Stream 
+        /// property instead
+        /// </summary>
+        private SslStream? _sslStream;
 
         public UsbmuxdDevice? MuxDevice { get; private set; }
 
@@ -56,8 +52,7 @@ namespace Netimobiledevice.Lockdown
 
         private ServiceConnection(Socket sock, ILogger logger, UsbmuxdDevice? muxDevice = null)
         {
-            this.logger = logger;
-
+            _logger = logger;
             _networkStream = new NetworkStream(sock, true);
 
             // Usbmux connections contain additional information associated with the current connection
@@ -107,7 +102,7 @@ namespace Netimobiledevice.Lockdown
             if (length <= 0) {
                 return [];
             }
-            List<byte> buffer = [];
+            byte[] buffer = new byte[length];
 
             int totalBytesRead = 0;
             while (totalBytesRead < length) {
@@ -117,16 +112,18 @@ namespace Netimobiledevice.Lockdown
                     readSize = MAX_READ_SIZE;
                 }
 
-                int bytesRead = Stream.Read(receiveBuffer, 0, readSize);
-                if (bytesRead == 0) { // If we don't get any bytes, the network connection was broken
+                int bytesRead = Stream.Read(buffer, totalBytesRead, readSize);
+                if (bytesRead == 0) {
+                    _logger.LogError("Read zero bytes so the connection has been broken");
                     break;
                 }
                 totalBytesRead += bytesRead;
-
-                buffer.AddRange(receiveBuffer.Take(bytesRead));
             }
 
-            return [.. buffer];
+            if (totalBytesRead < buffer.Length) {
+                return buffer.Take(totalBytesRead).ToArray();
+            }
+            return buffer;
         }
 
         public async Task<byte[]> ReceiveAsync(int length, CancellationToken cancellationToken)
@@ -134,7 +131,7 @@ namespace Netimobiledevice.Lockdown
             if (length <= 0) {
                 return [];
             }
-            List<byte> buffer = [];
+            byte[] buffer = new byte[length];
 
             int totalBytesRead = 0;
             while (totalBytesRead < length) {
@@ -148,10 +145,10 @@ namespace Netimobiledevice.Lockdown
                 if (Stream.ReadTimeout != -1) {
                     CancellationTokenSource localTaskComplete = new CancellationTokenSource();
 
-                    Task<int> result = Stream.ReadAsync(receiveBuffer, 0, readSize, localTaskComplete.Token);
+                    Task<int> result = Stream.ReadAsync(buffer, totalBytesRead, readSize, localTaskComplete.Token);
                     Task delay = Task.Delay(Stream.ReadTimeout, localTaskComplete.Token);
 
-                    await Task.WhenAny(result, delay).WaitAsync(cancellationToken);
+                    await Task.WhenAny(result, delay).WaitAsync(cancellationToken).ConfigureAwait(false);
                     if (cancellationToken.IsCancellationRequested) {
                         localTaskComplete.Cancel();
                     }
@@ -159,20 +156,23 @@ namespace Netimobiledevice.Lockdown
                         localTaskComplete.Cancel();
                         throw new TimeoutException("Timeout waiting for message from service");
                     }
-                    bytesRead = await result;
-                    if (bytesRead == 0) { // If we don't get any bytes, the network connection was broken
+                    bytesRead = await result.ConfigureAwait(false);
+                    if (bytesRead == 0) {
+                        _logger.LogError("Read zero bytes so the connection has been broken");
                         break;
                     }
                 }
                 else {
-                    bytesRead = await Stream.ReadAsync(receiveBuffer.AsMemory(0, readSize), cancellationToken);
+                    bytesRead = await Stream.ReadAsync(buffer.AsMemory(totalBytesRead, readSize), cancellationToken).ConfigureAwait(false);
                 }
 
                 totalBytesRead += bytesRead;
-                buffer.AddRange(receiveBuffer.Take(bytesRead));
             }
 
-            return [.. buffer];
+            if (totalBytesRead < buffer.Length) {
+                return buffer.Take(totalBytesRead).ToArray();
+            }
+            return buffer;
         }
 
         public PropertyNode? ReceivePlist()
@@ -186,11 +186,11 @@ namespace Netimobiledevice.Lockdown
 
         public async Task<PropertyNode?> ReceivePlistAsync(CancellationToken cancellationToken)
         {
-            byte[] plistBytes = await ReceivePrefixedAsync(cancellationToken);
+            byte[] plistBytes = await ReceivePrefixedAsync(cancellationToken).ConfigureAwait(false);
             if (plistBytes.Length == 0) {
                 return null;
             }
-            return await PropertyList.LoadFromByteArrayAsync(plistBytes);
+            return await PropertyList.LoadFromByteArrayAsync(plistBytes).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -214,13 +214,13 @@ namespace Netimobiledevice.Lockdown
         /// <returns>The data without the u32 field length as a byte array</returns>
         public async Task<byte[]> ReceivePrefixedAsync(CancellationToken cancellationToken = default)
         {
-            byte[] sizeBytes = await ReceiveAsync(4, cancellationToken);
+            byte[] sizeBytes = await ReceiveAsync(4, cancellationToken).ConfigureAwait(false);
             if (sizeBytes.Length != 4) {
                 return [];
             }
 
             int size = EndianBitConverter.BigEndian.ToInt32(sizeBytes, 0);
-            return await ReceiveAsync(size, cancellationToken);
+            return await ReceiveAsync(size, cancellationToken).ConfigureAwait(false);
         }
 
         public void Send(byte[] data)
@@ -230,7 +230,7 @@ namespace Netimobiledevice.Lockdown
 
         public async Task SendAsync(byte[] data, CancellationToken cancellationToken)
         {
-            await Stream.WriteAsync(data, cancellationToken);
+            await Stream.WriteAsync(data, cancellationToken).ConfigureAwait(false);
         }
 
         public void SendPlist(PropertyNode data, PlistFormat format = PlistFormat.Xml)
@@ -238,11 +238,8 @@ namespace Netimobiledevice.Lockdown
             byte[] plistBytes = PropertyList.SaveAsByteArray(data, format);
             byte[] lengthBytes = BitConverter.GetBytes(EndianBitConverter.BigEndian.ToInt32(BitConverter.GetBytes(plistBytes.Length), 0));
 
-            byte[] payload = [
-                .. lengthBytes,
-                .. plistBytes
-            ];
-            Send(payload);
+            Send(lengthBytes);
+            Send(plistBytes);
         }
 
         public async Task SendPlistAsync(PropertyNode data, PlistFormat format = PlistFormat.Xml, CancellationToken cancellationToken = default)
@@ -250,11 +247,8 @@ namespace Netimobiledevice.Lockdown
             byte[] plistBytes = PropertyList.SaveAsByteArray(data, format);
             byte[] lengthBytes = BitConverter.GetBytes(EndianBitConverter.BigEndian.ToInt32(BitConverter.GetBytes(plistBytes.Length), 0));
 
-            byte[] payload = [
-                .. lengthBytes,
-                .. plistBytes
-            ];
-            await SendAsync(payload, cancellationToken);
+            await SendAsync(lengthBytes, cancellationToken).ConfigureAwait(false);
+            await SendAsync(plistBytes, cancellationToken).ConfigureAwait(false);
         }
 
         public PropertyNode? SendReceivePlist(PropertyNode data)
@@ -265,8 +259,8 @@ namespace Netimobiledevice.Lockdown
 
         public async Task<PropertyNode?> SendReceivePlistAsync(PropertyNode data, CancellationToken cancellationToken)
         {
-            await SendPlistAsync(data, cancellationToken: cancellationToken);
-            return await ReceivePlistAsync(cancellationToken);
+            await SendPlistAsync(data, cancellationToken: cancellationToken).ConfigureAwait(false);
+            return await ReceivePlistAsync(cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -297,7 +291,7 @@ namespace Netimobiledevice.Lockdown
                 _sslStream.AuthenticateAsClient(string.Empty, [new X509Certificate2(cert.Export(X509ContentType.Pkcs12))], SslProtocols.None, false);
             }
             catch (AuthenticationException ex) {
-                logger.LogError(ex, "SSL authentication failed");
+                _logger.LogError(ex, "SSL authentication failed");
             }
         }
     }
