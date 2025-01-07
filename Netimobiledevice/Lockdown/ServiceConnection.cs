@@ -27,11 +27,21 @@ namespace Netimobiledevice.Lockdown
         private const int MAX_READ_SIZE = 4096;
 
         /// <summary>
+        /// The main stream once SSL is established, unless you specifically need to use this stream you should use the Stream 
+        /// property instead
+        /// </summary>
+        private SslStream? _sslStream;
+
+        /// <summary>
         /// The internal logger
         /// </summary>
         private readonly ILogger logger;
-        private SslStream? _sslStream;
-        private NetworkStream _networkStream;
+        /// <summary>
+        /// The initial stream used for the ServiceConnection until the SSL stream starts, unless you specifically need to use this stream
+        /// you should use the Stream property instead
+        /// </summary>
+        private readonly NetworkStream _networkStream;
+
         private readonly byte[] receiveBuffer = new byte[MAX_READ_SIZE];
 
         public UsbmuxdDevice? MuxDevice { get; private set; }
@@ -95,9 +105,9 @@ namespace Netimobiledevice.Lockdown
         public byte[] Receive(int length = 4096)
         {
             if (length <= 0) {
-                return Array.Empty<byte>();
+                return [];
             }
-            List<byte> buffer = new List<byte>();
+            List<byte> buffer = [];
 
             int totalBytesRead = 0;
             while (totalBytesRead < length) {
@@ -116,15 +126,15 @@ namespace Netimobiledevice.Lockdown
                 buffer.AddRange(receiveBuffer.Take(bytesRead));
             }
 
-            return buffer.ToArray();
+            return [.. buffer];
         }
 
         public async Task<byte[]> ReceiveAsync(int length, CancellationToken cancellationToken)
         {
             if (length <= 0) {
-                return Array.Empty<byte>();
+                return [];
             }
-            List<byte> buffer = new List<byte>();
+            List<byte> buffer = [];
 
             int totalBytesRead = 0;
             while (totalBytesRead < length) {
@@ -162,7 +172,7 @@ namespace Netimobiledevice.Lockdown
                 buffer.AddRange(receiveBuffer.Take(bytesRead));
             }
 
-            return buffer.ToArray();
+            return [.. buffer];
         }
 
         public PropertyNode? ReceivePlist()
@@ -191,7 +201,7 @@ namespace Netimobiledevice.Lockdown
         {
             byte[] sizeBytes = Receive(4);
             if (sizeBytes.Length != 4) {
-                return Array.Empty<byte>();
+                return [];
             }
 
             int size = EndianBitConverter.BigEndian.ToInt32(sizeBytes, 0);
@@ -240,10 +250,11 @@ namespace Netimobiledevice.Lockdown
             byte[] plistBytes = PropertyList.SaveAsByteArray(data, format);
             byte[] lengthBytes = BitConverter.GetBytes(EndianBitConverter.BigEndian.ToInt32(BitConverter.GetBytes(plistBytes.Length), 0));
 
-            List<byte> payload = new List<byte>();
-            payload.AddRange(lengthBytes);
-            payload.AddRange(plistBytes);
-            await SendAsync(payload.ToArray(), cancellationToken);
+            byte[] payload = [
+                .. lengthBytes,
+                .. plistBytes
+            ];
+            await SendAsync(payload, cancellationToken);
         }
 
         public PropertyNode? SendReceivePlist(PropertyNode data)
