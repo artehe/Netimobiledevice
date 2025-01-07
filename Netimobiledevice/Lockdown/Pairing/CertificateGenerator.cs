@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
-namespace Netimobiledevice.Lockdown
+namespace Netimobiledevice.Lockdown.Pairing
 {
     public static class CertificateGenerator
     {
