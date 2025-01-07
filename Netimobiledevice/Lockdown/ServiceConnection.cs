@@ -30,27 +30,26 @@ namespace Netimobiledevice.Lockdown
         /// The internal logger
         /// </summary>
         private readonly ILogger logger;
-        private Stream networkStream;
+        private SslStream? _sslStream;
+        private NetworkStream _networkStream;
         private readonly byte[] receiveBuffer = new byte[MAX_READ_SIZE];
 
         public UsbmuxdDevice? MuxDevice { get; private set; }
 
         public bool IsConnected {
             get {
-                if (networkStream is NetworkStream ns) {
-                    return ns.Socket.Connected;
-                }
-                return false;
+                return _networkStream.Socket.Connected;
             }
         }
 
-        public Stream Stream => networkStream;
+        public Stream Stream => _sslStream != null ? _sslStream : _networkStream;
 
         private ServiceConnection(Socket sock, ILogger logger, UsbmuxdDevice? muxDevice = null)
         {
             this.logger = logger;
 
-            networkStream = new NetworkStream(sock, true);
+            _networkStream = new NetworkStream(sock, true);
+
             // Usbmux connections contain additional information associated with the current connection
             MuxDevice = muxDevice;
         }
@@ -73,7 +72,7 @@ namespace Netimobiledevice.Lockdown
                 throw new NoDeviceConnectedException();
             }
             Socket sock = targetDevice.Connect(port, usbmuxAddress: usbmuxAddress, logger);
-            return new ServiceConnection(sock, logger, targetDevice);
+            return new ServiceConnection(sock, logger ?? NullLogger.Instance, targetDevice);
         }
 
         private bool UserCertificateValidationCallback(object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors)
@@ -83,13 +82,13 @@ namespace Netimobiledevice.Lockdown
 
         public void Close()
         {
-            networkStream.Close();
+            Stream.Close();
         }
 
         public void Dispose()
         {
             Close();
-            networkStream.Dispose();
+            Stream.Dispose();
             GC.SuppressFinalize(this);
         }
 
@@ -108,7 +107,7 @@ namespace Netimobiledevice.Lockdown
                     readSize = MAX_READ_SIZE;
                 }
 
-                int bytesRead = networkStream.Read(receiveBuffer, 0, readSize);
+                int bytesRead = Stream.Read(receiveBuffer, 0, readSize);
                 if (bytesRead == 0) { // If we don't get any bytes, the network connection was broken
                     break;
                 }
@@ -136,11 +135,11 @@ namespace Netimobiledevice.Lockdown
                 }
 
                 int bytesRead;
-                if (networkStream.ReadTimeout != -1) {
+                if (Stream.ReadTimeout != -1) {
                     CancellationTokenSource localTaskComplete = new CancellationTokenSource();
 
-                    Task<int> result = networkStream.ReadAsync(receiveBuffer, 0, readSize, localTaskComplete.Token);
-                    Task delay = Task.Delay(networkStream.ReadTimeout, localTaskComplete.Token);
+                    Task<int> result = Stream.ReadAsync(receiveBuffer, 0, readSize, localTaskComplete.Token);
+                    Task delay = Task.Delay(Stream.ReadTimeout, localTaskComplete.Token);
 
                     await Task.WhenAny(result, delay).WaitAsync(cancellationToken);
                     if (cancellationToken.IsCancellationRequested) {
@@ -156,7 +155,7 @@ namespace Netimobiledevice.Lockdown
                     }
                 }
                 else {
-                    bytesRead = await networkStream.ReadAsync(receiveBuffer.AsMemory(0, readSize), cancellationToken);
+                    bytesRead = await Stream.ReadAsync(receiveBuffer.AsMemory(0, readSize), cancellationToken);
                 }
 
                 totalBytesRead += bytesRead;
@@ -207,7 +206,7 @@ namespace Netimobiledevice.Lockdown
         {
             byte[] sizeBytes = await ReceiveAsync(4, cancellationToken);
             if (sizeBytes.Length != 4) {
-                return Array.Empty<byte>();
+                return [];
             }
 
             int size = EndianBitConverter.BigEndian.ToInt32(sizeBytes, 0);
@@ -216,12 +215,12 @@ namespace Netimobiledevice.Lockdown
 
         public void Send(byte[] data)
         {
-            networkStream.Write(data);
+            Stream.Write(data);
         }
 
         public async Task SendAsync(byte[] data, CancellationToken cancellationToken)
         {
-            await networkStream.WriteAsync(data, cancellationToken);
+            await Stream.WriteAsync(data, cancellationToken);
         }
 
         public void SendPlist(PropertyNode data, PlistFormat format = PlistFormat.Xml)
@@ -229,10 +228,11 @@ namespace Netimobiledevice.Lockdown
             byte[] plistBytes = PropertyList.SaveAsByteArray(data, format);
             byte[] lengthBytes = BitConverter.GetBytes(EndianBitConverter.BigEndian.ToInt32(BitConverter.GetBytes(plistBytes.Length), 0));
 
-            List<byte> payload = new List<byte>();
-            payload.AddRange(lengthBytes);
-            payload.AddRange(plistBytes);
-            Send(payload.ToArray());
+            byte[] payload = [
+                .. lengthBytes,
+                .. plistBytes
+            ];
+            Send(payload);
         }
 
         public async Task SendPlistAsync(PropertyNode data, PlistFormat format = PlistFormat.Xml, CancellationToken cancellationToken = default)
@@ -264,8 +264,8 @@ namespace Netimobiledevice.Lockdown
         /// <param name="timeout">A value in milliseconds that detemines how long the service connection will wait before timing out</param>
         public void SetTimeout(int timeout = -1)
         {
-            networkStream.ReadTimeout = timeout;
-            networkStream.WriteTimeout = timeout;
+            Stream.ReadTimeout = timeout;
+            Stream.WriteTimeout = timeout;
         }
 
         public void StartSSL(byte[] certData, byte[] privateKeyData)
@@ -274,19 +274,20 @@ namespace Netimobiledevice.Lockdown
             string privateKeyText = Encoding.UTF8.GetString(privateKeyData);
             X509Certificate2 cert = X509Certificate2.CreateFromPem(certText, privateKeyText);
 
-            networkStream.Flush();
+            if (_networkStream == null) {
+                throw new InvalidOperationException("Network stream is null");
+            }
+            _networkStream.Flush();
 
-            SslStream sslStream = new SslStream(networkStream, true, UserCertificateValidationCallback, null, EncryptionPolicy.RequireEncryption);
+            _sslStream = new SslStream(_networkStream, true, UserCertificateValidationCallback, null, EncryptionPolicy.RequireEncryption);
             try {
                 // NOTE: For some reason we need to re-export and then import the cert again ¯\_(ツ)_/¯
                 // see this for more details: https://github.com/dotnet/runtime/issues/45680
-                sslStream.AuthenticateAsClient(string.Empty, [new X509Certificate2(cert.Export(X509ContentType.Pkcs12))], SslProtocols.None, false);
+                _sslStream.AuthenticateAsClient(string.Empty, [new X509Certificate2(cert.Export(X509ContentType.Pkcs12))], SslProtocols.None, false);
             }
             catch (AuthenticationException ex) {
                 logger.LogError(ex, "SSL authentication failed");
             }
-
-            networkStream = sslStream;
         }
     }
 }
