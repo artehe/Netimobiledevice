@@ -16,18 +16,15 @@ namespace Netimobiledevice.Backup
         /// </summary>
         public byte[] Data { get; }
 
-        public long FileSize { get; }
         /// <summary>
         /// Creates an instance of the BackupFileEventArgs class.
         /// </summary>
         /// <param name="file">The BackupFile related to the event.</param>
         /// <param name="fileSize"></param>
-        public BackupFileEventArgs(BackupFile file, long fileSize = 0)
+        public BackupFileEventArgs(BackupFile file)
         {
             File = file;
             Data = Array.Empty<byte>();
-            FileSize = fileSize;
-            
         }
 
         /// <summary>

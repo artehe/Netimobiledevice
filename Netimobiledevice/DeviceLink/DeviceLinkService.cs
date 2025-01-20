@@ -698,7 +698,7 @@ namespace Netimobiledevice.DeviceLink
                 if (backupFile != null) {
                     backupFile.ExpectedFileSize = backupTotalSize;
                     _logger.LogDebug("Receiving file {BackupPath}", backupFile.BackupPath);
-                    BeforeReceivingFile?.Invoke(this, new BackupFileEventArgs(backupFile, backupTotalSize));
+                    BeforeReceivingFile?.Invoke(this, new BackupFileEventArgs(backupFile));
                     ResultCode code = await ReceiveFile(backupFile, cancellationToken).ConfigureAwait(false);
                     if (code == ResultCode.Success) {
                         OnFileReceived(backupFile);
