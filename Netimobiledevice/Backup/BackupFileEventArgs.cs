@@ -20,6 +20,7 @@ namespace Netimobiledevice.Backup
         /// Creates an instance of the BackupFileEventArgs class.
         /// </summary>
         /// <param name="file">The BackupFile related to the event.</param>
+        /// <param name="fileSize"></param>
         public BackupFileEventArgs(BackupFile file)
         {
             File = file;

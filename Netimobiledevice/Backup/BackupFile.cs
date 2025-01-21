@@ -22,6 +22,10 @@ namespace Netimobiledevice.Backup
         /// </summary>
         public string LocalPath { get; }
 
+        public long FileSize { get; set; } = 0;
+        
+        public long ExpectedFileSize { get; set; } = 0;
+
         /// <summary>
         /// Creates an instance of a BackupFile
         /// </summary>
@@ -33,6 +37,15 @@ namespace Netimobiledevice.Backup
             DevicePath = devicePath;
             BackupPath = backupPath;
             LocalPath = Path.Combine(backupDirectory, backupPath);
+            Empty = false;
         }
+        public BackupFile()
+        {
+            DevicePath = "";
+            BackupPath = "";
+            LocalPath = "";
+            Empty = true;
+        }
+        public bool Empty { get; }
     }
 }

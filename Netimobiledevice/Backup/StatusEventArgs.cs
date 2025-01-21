@@ -13,12 +13,19 @@ namespace Netimobiledevice.Backup
         public string Message { get; }
 
         /// <summary>
+        /// The full status details
+        /// </summary>
+        public BackupStatus? Status { get; }
+
+        /// <summary>
         /// Creates an instance of the StatusEventArgs class.
         /// </summary>
         /// <param name="message">The status message.</param>
-        public StatusEventArgs(string message)
+        /// <param name="status">The BackupStatus object containing all the details</param>
+        public StatusEventArgs(string message, BackupStatus? status = null)
         {
             Message = message;
+            Status = status;
         }
     }
 }
