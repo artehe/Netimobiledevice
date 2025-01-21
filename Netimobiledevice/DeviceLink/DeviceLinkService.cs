@@ -28,32 +28,36 @@ namespace Netimobiledevice.DeviceLink
         private readonly string _rootPath;
         private readonly ILogger _logger;
         private CancellationTokenSource internalCancellationTokenSource;
-        
+
         private FileStream? _fileStream;
         private BackupFile _lastBackupFile = new();
-        
+
         public long BytesRead { get; protected set; }
-        
-        private void CloseFileStream() {
+
+        private void CloseFileStream()
+        {
             try {
                 _fileStream?.Flush();
-            } catch (Exception fex) {
+            }
+            catch (Exception fex) {
                 _logger.LogError($"Error flushing backup file : {fex.Message}");
             }
             _fileStream?.Close();
             _fileStream = null;
         }
-        
+
         private long _ticksSpentReceiving = 0;
         private long _ticksTotalReceive = 0;
         private long _ticksSpentWritingFiles = 0;
 
 
-        private void CaptureTotalTicks(long startTicks) {
+        private void CaptureTotalTicks(long startTicks)
+        {
             _ticksTotalReceive += DateTime.Now.Ticks - startTicks;
         }
 
-        public void LogPerformanceData() {
+        public void LogPerformanceData()
+        {
             _logger.LogCritical(new EventId(1, "NetworkReceiveDuration"), $"{TimeSpan.FromTicks(_ticksSpentReceiving)}");
             _logger.LogCritical(new EventId(1, "FileWriteDuration"), $"{TimeSpan.FromTicks(_ticksSpentWritingFiles)}");
             _logger.LogCritical(new EventId(1, "CombinedReceiveWriteDuration"), $"{TimeSpan.FromTicks(_ticksSpentWritingFiles + _ticksSpentReceiving)}");
@@ -114,7 +118,7 @@ namespace Netimobiledevice.DeviceLink
         /// Event raised when a file send to the device has failed due to errors on the application side
         /// </summary>
         public event SendFileErrorEventHandler? SendFileError;
-        
+
 
         public DeviceLinkService(ServiceConnection service, string backupDirectory, ILogger logger)
         {
@@ -209,7 +213,7 @@ namespace Netimobiledevice.DeviceLink
         private static DictionaryNode CreateErrorReport(ErrNo errorNo)
         {
             string errMsg;
-            int errCode = -(int)errorNo;
+            int errCode = -(int) errorNo;
 
             if (errorNo == ErrNo.ENOENT) {
                 errCode = -6;
@@ -265,31 +269,26 @@ namespace Netimobiledevice.DeviceLink
                 await SendPath(filename.Value, cancellationToken).ConfigureAwait(false);
 
                 string filePath = Path.Combine(_rootPath, filename.Value);
+                if (File.Exists(filePath)) {
+                    await using (FileStream fs = File.OpenRead(filePath)) {
+                        // We want to use a chunk size of 128 MiB
+                        byte[] chunk = new byte[128 * 1024 * 1024];
 
-                var errorCode = ErrNo.ENOERR;
-                if (!File.Exists(filePath)) {
-                    errorCode = ErrNo.ENOENT;
-                }
-
-                await using (FileStream fs = File.OpenRead(filePath)) {
-                    // We want to use a chunk size of 128 MiB
-                    byte[] chunk = new byte[128 * 1024 * 1024];
-
-                    int bytesRead;
-                    while ((bytesRead = await fs.ReadAsync(chunk, cancellationToken).ConfigureAwait(false)) > 0) {
-                        List<byte> data = [
-                            (byte) ResultCode.FileData,
+                        int bytesRead;
+                        while ((bytesRead = await fs.ReadAsync(chunk, cancellationToken).ConfigureAwait(false)) > 0) {
+                            byte[] data = [
+                                (byte) ResultCode.FileData,
                             .. chunk.Take(bytesRead)
-                        ];
-                        await SendPrefixed([.. data], data.Count, cancellationToken).ConfigureAwait(false);
+                            ];
+                            await SendPrefixed(data, data.Length, cancellationToken).ConfigureAwait(false);
+                        }
                     }
-                }
 
-                if (errorCode == ErrNo.ENOERR) {
                     byte[] buffer = [(byte) ResultCode.Success];
                     await SendPrefixed(buffer, buffer.Length, cancellationToken).ConfigureAwait(false);
                 }
                 else {
+                    ErrNo errorCode = ErrNo.ENOENT;
                     _logger.LogDebug("Sending Error Code: {code}", errorCode);
                     DictionaryNode errReport = CreateErrorReport(errorCode);
                     errList.Add(filename.Value, errReport);
@@ -327,7 +326,7 @@ namespace Netimobiledevice.DeviceLink
                 catch (Exception ex) {
                     _logger.LogError(ex, $"Issue getting space from drive: {ex}");
                     Warning?.Invoke(this, new DetailedErrorEventArgs(ex, _rootPath));
-                    
+
                 }
             }
 
@@ -371,7 +370,8 @@ namespace Netimobiledevice.DeviceLink
             }
         }
 
-        private void OnSendFileError(DictionaryNode errorReport, string fileName) {
+        private void OnSendFileError(DictionaryNode errorReport, string fileName)
+        {
             SendFileError?.Invoke(errorReport, fileName);
         }
 
@@ -384,21 +384,23 @@ namespace Netimobiledevice.DeviceLink
             if (_lastBackupFile == file && _fileStream != null) {
                 try {
                     CloseFileStream();
-                } catch (Exception ex) {
+                }
+                catch (Exception ex) {
                     BackupFileErrorEventArgs e = new BackupFileErrorEventArgs(file, $"{ex.Message} : {ex.StackTrace}");
                     FileTransferError?.Invoke(this, e);
                 }
             }
-            
+
             FileReceived?.Invoke(this, new BackupFileEventArgs(file));
-            
+
             if (string.Equals("Status.plist", Path.GetFileName(file.LocalPath), StringComparison.OrdinalIgnoreCase)) {
                 try {
                     using (FileStream fs = File.OpenRead(file.LocalPath)) {
                         DictionaryNode statusPlist = PropertyList.Load(fs).AsDictionaryNode();
                         OnStatusReceived(new BackupStatus(statusPlist, _logger));
                     }
-                } catch (Exception ex) {
+                }
+                catch (Exception ex) {
                     BackupFileErrorEventArgs e = new BackupFileErrorEventArgs(file, $"{ex.Message} : {ex.StackTrace}");
                     FileTransferError?.Invoke(this, e);
                 }
@@ -506,7 +508,7 @@ namespace Netimobiledevice.DeviceLink
         private async Task<ResultCode> ReceiveFile(BackupFile file, CancellationToken cancellationToken)
         {
             var startTicks = DateTime.UtcNow.Ticks;
-            
+
             const int bufferLen = 32 * 1024;
             ResultCode lastCode = ResultCode.Success;
             if (File.Exists(file.LocalPath)) {
@@ -550,19 +552,19 @@ namespace Netimobiledevice.DeviceLink
                     byte[] buffer = await _service.ReceiveAsync(toRead, cancellationToken).ConfigureAwait(false);
 
                     OnFileReceiving(file, buffer);
-                    
+
                     done += buffer.Length;
-                    
+
                     BytesRead += buffer.Length; // Track the total bytes read this session
                 }
 
                 if (done == blockSize) {
                     file.FileSize += blockSize;
                 }
-                
+
                 _logger.LogDebug($"Time: NetworkRecv: {TimeSpan.FromTicks(_ticksSpentReceiving)} FileWrite: {TimeSpan.FromTicks(_ticksSpentWritingFiles)} Combined: {TimeSpan.FromTicks(_ticksSpentWritingFiles + _ticksSpentReceiving)}");
             }
-            
+
             CaptureTotalTicks(startTicks);
 
             return lastCode;
@@ -600,23 +602,20 @@ namespace Netimobiledevice.DeviceLink
                     _logger.LogWarning("Empty file to remove.");
                 }
                 else {
-                    FileInfo file = new FileInfo(Path.Combine(_rootPath, filename.Value));
-                    if (file.Exists) {
-                        if (file.Attributes.HasFlag(FileAttributes.Directory)) {
-                            Directory.Delete(file.FullName, true);
-                        }
-                        else {
-                            file.Delete();
-                        }
+                    string path = Path.Combine(_rootPath, filename.Value);
+                    if (File.Exists(path)) {
+                        File.Delete(path);
+                    }
+                    else if (Directory.Exists(path)) {
+                        Directory.Delete(path, true);
                     }
                 }
-            }
 
-            if (!cancellationToken.IsCancellationRequested) {
-                await SendStatusReport(0, string.Empty, cancellationToken: cancellationToken).ConfigureAwait(false);
+                if (!cancellationToken.IsCancellationRequested) {
+                    await SendStatusReport(0, string.Empty, cancellationToken: cancellationToken).ConfigureAwait(false);
+                }
             }
         }
-
 
         /// <summary>
         /// Sends the specified error report to the backup service.
