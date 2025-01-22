@@ -1,6 +1,6 @@
 # Netimobiledevice
 
-Netimobiledevice is a pure C# implementation for working with iOS devices (iPhone, iPad, iPod).
+Netimobiledevice is a pure C# implementation for working with iOS devices (iPhone, iPad, iPod). Implements quite a lot of the services available from lockdownd and remoted. This library isn't a wrapper around the libimobiledevice library (but is inspired by it among others such as pymobiledevice3) and is designed to be used in .NET applications. It is a cross-platform library that can be used on Windows, Linux and MacOS.
 
 - [Netimobiledevice](#Netimobiledevice)
     * [Features](#Features)
@@ -13,11 +13,19 @@ Netimobiledevice is a pure C# implementation for working with iOS devices (iPhon
 
 ## Features
 
- - Backup an iOS device in the normal iTunes way or as customised as you like. 
+ - Backup and Restore an iOS device in the normal iTunes way or as customised as you like. 
  - Device discovery and connection via Usbmux.
  - Interact with iOS services using Lockdownd or Remoted
  - Handle all property lists files (.plist) whether they are in XML or Binary format
  - Use remoted Apples new framework for working with iOS devices. This uses the RemoteXPC protocol and you can read more about it [here](https://github.com/doronz88/pymobiledevice3/blob/master/misc/RemoteXPC.md)
+ - TCP port forwarding
+ - Viewing syslog lines
+ - Profile management
+ - Application management
+ - File system management
+ - Crash reports management
+ - Notification listening
+ - Querying and setting SpringBoard options
 
 ## Installation
 
