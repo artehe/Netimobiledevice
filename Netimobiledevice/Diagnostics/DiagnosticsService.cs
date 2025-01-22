@@ -1037,30 +1037,19 @@ namespace Netimobiledevice.Diagnostics
             return storageData;
         }
 
-        public Dictionary<string, object> GetBatteryDetails()
+        public DictionaryNode GetBatteryDetails()
         {
-            Dictionary<string, object> batteryDetails = [];
-            string[] keys = ["BatteryCurrentCapacity", "BatteryIsCharging", "BatteryIsFullyCharged", "BatterySerialNumber"];
+            string[] keys = [
+                "HasBattery",
+                "IsThereEnoughBatteryLevelForSoftwareUpdate",
+                "RequiredBatteryLevelForSoftwareUpdate",
+                "BatteryCurrentCapacity",
+                "BatteryIsCharging",
+                "BatteryIsFullyCharged",
+                "BatterySerialNumber"
+            ];
             DictionaryNode batteryData = MobileGestalt(keys);
-
-            foreach (string key in keys) {
-                if (batteryData.ContainsKey(key)) {
-                    PropertyNode valueNode = batteryData[key];
-                    batteryDetails.Add(key, GetValueFromNode(valueNode));
-                }
-            }
-
-            return batteryDetails;
-        }
-
-        private object GetValueFromNode(PropertyNode node)
-        {
-            return node switch {
-                IntegerNode intValueNode => intValueNode.Value,
-                BooleanNode boolValueNode => boolValueNode.Value,
-                StringNode stringValueNode => stringValueNode.Value,
-                _ => null,
-            };
+            return batteryData;
         }
 
         public PropertyNode Info(string diagnosticType = "All")
