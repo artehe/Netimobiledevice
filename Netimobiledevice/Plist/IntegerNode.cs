@@ -44,6 +44,8 @@ namespace Netimobiledevice.Plist
 
         public bool Unsigned { get; private set; }
 
+        public long SignedValue => (long) Value;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="IntegerNode"/> class.
         /// </summary>
