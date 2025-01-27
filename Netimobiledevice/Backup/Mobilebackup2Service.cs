@@ -403,10 +403,14 @@ namespace Netimobiledevice.Backup
 
                             // Create Manifest.plist if doesn't exist.
                             string manifestPlistPath = Path.Combine(deviceDirectory, "Manifest.plist");
-                            if (fullBackup && File.Exists(manifestPlistPath)) {
+                            bool manifestExists = File.Exists(manifestPlistPath);
+                            if (fullBackup && manifestExists) {
                                 File.Delete(manifestPlistPath);
                             }
-                            File.Create(manifestPlistPath);
+                            
+                            if (fullBackup || !manifestExists) {
+                                File.Create(manifestPlistPath);
+                            }
 
                             DictionaryNode message = new DictionaryNode() {
                                 { "MessageName", new StringNode("Backup") },
