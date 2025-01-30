@@ -63,7 +63,7 @@ public class Program
                 mb2.Status += BackupJob_Status;
                 mb2.Started += BackupJob_Started;
 
-                await mb2.Backup(true, "backups", tokenSource.Token);
+                await mb2.Backup(true, false, "backups", tokenSource.Token);
             }
         }
     }

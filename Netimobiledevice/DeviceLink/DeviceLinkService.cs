@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Netimobiledevice.Backup;
 using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Exceptions;
@@ -30,6 +31,7 @@ namespace Netimobiledevice.DeviceLink
         private CancellationTokenSource internalCancellationTokenSource;
 
         private FileStream? _fileStream;
+        private bool _ignoreTransferErrors = false;
         private BackupFile _lastBackupFile = new();
 
         public long BytesRead { get; protected set; }
@@ -49,7 +51,6 @@ namespace Netimobiledevice.DeviceLink
         private long _ticksSpentReceiving = 0;
         private long _ticksTotalReceive = 0;
         private long _ticksSpentWritingFiles = 0;
-
 
         private void CaptureTotalTicks(long startTicks)
         {
@@ -120,11 +121,12 @@ namespace Netimobiledevice.DeviceLink
         public event SendFileErrorEventHandler? SendFileError;
 
 
-        public DeviceLinkService(ServiceConnection service, string backupDirectory, ILogger logger)
+        public DeviceLinkService(ServiceConnection service, string backupDirectory, bool ignoreTransferErrors = true, ILogger? logger = null)
         {
             _service = service;
             _rootPath = backupDirectory;
-            _logger = logger;
+            _ignoreTransferErrors = ignoreTransferErrors;
+            _logger = logger ?? NullLogger.Instance;
 
             internalCancellationTokenSource = new CancellationTokenSource();
 
@@ -436,9 +438,9 @@ namespace Netimobiledevice.DeviceLink
         {
             CloseFileStream();
             FailedFiles.Add(file);
-            if (FileTransferError != null) {
+            if (!_ignoreTransferErrors) {
                 BackupFileErrorEventArgs e = new BackupFileErrorEventArgs(file, details);
-                FileTransferError.Invoke(this, e);
+                FileTransferError?.Invoke(this, e);
                 internalCancellationTokenSource.Cancel();
             }
         }
@@ -726,7 +728,7 @@ namespace Netimobiledevice.DeviceLink
             GC.SuppressFinalize(this);
         }
 
-        public async Task<ResultCode> DlLoop(CancellationToken cancellationToken)
+        public async Task<ResultCode> DlLoop(CancellationToken cancellationToken = default)
         {
             FailedFiles.Clear();
 

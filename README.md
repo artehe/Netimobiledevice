@@ -96,7 +96,7 @@ using (UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux("60653a518
         mb2.Status += BackupJob_Status;
         mb2.Started += BackupJob_Started;
 
-        await mb2.Backup(true, "backups", tokenSource.Token);
+        await mb2.Backup(true, true, "backups", tokenSource.Token);
     }
 }
 ```
@@ -123,8 +123,8 @@ using Microsoft.Extensions.Logging;
 
 using ILoggerFactory factory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Debug).AddConsole());
 using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(testDevice?.Serial ?? string.Empty, logger: factory.CreateLogger("Netimobiledevice"))) {
-    using (DeviceBackup backupJob = new DeviceBackup(lockdown, path)) {
-        await backupJob.Start(tokenSource.Token);
+    using (Mobilebackup2Service mb2 = new Mobilebackup2Service(lockdown)) {
+        await mb2.Backup(true, true, "backups", tokenSource.Token);
     }
 }
 ```
