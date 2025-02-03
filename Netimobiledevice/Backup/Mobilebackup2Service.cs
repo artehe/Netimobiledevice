@@ -406,12 +406,16 @@ namespace Netimobiledevice.Backup
                             if (fullBackup && File.Exists(manifestPlistPath)) {
                                 File.Delete(manifestPlistPath);
                             }
-                            File.Create(manifestPlistPath);
 
                             DictionaryNode message = new DictionaryNode() {
                                 { "MessageName", new StringNode("Backup") },
                                 { "TargetIdentifier", new StringNode(Lockdown.Udid) }
                             };
+                            if (fullBackup) {
+                                message.Add("Options", new DictionaryNode {
+                                    { "ForceFullBackup", new BooleanNode(true) }
+                                });
+                            }
                             dl.SendProcessMessage(message);
 
                             // Wait for 3 seconds to see if the device passcode is requested
