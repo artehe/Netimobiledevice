@@ -57,7 +57,7 @@ namespace Netimobiledevice.Backup
                 BackupState = state;
             }
             else {
-                logger.LogWarning($"WARNING: New Backup state found: {backupStateString}");
+                logger.LogWarning("New Backup state found: {state}", backupStateString);
             }
 
             string snapshotStateString = textInfo.ToTitleCase(status["SnapshotState"].AsStringNode().Value);
@@ -65,7 +65,7 @@ namespace Netimobiledevice.Backup
                 SnapshotState = snapshotState;
             }
             else {
-                logger.LogWarning($"WARNING: New Snapshot state found: {snapshotStateString}");
+                logger.LogWarning("New Snapshot state found: {state}", snapshotStateString);
             }
         }
     }
