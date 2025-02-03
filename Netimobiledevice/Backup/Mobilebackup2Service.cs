@@ -135,7 +135,7 @@ namespace Netimobiledevice.Backup
                 throw new Mobilebackup2Exception("Both newPassword and oldPassword can't be null or empty");
             }
 
-            using (DeviceLinkService dl = await GetDeviceLink(string.Empty, cancellationToken).ConfigureAwait(false)) {
+            using (DeviceLinkService dl = await GetDeviceLink(string.Empty, true, cancellationToken).ConfigureAwait(false)) {
                 DictionaryNode message = new DictionaryNode() {
                     { "MessageName", new StringNode("ChangePassword") },
                     { "TargetIdentifier", new StringNode(Lockdown.Udid) },
@@ -311,9 +311,9 @@ namespace Netimobiledevice.Backup
             Started?.Invoke(sender, e);
         }
 
-        private async Task<DeviceLinkService> GetDeviceLink(string backupDirectory, CancellationToken cancellationToken)
+        private async Task<DeviceLinkService> GetDeviceLink(string backupDirectory, bool ignoreTransferErrors, CancellationToken cancellationToken)
         {
-            DeviceLinkService dl = new DeviceLinkService(this.Service, backupDirectory, Logger);
+            DeviceLinkService dl = new DeviceLinkService(this.Service, backupDirectory, ignoreTransferErrors, Logger);
             await dl.VersionExchange(MOBILEBACKUP2_VERSION_MAJOR, MOBILEBACKUP2_VERSION_MINOR, cancellationToken).ConfigureAwait(false);
             await VersionExchange(dl, cancellationToken).ConfigureAwait(false);
             return dl;
@@ -349,14 +349,14 @@ namespace Netimobiledevice.Backup
         /// <param name="fullBackup">Whether to do a full backup; if true any previous backup attempts will be discarded</param>
         /// <param name="backupDirectory">Directory to write backup to</param>
         /// <returns></returns>
-        public async Task<ResultCode> Backup(bool fullBackup = true, string backupDirectory = ".", CancellationToken cancellationToken = default)
+        public async Task<ResultCode> Backup(bool fullBackup = true, bool ignoreTransferErrors = true, string backupDirectory = ".", CancellationToken cancellationToken = default)
         {
             _internalCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
             string deviceDirectory = Path.Combine(backupDirectory, Lockdown.Udid);
             Directory.CreateDirectory(deviceDirectory);
 
-            using (DeviceLinkService dl = await GetDeviceLink(backupDirectory, _internalCts.Token).ConfigureAwait(false)) {
+            using (DeviceLinkService dl = await GetDeviceLink(backupDirectory, ignoreTransferErrors, _internalCts.Token).ConfigureAwait(false)) {
                 dl.BeforeReceivingFile += DeviceLink_BeforeReceivingFile;
                 dl.Completed += DeviceLink_Completed;
                 dl.Error += DeviceLink_Error;
@@ -459,7 +459,7 @@ namespace Netimobiledevice.Backup
         /// <param name="password">The password for the backup if it is encrypted</param>
         /// <param name="source">Identifier of device to restore it's backup</param>
         public async Task<ResultCode> Restore(string backupDirectory, bool system = false, bool reboot = false, bool copy = true,
-            bool settings = true, bool remove = false, string password = "", string source = "", CancellationToken cancellationToken = default)
+            bool settings = true, bool remove = false, string password = "", string source = "", bool ignoreTransferErrors = false, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrEmpty(source)) {
                 source = Lockdown.Udid;
@@ -469,7 +469,7 @@ namespace Netimobiledevice.Backup
                 throw new Mobilebackup2Exception("Backup not found");
             }
 
-            using (DeviceLinkService dl = await GetDeviceLink(backupDirectory, cancellationToken).ConfigureAwait(false)) {
+            using (DeviceLinkService dl = await GetDeviceLink(backupDirectory, ignoreTransferErrors, cancellationToken).ConfigureAwait(false)) {
                 dl.BeforeReceivingFile += DeviceLink_BeforeReceivingFile;
                 dl.Completed += DeviceLink_Completed;
                 dl.Error += DeviceLink_Error;
