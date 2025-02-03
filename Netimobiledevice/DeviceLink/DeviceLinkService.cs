@@ -27,12 +27,14 @@ namespace Netimobiledevice.DeviceLink
         private readonly ServiceConnection _service;
         private readonly string _rootPath;
         private readonly ILogger _logger;
-        private CancellationTokenSource internalCancellationTokenSource;
+        private CancellationTokenSource _internalCancellationTokenSource;
 
-        private FileStream? _fileStream;
         private BackupFile _lastBackupFile = new();
 
-        public long BytesRead { get; protected set; }
+        private FileStream? _fileStream;
+        private BackupStatus? _backupStatus;
+
+        public long BytesRead { get; private set; }
 
         private void CloseFileStream()
         {
@@ -126,7 +128,7 @@ namespace Netimobiledevice.DeviceLink
             _rootPath = backupDirectory;
             _logger = logger;
 
-            internalCancellationTokenSource = new CancellationTokenSource();
+            _internalCancellationTokenSource = new CancellationTokenSource();
 
             // Adjust the timeout to be long enough to handle device with a large amount of data
             _service.SetTimeout(SERVICE_TIMEOUT);
@@ -324,7 +326,7 @@ namespace Netimobiledevice.DeviceLink
                     }
                 }
                 catch (Exception ex) {
-                    _logger.LogError(ex, $"Issue getting space from drive: {ex}");
+                    _logger.LogError(ex, "Issue getting space from drive");
                     Warning?.Invoke(this, new DetailedErrorEventArgs(ex, _rootPath));
 
                 }
@@ -390,21 +392,7 @@ namespace Netimobiledevice.DeviceLink
                     FileTransferError?.Invoke(this, e);
                 }
             }
-
             FileReceived?.Invoke(this, new BackupFileEventArgs(file));
-
-            if (string.Equals("Status.plist", Path.GetFileName(file.LocalPath), StringComparison.OrdinalIgnoreCase)) {
-                try {
-                    using (FileStream fs = File.OpenRead(file.LocalPath)) {
-                        DictionaryNode statusPlist = PropertyList.Load(fs).AsDictionaryNode();
-                        OnStatusReceived(new BackupStatus(statusPlist, _logger));
-                    }
-                }
-                catch (Exception ex) {
-                    BackupFileErrorEventArgs e = new BackupFileErrorEventArgs(file, $"{ex.Message} : {ex.StackTrace}");
-                    FileTransferError?.Invoke(this, e);
-                }
-            }
         }
 
         /// <summary>
@@ -420,9 +408,19 @@ namespace Netimobiledevice.DeviceLink
                 Directory.CreateDirectory(pathDir);
             }
 
-            using (FileStream stream = File.OpenWrite(file.LocalPath)) {
-                stream.Seek(0, SeekOrigin.End);
-                stream.Write(fileData, 0, fileData.Length);
+            _fileStream ??= File.OpenWrite(file.LocalPath);
+            _fileStream?.Seek(0, SeekOrigin.End);
+            _fileStream?.WriteAsync(fileData, 0, fileData.Length).ConfigureAwait(false);
+
+            if (string.Equals("Status.plist", Path.GetFileName(file.LocalPath), StringComparison.OrdinalIgnoreCase)) {
+                try {
+                    DictionaryNode statusPlist = PropertyList.LoadFromByteArray(fileData).AsDictionaryNode();
+                    OnStatusReceived(new BackupStatus(statusPlist, _logger));
+                }
+                catch (Exception ex) {
+                    BackupFileErrorEventArgs e = new BackupFileErrorEventArgs(file, $"{ex.Message} : {ex.StackTrace}");
+                    FileTransferError?.Invoke(this, e);
+                }
             }
 
             FileReceiving?.Invoke(this, new BackupFileEventArgs(file, fileData));
@@ -439,7 +437,7 @@ namespace Netimobiledevice.DeviceLink
             if (FileTransferError != null) {
                 BackupFileErrorEventArgs e = new BackupFileErrorEventArgs(file, details);
                 FileTransferError.Invoke(this, e);
-                internalCancellationTokenSource.Cancel();
+                _internalCancellationTokenSource.Cancel();
             }
         }
 
@@ -449,9 +447,10 @@ namespace Netimobiledevice.DeviceLink
         /// <param name="status">The status report sent from the backup service.</param>
         private void OnStatusReceived(BackupStatus status)
         {
+            _backupStatus = status;
             string snapshotState = $"{status.SnapshotState}";
-            Status?.Invoke(this, new StatusEventArgs(snapshotState, status));
             _logger.LogDebug("OnStatus: {message}", snapshotState);
+            Status?.Invoke(this, new StatusEventArgs(snapshotState, status));
         }
 
         private async Task PurgeDiskSpace(ArrayNode message, CancellationToken cancellationToken)
@@ -507,7 +506,7 @@ namespace Netimobiledevice.DeviceLink
         /// <returns>The result code of the transfer.</returns>
         private async Task<ResultCode> ReceiveFile(BackupFile file, CancellationToken cancellationToken)
         {
-            var startTicks = DateTime.UtcNow.Ticks;
+            long startTicks = DateTime.UtcNow.Ticks;
 
             const int bufferLen = 32 * 1024;
             ResultCode lastCode = ResultCode.Success;
@@ -730,9 +729,9 @@ namespace Netimobiledevice.DeviceLink
         {
             FailedFiles.Clear();
 
-            internalCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            while (!cancellationToken.IsCancellationRequested) {
-                ArrayNode message = await ReceiveMessage(internalCancellationTokenSource.Token).ConfigureAwait(false);
+            _internalCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            while (!cancellationToken.IsCancellationRequested && _backupStatus?.SnapshotState != SnapshotState.Finished) {
+                ArrayNode message = await ReceiveMessage(_internalCancellationTokenSource.Token).ConfigureAwait(false);
 
                 string command = message[0].AsStringNode().Value;
                 _logger.LogDebug("Command recieved: {command}", command);
@@ -753,7 +752,12 @@ namespace Netimobiledevice.DeviceLink
                     UpdateProgressForMessage(message[3].AsRealNode());
                 }
 
-                await DeviceLinkHandlers[command](message, internalCancellationTokenSource.Token).ConfigureAwait(false);
+                await DeviceLinkHandlers[command](message, _internalCancellationTokenSource.Token).ConfigureAwait(false);
+            }
+
+            if (_backupStatus?.SnapshotState == SnapshotState.Finished) {
+                Completed?.Invoke(this, new BackupResultEventArgs(FailedFiles, false, false));
+                return ResultCode.Success;
             }
             return ResultCode.Skipped;
         }
