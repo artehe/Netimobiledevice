@@ -386,6 +386,15 @@ namespace Netimobiledevice.Backup
                                 await fs.WriteAsync(infoPlistData, _internalCts.Token).ConfigureAwait(false);
                             }
 
+                            // Create Manifest.plist if doesn't exist.
+                            string manifestPlistPath = Path.Combine(deviceDirectory, "Manifest.plist");
+                            if (fullBackup && File.Exists(manifestPlistPath)) {
+                                File.Delete(manifestPlistPath);
+                            }
+                            else if (fullBackup == false && !File.Exists(manifestPlistPath)) {
+                                fullBackup = true;
+                            }
+
                             // Create Status.plist file if doesn't exist.
                             string statusPlistPath = Path.Combine(deviceDirectory, "Status.plist");
                             DateTime currentDate = DateTime.Now;
@@ -399,12 +408,6 @@ namespace Netimobiledevice.Backup
                                     { "UUID", new StringNode(Guid.NewGuid().ToString()) }
                                 };
                                 await File.WriteAllBytesAsync(statusPlistPath, PropertyList.SaveAsByteArray(statusPlist, PlistFormat.Binary), _internalCts.Token).ConfigureAwait(false);
-                            }
-
-                            // Create Manifest.plist if doesn't exist.
-                            string manifestPlistPath = Path.Combine(deviceDirectory, "Manifest.plist");
-                            if (fullBackup && File.Exists(manifestPlistPath)) {
-                                File.Delete(manifestPlistPath);
                             }
 
                             DictionaryNode message = new DictionaryNode() {
