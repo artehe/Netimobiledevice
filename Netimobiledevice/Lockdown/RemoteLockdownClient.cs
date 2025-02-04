@@ -46,7 +46,7 @@ namespace Netimobiledevice.Lockdown
         /// <param name="pairingRecordsCacheFolder">Use the following location to search and save pair records</param>
         /// <param name="port">lockdownd service port</param>
         /// <returns>A new LockdownClient instance</returns>
-        public static new RemoteLockdownClient Create(ServiceConnection service, string identifier = "", string systemBuid = SYSTEM_BUID, string label = DEFAULT_CLIENT_NAME,
+        public static RemoteLockdownClient Create(ServiceConnection service, string identifier = "", string systemBuid = SYSTEM_BUID, string label = DEFAULT_CLIENT_NAME,
             bool autopair = true, float? pairTimeout = null, string localHostname = "", DictionaryNode? pairRecord = null, string pairingRecordsCacheFolder = "",
             ushort port = SERVICE_PORT, ILogger? logger = null)
         {

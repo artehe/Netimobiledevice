@@ -50,8 +50,8 @@ public class Program
             }
         }
 
-        using (UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux()) {
-            using (Mobilebackup2Service mb2 = new Mobilebackup2Service(lockdown)) {
+        using (UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
+            using (Mobilebackup2Service mb2 = new Mobilebackup2Service(lockdown, logger: logger)) {
                 mb2.BeforeReceivingFile += BackupJob_BeforeReceivingFile;
                 mb2.Completed += BackupJob_Completed;
                 mb2.Error += BackupJob_Error;
