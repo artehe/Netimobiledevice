@@ -388,17 +388,11 @@ namespace Netimobiledevice.Backup
 
                             // Create Status.plist file if doesn't exist.
                             string statusPlistPath = Path.Combine(deviceDirectory, "Status.plist");
-                            DateTime currentDate = DateTime.Now;
                             if (fullBackup || !File.Exists(statusPlistPath)) {
-                                DictionaryNode statusPlist = new DictionaryNode() {
-                                    { "BackupState", new StringNode("new") },
-                                    { "Date", new DateNode(currentDate) },
-                                    { "IsFullBackup", new BooleanNode(fullBackup) },
-                                    { "Version", new StringNode("3.3") },
-                                    { "SnapshotState", new StringNode(nameof(SnapshotState.Finished).ToLowerInvariant()) },
-                                    { "UUID", new StringNode(Guid.NewGuid().ToString()) }
+                                BackupStatus status = new BackupStatus() {
+                                    IsFullBackup = fullBackup
                                 };
-                                await File.WriteAllBytesAsync(statusPlistPath, PropertyList.SaveAsByteArray(statusPlist, PlistFormat.Binary), _internalCts.Token).ConfigureAwait(false);
+                                await File.WriteAllBytesAsync(statusPlistPath, PropertyList.SaveAsByteArray(status.ToPlist(), PlistFormat.Binary), _internalCts.Token).ConfigureAwait(false);
                             }
 
                             // Create Manifest.plist if doesn't exist.
