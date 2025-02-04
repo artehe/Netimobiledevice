@@ -21,18 +21,17 @@ namespace Netimobiledevice.DeviceLink
     internal sealed class DeviceLinkService : IDisposable
     {
         private const int BULK_OPERATION_ERROR = -13;
-        private const UInt32 FILE_TRANSFER_TERMINATOR = 0x00;
+        private const uint FILE_TRANSFER_TERMINATOR = 0x00;
         // Set the default timeout to be 5 minutes
         private const int SERVICE_TIMEOUT = 5 * 60 * 1000;
 
         private readonly ServiceConnection _service;
         private readonly string _rootPath;
         private readonly ILogger _logger;
-        private CancellationTokenSource internalCancellationTokenSource;
+        private CancellationTokenSource _internalCancellationTokenSource;
 
-        private FileStream? _fileStream;
         private bool _ignoreTransferErrors = false;
-        private BackupFile _lastBackupFile = new();
+        private FileStream? _fileStream = null;
 
         public long BytesRead { get; protected set; }
 
@@ -47,24 +46,6 @@ namespace Netimobiledevice.DeviceLink
             _fileStream?.Close();
             _fileStream = null;
         }
-
-        private long _ticksSpentReceiving = 0;
-        private long _ticksTotalReceive = 0;
-        private long _ticksSpentWritingFiles = 0;
-
-        private void CaptureTotalTicks(long startTicks)
-        {
-            _ticksTotalReceive += DateTime.Now.Ticks - startTicks;
-        }
-
-        public void LogPerformanceData()
-        {
-            _logger.LogCritical(new EventId(1, "NetworkReceiveDuration"), $"{TimeSpan.FromTicks(_ticksSpentReceiving)}");
-            _logger.LogCritical(new EventId(1, "FileWriteDuration"), $"{TimeSpan.FromTicks(_ticksSpentWritingFiles)}");
-            _logger.LogCritical(new EventId(1, "CombinedReceiveWriteDuration"), $"{TimeSpan.FromTicks(_ticksSpentWritingFiles + _ticksSpentReceiving)}");
-            _logger.LogCritical(new EventId(1, "ReceiveFileDuration"), $"{TimeSpan.FromTicks(_ticksTotalReceive)}");
-        }
-
         private Dictionary<string, Func<ArrayNode, CancellationToken, Task>> DeviceLinkHandlers { get; }
         /// <summary>
         /// A list of the files whose transfer failed due to a device error.
@@ -128,7 +109,7 @@ namespace Netimobiledevice.DeviceLink
             _ignoreTransferErrors = ignoreTransferErrors;
             _logger = logger ?? NullLogger.Instance;
 
-            internalCancellationTokenSource = new CancellationTokenSource();
+            _internalCancellationTokenSource = new CancellationTokenSource();
 
             // Adjust the timeout to be long enough to handle device with a large amount of data
             _service.SetTimeout(SERVICE_TIMEOUT);
@@ -326,7 +307,7 @@ namespace Netimobiledevice.DeviceLink
                     }
                 }
                 catch (Exception ex) {
-                    _logger.LogError(ex, $"Issue getting space from drive: {ex}");
+                    _logger.LogError(ex, "Issue getting space from drive");
                     Warning?.Invoke(this, new DetailedErrorEventArgs(ex, _rootPath));
 
                 }
@@ -383,7 +364,7 @@ namespace Netimobiledevice.DeviceLink
         /// <param name="file">The file received.</param>
         private void OnFileReceived(BackupFile file)
         {
-            if (_lastBackupFile == file && _fileStream != null) {
+            if (_fileStream != null && Path.GetFileName(_fileStream.Name) == Path.GetFileName(file.LocalPath)) {
                 try {
                     CloseFileStream();
                 }
@@ -392,21 +373,7 @@ namespace Netimobiledevice.DeviceLink
                     FileTransferError?.Invoke(this, e);
                 }
             }
-
             FileReceived?.Invoke(this, new BackupFileEventArgs(file));
-
-            if (string.Equals("Status.plist", Path.GetFileName(file.LocalPath), StringComparison.OrdinalIgnoreCase)) {
-                try {
-                    using (FileStream fs = File.OpenRead(file.LocalPath)) {
-                        DictionaryNode statusPlist = PropertyList.Load(fs).AsDictionaryNode();
-                        OnStatusReceived(new BackupStatus(statusPlist, _logger));
-                    }
-                }
-                catch (Exception ex) {
-                    BackupFileErrorEventArgs e = new BackupFileErrorEventArgs(file, $"{ex.Message} : {ex.StackTrace}");
-                    FileTransferError?.Invoke(this, e);
-                }
-            }
         }
 
         /// <summary>
@@ -416,17 +383,16 @@ namespace Netimobiledevice.DeviceLink
         /// <param name="fileData">The file contents received</param>
         private void OnFileReceiving(BackupFile file, byte[] fileData)
         {
-            // Ensure the directory requested exists before writing to it.
-            string? pathDir = Path.GetDirectoryName(file.LocalPath);
-            if (!string.IsNullOrWhiteSpace(pathDir) && !Directory.Exists(file.LocalPath)) {
-                Directory.CreateDirectory(pathDir);
+            if (string.Equals("Status.plist", Path.GetFileName(file.LocalPath), StringComparison.OrdinalIgnoreCase)) {
+                try {
+                    DictionaryNode statusPlist = PropertyList.LoadFromByteArray(fileData).AsDictionaryNode();
+                    OnStatusReceived(BackupStatus.ParsePlist(statusPlist, _logger));
+                }
+                catch (Exception ex) {
+                    BackupFileErrorEventArgs e = new BackupFileErrorEventArgs(file, $"{ex.Message} : {ex.StackTrace}");
+                    FileTransferError?.Invoke(this, e);
+                }
             }
-
-            using (FileStream stream = File.OpenWrite(file.LocalPath)) {
-                stream.Seek(0, SeekOrigin.End);
-                stream.Write(fileData, 0, fileData.Length);
-            }
-
             FileReceiving?.Invoke(this, new BackupFileEventArgs(file, fileData));
         }
 
@@ -441,7 +407,7 @@ namespace Netimobiledevice.DeviceLink
             if (!_ignoreTransferErrors) {
                 BackupFileErrorEventArgs e = new BackupFileErrorEventArgs(file, details);
                 FileTransferError?.Invoke(this, e);
-                internalCancellationTokenSource.Cancel();
+                _internalCancellationTokenSource.Cancel();
             }
         }
 
@@ -477,7 +443,7 @@ namespace Netimobiledevice.DeviceLink
         /// <returns>The Int32 value read.</returns>
         private async Task<int> ReadInt32(CancellationToken cancellationToken)
         {
-            byte[] buffer = await _service.ReceiveAsync(4, cancellationToken).ConfigureAwait(false);
+            byte[] buffer = await _service.ReceiveAsync(sizeof(int), cancellationToken).ConfigureAwait(false);
             if (buffer.Length > 0) {
                 return EndianBitConverter.BigEndian.ToInt32(buffer, 0);
             }
@@ -499,77 +465,6 @@ namespace Netimobiledevice.DeviceLink
                 _logger.LogWarning("Error reading backup file path.");
             }
             return new BackupFile(devicePath, backupPath, _rootPath);
-        }
-
-        /// <summary>
-        /// Receives a single file from the device.
-        /// </summary>
-        /// <param name="file">The BackupFile to receive.</param>
-        /// <param name="skip">Indicates whether to skip or save the file.</param>
-        /// <returns>The result code of the transfer.</returns>
-        private async Task<ResultCode> ReceiveFile(BackupFile file, CancellationToken cancellationToken)
-        {
-            var startTicks = DateTime.UtcNow.Ticks;
-
-            const int bufferLen = 32 * 1024;
-            ResultCode lastCode = ResultCode.Success;
-            if (File.Exists(file.LocalPath)) {
-                File.Delete(file.LocalPath);
-            }
-            while (!cancellationToken.IsCancellationRequested) {
-                // Size is the number of bytes left to read
-                int size = await ReadInt32(cancellationToken).ConfigureAwait(false);
-                if (size <= 0) {
-                    break;
-                }
-
-                ResultCode code = await ReadCode(cancellationToken).ConfigureAwait(false);
-                int blockSize = size - sizeof(ResultCode);
-                if (code != ResultCode.FileData) {
-                    if (code == ResultCode.Success) {
-                        CloseFileStream();
-                        CaptureTotalTicks(startTicks);
-                        return code;
-                    }
-
-                    string msg = string.Empty;
-                    if (blockSize > 0) {
-                        byte[] msgBuffer = await _service.ReceiveAsync(blockSize, cancellationToken).ConfigureAwait(false);
-                        msg = Encoding.UTF8.GetString(msgBuffer);
-                    }
-
-                    // iOS 17 beta devices seem to give RemoteError for a fair number of file now?
-                    _logger.LogWarning("Failed to fully upload {localPath}. Device file name {devicePath}. Reason: {msg}", file.LocalPath, file.DevicePath, msg);
-
-                    OnFileTransferError(file, $"{code}: {msg} [ExpectedSize: {file.ExpectedFileSize}, ActualReceived: {file.FileSize} ]");
-                    CaptureTotalTicks(startTicks);
-                    _logger.LogDebug($"Time: ReceiveFileTotalTicks {TimeSpan.FromTicks(_ticksTotalReceive)}");
-                    return code;
-                }
-                lastCode = code;
-
-                int done = 0;
-                while (done < blockSize) {
-                    int toRead = Math.Min(blockSize - done, bufferLen);
-                    byte[] buffer = await _service.ReceiveAsync(toRead, cancellationToken).ConfigureAwait(false);
-
-                    OnFileReceiving(file, buffer);
-
-                    done += buffer.Length;
-
-                    BytesRead += buffer.Length; // Track the total bytes read this session
-                }
-
-                if (done == blockSize) {
-                    file.FileSize += blockSize;
-                }
-
-                _logger.LogDebug($"Time: NetworkRecv: {TimeSpan.FromTicks(_ticksSpentReceiving)} FileWrite: {TimeSpan.FromTicks(_ticksSpentWritingFiles)} Combined: {TimeSpan.FromTicks(_ticksSpentWritingFiles + _ticksSpentReceiving)}");
-            }
-
-            CaptureTotalTicks(startTicks);
-
-            return lastCode;
         }
 
         /// <summary>
@@ -659,7 +554,7 @@ namespace Netimobiledevice.DeviceLink
             ArrayNode array = [
                 new StringNode("DLMessageStatusResponse"),
                 new IntegerNode(errorCode),
-                errorMessage != null ? new StringNode(errorMessage) : new StringNode("___EmptyParameterString___"),
+                !string.IsNullOrEmpty(errorMessage) ? new StringNode(errorMessage) : new StringNode("___EmptyParameterString___"),
                 errorList ?? new DictionaryNode(),
             ];
 
@@ -685,9 +580,7 @@ namespace Netimobiledevice.DeviceLink
         /// <returns>The number of files processed.</returns>
         private async Task UploadFiles(ArrayNode msg, CancellationToken cancellationToken)
         {
-            string errorDescription = string.Empty;
-            int fileCount = 0;
-            int errorCode = 0;
+            long startTicks = DateTime.UtcNow.Ticks;
 
             long backupTotalSize = (long) msg[3].AsIntegerNode().Value;
             if (backupTotalSize > 0) {
@@ -697,14 +590,51 @@ namespace Netimobiledevice.DeviceLink
             while (!cancellationToken.IsCancellationRequested) {
                 BackupFile? backupFile = await ReceiveBackupFile(cancellationToken).ConfigureAwait(false);
                 if (backupFile != null) {
+                    // Ensure the directory requested exists before writing to it.
+                    string? pathDir = Path.GetDirectoryName(backupFile.LocalPath);
+                    if (!string.IsNullOrWhiteSpace(pathDir) && !Directory.Exists(backupFile.LocalPath)) {
+                        Directory.CreateDirectory(pathDir);
+                    }
+
                     backupFile.ExpectedFileSize = backupTotalSize;
                     _logger.LogDebug("Receiving file {BackupPath}", backupFile.BackupPath);
                     BeforeReceivingFile?.Invoke(this, new BackupFileEventArgs(backupFile));
-                    ResultCode code = await ReceiveFile(backupFile, cancellationToken).ConfigureAwait(false);
+
+                    int size = await ReadInt32(cancellationToken).ConfigureAwait(false);
+                    ResultCode code = await ReadCode(cancellationToken).ConfigureAwait(false);
+                    size -= sizeof(ResultCode);
+
+                    if (backupFile.LocalPath.Contains("Status.plist") && File.Exists(backupFile.LocalPath)) {
+                        File.Delete(backupFile.LocalPath);
+                    }
+                    _fileStream ??= File.OpenWrite(backupFile.LocalPath);
+                    _fileStream.Seek(0, SeekOrigin.End);
+
+                    while (size > 0 && code == ResultCode.FileData) {
+                        byte[] buffer = await _service.ReceiveAsync(size, cancellationToken).ConfigureAwait(false);
+                        await _fileStream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
+
+                        backupFile.FileSize += buffer.Length;
+                        OnFileReceiving(backupFile, buffer);
+
+                        size = await ReadInt32(cancellationToken).ConfigureAwait(false);
+                        code = await ReadCode(cancellationToken).ConfigureAwait(false);
+                        size -= sizeof(ResultCode);
+                    }
+
+                    if (code == ResultCode.RemoteError) {
+                        byte[] msgBuffer = await _service.ReceiveAsync(size, cancellationToken).ConfigureAwait(false);
+                        string errorMessage = Encoding.UTF8.GetString(msgBuffer);
+
+                        _logger.LogWarning("Failed to fully upload {localPath}. Device file name {devicePath}. Reason: {msg}", backupFile.LocalPath, backupFile.DevicePath, errorMessage);
+                        OnFileTransferError(backupFile, $"{code}: {msg} [ExpectedSize: {backupFile.ExpectedFileSize}, ActualReceived: {backupFile.FileSize} ]");
+
+                        continue;
+                    }
+
                     if (code == ResultCode.Success) {
                         OnFileReceived(backupFile);
                     }
-                    fileCount++;
                 }
                 else if (_service.IsConnected) {
                     break;
@@ -715,14 +645,13 @@ namespace Netimobiledevice.DeviceLink
             }
 
             if (!cancellationToken.IsCancellationRequested) {
-                await SendStatusReport(errorCode, errorDescription, cancellationToken: cancellationToken).ConfigureAwait(false);
+                await SendStatusReport(0, cancellationToken: cancellationToken).ConfigureAwait(false);
             }
         }
 
 
         public void Dispose()
         {
-            CloseFileStream();
             Disconnect();
             _service.Close();
             GC.SuppressFinalize(this);
@@ -732,9 +661,9 @@ namespace Netimobiledevice.DeviceLink
         {
             FailedFiles.Clear();
 
-            internalCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _internalCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             while (!cancellationToken.IsCancellationRequested) {
-                ArrayNode message = await ReceiveMessage(internalCancellationTokenSource.Token).ConfigureAwait(false);
+                ArrayNode message = await ReceiveMessage(_internalCancellationTokenSource.Token).ConfigureAwait(false);
 
                 string command = message[0].AsStringNode().Value;
                 _logger.LogDebug("Command recieved: {command}", command);
@@ -755,7 +684,7 @@ namespace Netimobiledevice.DeviceLink
                     UpdateProgressForMessage(message[3].AsRealNode());
                 }
 
-                await DeviceLinkHandlers[command](message, internalCancellationTokenSource.Token).ConfigureAwait(false);
+                await DeviceLinkHandlers[command](message, _internalCancellationTokenSource.Token).ConfigureAwait(false);
             }
             return ResultCode.Skipped;
         }
