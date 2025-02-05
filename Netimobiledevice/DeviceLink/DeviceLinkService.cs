@@ -30,27 +30,16 @@ namespace Netimobiledevice.DeviceLink
         private readonly ILogger _logger;
         private CancellationTokenSource _internalCancellationTokenSource;
 
-        private bool _ignoreTransferErrors = false;
-        private FileStream? _fileStream = null;
+        private bool _ignoreTransferErrors;
+        private FileStream? _fileStream;
 
-        public long BytesRead { get; protected set; }
-
-        private void CloseFileStream()
-        {
-            try {
-                _fileStream?.Flush();
-            }
-            catch (Exception fex) {
-                _logger.LogError($"Error flushing backup file : {fex.Message}");
-            }
-            _fileStream?.Close();
-            _fileStream = null;
-        }
         private Dictionary<string, Func<ArrayNode, CancellationToken, Task>> DeviceLinkHandlers { get; }
         /// <summary>
         /// A list of the files whose transfer failed due to a device error.
         /// </summary>
         private List<BackupFile> FailedFiles { get; } = [];
+
+        public long BytesRead { get; private set; }
 
         /// <summary>
         /// Event raised when a file is about to be transferred from the device.
@@ -128,6 +117,18 @@ namespace Netimobiledevice.DeviceLink
                 { DeviceLinkMessage.RemoveItems, RemoveItems },
                 { DeviceLinkMessage.UploadFiles, UploadFiles }
             };
+        }
+
+        private void CloseFileStream()
+        {
+            try {
+                _fileStream?.Flush();
+            }
+            catch (Exception fex) {
+                _logger.LogError($"Error flushing backup file : {fex.Message}");
+            }
+            _fileStream?.Close();
+            _fileStream = null;
         }
 
         /// <summary>
@@ -371,6 +372,9 @@ namespace Netimobiledevice.DeviceLink
                 catch (Exception ex) {
                     BackupFileErrorEventArgs e = new BackupFileErrorEventArgs(file, $"{ex.Message} : {ex.StackTrace}");
                     FileTransferError?.Invoke(this, e);
+                }
+                finally {
+                    _fileStream = null;
                 }
             }
             FileReceived?.Invoke(this, new BackupFileEventArgs(file));
