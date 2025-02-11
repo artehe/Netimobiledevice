@@ -1,20 +1,19 @@
 ﻿using System;
-using System.Collections.Generic;
 
 namespace Netimobiledevice.Afc.Packets
 {
-    internal class AfcFileCloseRequest : AfcPacket
+    internal class AfcFileCloseRequest(ulong handle) : AfcPacket
     {
-        public ulong Handle;
+        public ulong Handle = handle;
 
         public override int DataSize => sizeof(ulong);
 
         public override byte[] GetBytes()
         {
-            List<byte> bytes = new List<byte>();
-            bytes.AddRange(Header.GetBytes());
-            bytes.AddRange(BitConverter.GetBytes(Handle));
-            return bytes.ToArray();
+            return [
+                .. Header.GetBytes(),
+                .. BitConverter.GetBytes(Handle)
+            ];
         }
     }
 }

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
@@ -39,14 +38,15 @@ namespace Netimobiledevice.Afc
 
         public byte[] GetBytes()
         {
-            List<byte> bytes = new List<byte>();
-            bytes.AddRange(Magic);
-            bytes.AddRange(BitConverter.GetBytes(EntireLength));
-            bytes.AddRange(BitConverter.GetBytes(Length));
-            bytes.AddRange(BitConverter.GetBytes(PacketNumber));
-            bytes.AddRange(BitConverter.GetBytes((ulong) Operation));
-
-            return bytes.ToArray();
+            byte[] bytes =
+            [
+                .. Magic,
+                .. BitConverter.GetBytes(EntireLength),
+                .. BitConverter.GetBytes(Length),
+                .. BitConverter.GetBytes(PacketNumber),
+                .. BitConverter.GetBytes((ulong) Operation),
+            ];
+            return bytes;
         }
 
         public static int GetSize()

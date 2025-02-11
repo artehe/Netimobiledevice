@@ -22,6 +22,8 @@ namespace Netimobiledevice.Afc
 
         private const int MAXIMUM_READ_SIZE = 1024 ^ 2; // 1 MB
 
+        private static string[] DirectoryTraversalFiles { get; } = [".", "..", ""];
+
         private ulong _packetNumber;
 
         private static string GetServiceName(LockdownServiceProvider lockdown, string serviceName)
@@ -268,18 +270,13 @@ namespace Netimobiledevice.Afc
 
         public async Task<byte[]> Lock(ulong handle, AfcLockModes operation, CancellationToken cancellationToken)
         {
-            AfcLockRequest request = new AfcLockRequest() {
-                Handle = handle,
-                Op = (ulong) operation
-            };
+            AfcLockRequest request = new AfcLockRequest(handle, (ulong) operation);
             return await RunOperation(AfcOpCode.FileLock, request, cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<byte[]> FileClose(ulong handle, CancellationToken cancellationToken)
         {
-            AfcFileCloseRequest request = new AfcFileCloseRequest() {
-                Handle = handle,
-            };
+            AfcFileCloseRequest request = new AfcFileCloseRequest(handle);
             return await RunOperation(AfcOpCode.FileClose, request, cancellationToken).ConfigureAwait(false);
         }
 
@@ -301,10 +298,7 @@ namespace Netimobiledevice.Afc
                 cancellationToken.ThrowIfCancellationRequested();
                 Logger?.LogDebug("Writing chunk {i}", i);
 
-                AfcFileWritePacket packet = new AfcFileWritePacket() {
-                    Handle = handle,
-                    Data = data.Skip(i * chunkSize).Take(chunkSize).ToArray()
-                };
+                AfcFileWritePacket packet = new AfcFileWritePacket(handle, data.Skip(i * chunkSize).Take(chunkSize).ToArray());
                 await DispatchPacket(AfcOpCode.Write, packet, cancellationToken, 48).ConfigureAwait(false);
                 writtenData.AddRange(packet.Data);
 
@@ -317,10 +311,7 @@ namespace Netimobiledevice.Afc
 
             if (dataSize % (ulong) chunkSize > 0) {
                 Logger?.LogDebug("Writing last chunk");
-                AfcFileWritePacket packet = new AfcFileWritePacket() {
-                    Handle = handle,
-                    Data = data.Skip(chunksCount * chunkSize).ToArray()
-                };
+                AfcFileWritePacket packet = new AfcFileWritePacket(handle, data.Skip(chunksCount * chunkSize).ToArray());
                 await DispatchPacket(AfcOpCode.Write, packet, cancellationToken, 48).ConfigureAwait(false);
                 writtenData.AddRange(packet.Data);
 
@@ -359,7 +350,7 @@ namespace Netimobiledevice.Afc
             List<string> files = [];
 
             foreach (string fd in await ListDirectory(directory, cancellationToken).ConfigureAwait(false)) {
-                if (new string[] { ".", "..", "" }.Contains(fd)) {
+                if (DirectoryTraversalFiles.Contains(fd)) {
                     continue;
                 }
 
