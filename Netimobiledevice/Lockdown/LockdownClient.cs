@@ -34,7 +34,6 @@ namespace Netimobiledevice.Lockdown
         private ushort _port;
         private string _sessionId;
         private string _systemBuid;
-        private readonly UsbmuxdConnectionType _usbmuxdConnectionType;
 
         protected readonly DirectoryInfo? _pairingRecordsCacheDirectory;
         /// <summary>
@@ -42,6 +41,8 @@ namespace Netimobiledevice.Lockdown
         /// </summary>
         protected DictionaryNode? _pairRecord;
         protected readonly ServiceConnection? _service;
+
+        public UsbmuxdConnectionType ConnectionType { get; protected set; }
 
         public string DeviceClass { get; private set; } = LockdownDeviceClass.UNKNOWN;
 
@@ -80,6 +81,7 @@ namespace Netimobiledevice.Lockdown
         /// <param name="pair_record">Use this pair record instead of the default behavior (search in host/create our own)</param>
         /// <param name="pairingRecordsCacheDirectory">Use the following location to search and save pair records</param>
         /// <param name="port">lockdownd service port</param>
+        /// <param name="logger"></param>
         protected LockdownClient(ServiceConnection service, string hostId, string identifier = "", string label = DEFAULT_CLIENT_NAME, string systemBuid = SYSTEM_BUID,
             DictionaryNode? pairRecord = null, DirectoryInfo? pairingRecordsCacheDirectory = null, ushort port = SERVICE_PORT, ILogger? logger = null) : base()
         {
@@ -99,20 +101,22 @@ namespace Netimobiledevice.Lockdown
                 throw new IncorrectModeException();
             }
 
-            _allValues = GetValue()?.AsDictionaryNode() ?? new DictionaryNode();
+            _allValues = GetValue()?.AsDictionaryNode() ?? [];
 
-            Udid = _allValues["UniqueDeviceID"].AsStringNode().Value;
+            if (_allValues.TryGetValue("UniqueDeviceID", out PropertyNode? UdidNode)) {
+                Udid = UdidNode.AsStringNode().Value;
+            }
             ProductType = _allValues["ProductType"].AsStringNode().Value;
 
             if (_allValues.TryGetValue("DevicePublicKey", out PropertyNode? devicePublicKeyNode)) {
                 _devicePublicKey = devicePublicKeyNode.AsDataNode().Value;
             }
             else {
-                _devicePublicKey = Array.Empty<byte>();
+                _devicePublicKey = [];
             }
         }
 
-        private PropertyNode GetServiceConnectionAttributes(string name, bool useEscrowBag, bool useTrustedConnection)
+        private DictionaryNode GetServiceConnectionAttributes(string name, bool useEscrowBag, bool useTrustedConnection)
         {
             if (!IsPaired && useTrustedConnection) {
                 throw new NotPairedException();
@@ -138,7 +142,7 @@ namespace Netimobiledevice.Lockdown
             return response;
         }
 
-        private PropertyNode Request(string request, DictionaryNode? options = null, bool verifyRequest = true)
+        private DictionaryNode Request(string request, DictionaryNode? options = null, bool verifyRequest = true)
         {
             DictionaryNode message = new DictionaryNode {
                 { "Label", new StringNode(_label) },
@@ -150,10 +154,16 @@ namespace Netimobiledevice.Lockdown
                 }
             }
 
-            DictionaryNode response = _service?.SendReceivePlist(message)?.AsDictionaryNode() ?? new DictionaryNode();
+            DictionaryNode response = _service?.SendReceivePlist(message)?.AsDictionaryNode() ?? [];
 
-            if (verifyRequest && response["Request"].AsStringNode().Value != request) {
-                throw new LockdownException($"Incorrect response returned, as got {response["Request"].AsStringNode().Value} instead of {request}");
+            if (verifyRequest && response.TryGetValue("Request", out PropertyNode? requestNode)) {
+                if (requestNode.AsStringNode().Value != request) {
+                    Logger.LogWarning("Request response did not contain our expected value {value}: {response}", requestNode, response);
+                    throw new LockdownException($"Incorrect response returned, as got {requestNode} instead of {request}");
+                }
+            }
+            else if (verifyRequest) {
+                throw new LockdownException("Response did not contain the key \"Request\"");
             }
 
             if (response.TryGetValue("Error", out PropertyNode? errorNode)) {
@@ -188,7 +198,7 @@ namespace Netimobiledevice.Lockdown
 
         private LockdownError Pair()
         {
-            _devicePublicKey = GetValue(null, "DevicePublicKey")?.AsDataNode().Value ?? Array.Empty<byte>();
+            _devicePublicKey = GetValue(null, "DevicePublicKey")?.AsDataNode().Value ?? [];
             if (_devicePublicKey == null || _devicePublicKey.Length == 0) {
                 _logger.LogDebug("Unable to retrieve DevicePublicKey");
                 _service?.Close();
@@ -310,7 +320,7 @@ namespace Netimobiledevice.Lockdown
             IsPaired = true;
 
             // Reload data after pairing
-            _allValues = GetValue()?.AsDictionaryNode() ?? new DictionaryNode();
+            _allValues = GetValue()?.AsDictionaryNode() ?? [];
             Udid = _allValues["UniqueDeviceID"].AsStringNode().Value;
 
             return IsPaired;
@@ -361,7 +371,7 @@ namespace Netimobiledevice.Lockdown
 
         public override PropertyNode? GetValue(string? domain, string? key)
         {
-            DictionaryNode options = new DictionaryNode();
+            DictionaryNode options = [];
             if (!string.IsNullOrEmpty(domain)) {
                 options.Add("Domain", new StringNode(domain));
             }
@@ -488,7 +498,7 @@ namespace Netimobiledevice.Lockdown
             }
 
             // Now we are paied, reload data
-            _allValues = GetValue()?.AsDictionaryNode() ?? new DictionaryNode();
+            _allValues = GetValue()?.AsDictionaryNode() ?? [];
             Udid = _allValues["UniqueDeviceID"].AsStringNode().Value;
             return IsPaired;
         }
@@ -505,7 +515,7 @@ namespace Netimobiledevice.Lockdown
 
         public PropertyNode SetValue(string? domain, string? key, PropertyNode value)
         {
-            DictionaryNode options = new DictionaryNode();
+            DictionaryNode options = [];
             if (!string.IsNullOrWhiteSpace(domain)) {
                 options.Add("Domain", new StringNode(domain));
             }
