@@ -5,24 +5,21 @@ using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd.Responses;
 using System;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 
 namespace Netimobiledevice.Usbmuxd
 {
-    internal class PlistMuxConnection : UsbmuxConnection
+    internal class PlistMuxConnection(UsbmuxdSocket sock, ILogger logger) : UsbmuxConnection(sock, UsbmuxdVersion.Plist, logger)
     {
         private const string PLIST_CLIENT_VERSION_STRING = "1.0.0.0";
         private const int PLIST_USBMUX_VERSION = 3;
 
-        public PlistMuxConnection(UsbmuxdSocket sock, ILogger logger) : base(sock, UsbmuxdVersion.Plist, logger) { }
-
-        private static PropertyNode CreatePlistMessage(string messageType)
+        private static DictionaryNode CreatePlistMessage(string messageType)
         {
             string bundleId = GetBundleId();
             string assemblyName = GetAssemblyName();
 
-            DictionaryNode plistDict = new DictionaryNode();
+            DictionaryNode plistDict = [];
             if (!string.IsNullOrWhiteSpace(bundleId)) {
                 plistDict.Add("BundleID", new StringNode(bundleId));
             }
@@ -152,7 +149,7 @@ namespace Netimobiledevice.Usbmuxd
 
         public int Send(PropertyNode msg)
         {
-            byte[] payload = PropertyList.SaveAsByteArray(msg, PlistFormat.Xml).ToArray();
+            byte[] payload = [.. PropertyList.SaveAsByteArray(msg, PlistFormat.Xml)];
             return SendPacket(UsbmuxdMessageType.Plist, Tag, payload);
         }
 
