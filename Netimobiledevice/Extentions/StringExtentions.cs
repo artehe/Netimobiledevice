@@ -1,17 +1,13 @@
-﻿using System.Text;
+﻿using Netimobiledevice.Afc;
+using System.Text;
 
 namespace Netimobiledevice.Extentions
 {
     internal static class StringExtentions
     {
-        public static string AsCString(this string str)
+        public static CString AsCString(this string str, Encoding encoding)
         {
-            return $"{str}\0";
-        }
-
-        public static byte[] GetBytes(this string str, Encoding encoding)
-        {
-            return encoding.GetBytes(str);
+            return new CString(str, encoding);
         }
     }
 }

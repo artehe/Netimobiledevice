@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 
 namespace Netimobiledevice.Afc.Packets
 {
@@ -12,11 +11,11 @@ namespace Netimobiledevice.Afc.Packets
 
         public override byte[] GetBytes()
         {
-            List<byte> bytes = new List<byte>();
-            bytes.AddRange(Header.GetBytes());
-            bytes.AddRange(BitConverter.GetBytes(Handle));
-            bytes.AddRange(BitConverter.GetBytes(Size));
-            return bytes.ToArray();
+            return [
+                .. Header.GetBytes(),
+                .. BitConverter.GetBytes(Handle),
+                .. BitConverter.GetBytes(Size)
+            ];
         }
     }
 }

@@ -20,7 +20,7 @@ namespace Netimobiledevice.Remoted.Xpc
         public override byte[] Serialise()
         {
             string str = Data ?? string.Empty;
-            return str.AsCString().GetBytes(Encoding.UTF8);
+            return str.AsCString(Encoding.UTF8).GetBytes();
         }
     }
 }

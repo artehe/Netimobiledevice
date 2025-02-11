@@ -5,13 +5,16 @@ namespace Netimobiledevice.Afc.Packets
 {
     internal class AfcFileInfoRequest(string filename) : AfcPacket
     {
-        public string Filename { get; set; } = filename;
+        public CString Filename { get; set; } = filename.AsCString(Encoding.UTF8);
 
-        public override int DataSize => Filename.AsCString().Length;
+        public override int DataSize => Filename.Length;
 
         public override byte[] GetBytes()
         {
-            return [.. Header.GetBytes(), .. Filename.AsCString().GetBytes(Encoding.UTF8)];
+            return [
+                .. Header.GetBytes(),
+                .. Filename.GetBytes()
+            ];
         }
     }
 }

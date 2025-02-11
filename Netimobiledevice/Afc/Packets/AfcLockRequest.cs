@@ -1,22 +1,21 @@
 ﻿using System;
-using System.Collections.Generic;
 
 namespace Netimobiledevice.Afc.Packets
 {
-    internal class AfcLockRequest : AfcPacket
+    internal class AfcLockRequest(ulong handle, ulong op) : AfcPacket
     {
-        public ulong Handle { get; set; }
-        public ulong Op { get; set; }
+        public ulong Handle { get; set; } = handle;
+        public ulong Op { get; set; } = op;
 
         public override int DataSize => sizeof(ulong) * 2;
 
         public override byte[] GetBytes()
         {
-            List<byte> bytes = new List<byte>();
-            bytes.AddRange(Header.GetBytes());
-            bytes.AddRange(BitConverter.GetBytes(Handle));
-            bytes.AddRange(BitConverter.GetBytes(Op));
-            return bytes.ToArray();
+            return [
+                .. Header.GetBytes(),
+                .. BitConverter.GetBytes(Handle),
+                .. BitConverter.GetBytes(Op)
+            ];
         }
     }
 }

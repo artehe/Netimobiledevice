@@ -51,7 +51,7 @@ namespace Netimobiledevice.Remoted.Xpc
 
         private static byte[] SerialiseAlignedString(string str)
         {
-            byte[] stringBytes = str.AsCString().GetBytes(Encoding.UTF8);
+            byte[] stringBytes = str.AsCString(Encoding.UTF8).GetBytes();
             byte[] alignedStr = XpcSerialiser.AlignData(stringBytes, 4);
             return alignedStr;
         }
