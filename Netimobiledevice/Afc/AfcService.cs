@@ -3,6 +3,7 @@ using Netimobiledevice.Afc.Packets;
 using Netimobiledevice.Extentions;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
+using Netimobiledevice.Utils;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -421,8 +422,8 @@ namespace Netimobiledevice.Afc
             string[] splitSrc = relativeSrc.Split('/');
             string dstPath = splitSrc.Length > 1 ? Path.Combine(dst, splitSrc[^1]) : Path.Combine(dst, relativeSrc);
             if (OperatingSystem.IsWindows()) {
-                // Windows filesystems can't cope with ':' so we replace these with '-'
-                dstPath = dstPath.Replace(':', '-');
+                // Windows filesystems (NTFS) are more restrictive than unix files systems so we gotta sanitise
+                dstPath = PathSanitiser.SantiseWindowsPath(dstPath);
             }
             Logger?.LogInformation("{src} --> {dst}", src, dst);
 
