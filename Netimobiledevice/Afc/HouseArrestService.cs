@@ -41,7 +41,7 @@ namespace Netimobiledevice.Afc
                 { "Identifier", new StringNode(bundleId) }
             };
             PropertyNode? response = this.Service.SendReceivePlist(request);
-            DictionaryNode responseDict = response?.AsDictionaryNode() ?? new DictionaryNode();
+            DictionaryNode responseDict = response?.AsDictionaryNode() ?? [];
             if (responseDict.TryGetValue("Error", out PropertyNode? value)) {
                 throw new AfcException(value.AsStringNode().Value);
             }
