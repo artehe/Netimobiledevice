@@ -69,10 +69,10 @@ namespace Netimobiledevice
         /// <returns>RemoteLockdownClient instance</returns>
         public static RemoteLockdownClient CreateUsingRemote(ServiceConnection service, string? identifier = null, string label = LockdownClient.DEFAULT_CLIENT_NAME,
             bool autopair = true, float? pairTimeout = null, string? localHostname = null, DictionaryNode? pairRecord = null, string pairingRecordsCacheDir = "",
-            ushort port = LockdownClient.SERVICE_PORT)
+            ushort port = LockdownClient.SERVICE_PORT, ILogger? logger = null)
         {
             RemoteLockdownClient client = RemoteLockdownClient.Create(service, identifier, label: label, localHostname: localHostname, pairRecord: pairRecord,
-                pairingRecordsCacheFolder: pairingRecordsCacheDir, pairTimeout: pairTimeout, autopair: autopair, port: port);
+                pairingRecordsCacheFolder: pairingRecordsCacheDir, pairTimeout: pairTimeout, autopair: autopair, port: port, logger: logger);
             return client;
         }
 
@@ -96,7 +96,7 @@ namespace Netimobiledevice
         {
             ServiceConnection service = ServiceConnection.CreateUsingTcp(hostname, port, logger);
             TcpLockdownClient client = TcpLockdownClient.Create(service, identifier: identifier, label: label, localHostname: localHostname, pairRecord: pairRecord,
-                pairingRecordsCacheFolder: pairingRecordsCacheDir, pairTimeout: pairTimeout, autopair: autopair, port: port, hostname: hostname);
+                pairingRecordsCacheFolder: pairingRecordsCacheDir, pairTimeout: pairTimeout, autopair: autopair, port: port, hostname: hostname, logger: logger);
             return client;
         }
     }

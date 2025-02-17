@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 
 namespace Netimobiledevice.Usbmuxd
 {
-    internal abstract class UsbmuxConnection : IDisposable
+    internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion protocolVersion, ILogger logger) : IDisposable
     {
         protected const int DEFAULT_CONNECTION_TIMEOUT = 5000;
 
@@ -19,30 +19,21 @@ namespace Netimobiledevice.Usbmuxd
         /// residing inside the target device. when this happens, we can no longer send/receive control commands to
         /// usbmux on same socket
         /// </summary>
-        private bool connected;
-        /// <summary>
-        /// The internal logger
-        /// </summary>
-        private readonly ILogger logger;
+        private bool _connected;
 
         protected int connectionTimeout = DEFAULT_CONNECTION_TIMEOUT;
 
-        protected UsbmuxdSocket Sock { get; }
+        /// <summary>
+        /// The internal logger
+        /// </summary>
+        protected ILogger Logger { get; } = logger;
+        protected UsbmuxdSocket Sock { get; } = socket;
         /// <summary>
         /// Message sequence number. Used when verifying the response matched the request
         /// </summary>
-        protected int Tag { get; set; }
-        public UsbmuxdVersion ProtocolVersion { get; }
-        public List<UsbmuxdDevice> Devices { get; private set; } = new List<UsbmuxdDevice>();
-
-        protected UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion protocolVersion, ILogger logger)
-        {
-            this.logger = logger;
-
-            ProtocolVersion = protocolVersion;
-            Sock = socket;
-            Tag = 1;
-        }
+        protected int Tag { get; set; } = 1;
+        public UsbmuxdVersion ProtocolVersion { get; } = protocolVersion;
+        public List<UsbmuxdDevice> Devices { get; private set; } = [];
 
         public void Dispose()
         {
@@ -53,7 +44,7 @@ namespace Netimobiledevice.Usbmuxd
         {
             AssertNotConnected();
 
-            payload = Array.Empty<byte>();
+            payload = [];
             header = new UsbmuxdHeader() {
                 Length = 0,
                 Message = 0,
@@ -65,16 +56,16 @@ namespace Netimobiledevice.Usbmuxd
             byte[] headerBuffer = Sock.Receive(Marshal.SizeOf(header));
             int recievedLength = headerBuffer.Length;
             if (recievedLength < 0) {
-                logger.LogError("Error receiving packet: {recievedLength}", recievedLength);
+                Logger.LogError("Error receiving packet: {recievedLength}", recievedLength);
                 return recievedLength;
             }
             if (recievedLength < Marshal.SizeOf(header)) {
-                logger.LogError("Received packet is too small, got {recievedLength} bytes!", recievedLength);
+                Logger.LogError("Received packet is too small, got {recievedLength} bytes!", recievedLength);
                 return recievedLength;
             }
 
             header = StructExtentions.FromBytes<UsbmuxdHeader>(headerBuffer);
-            byte[] payloadLoc = Array.Empty<byte>();
+            byte[] payloadLoc = [];
 
             int payloadSize = header.Length - Marshal.SizeOf(header);
             if (payloadSize > 0) {
@@ -89,7 +80,7 @@ namespace Netimobiledevice.Usbmuxd
                     rsize += (uint) res;
                 } while (rsize < payloadSize);
                 if (rsize != payloadSize) {
-                    logger.LogError("Error receiving payload of size {payloadSize} (bytes received: {rsize})", payloadSize, rsize);
+                    Logger.LogError("Error receiving payload of size {payloadSize} (bytes received: {rsize})", payloadSize, rsize);
                     throw new UsbmuxException("Bad Message");
                 }
             }
@@ -104,7 +95,7 @@ namespace Netimobiledevice.Usbmuxd
         /// <exception cref="UsbmuxException"></exception>
         protected void AssertNotConnected()
         {
-            if (connected) {
+            if (_connected) {
                 throw new UsbmuxException("Usbmux is connected, cannot issue control packets");
             }
         }
@@ -141,16 +132,22 @@ namespace Netimobiledevice.Usbmuxd
 
             int sent = Sock.Send(header.GetBytes());
             if (sent != Marshal.SizeOf(header)) {
-                logger.LogError($"ERROR: could not send packet header");
+                Logger.LogError($"ERROR: could not send packet header");
                 return -1;
             }
 
             if (payload != null && payload.Length > 0) {
-                int res = Sock.Send(payload);
-                sent += res;
+                int res = 0;
+                try {
+                    res = Sock.Send(payload);
+                    sent += res;
+                }
+                catch (SocketException ex) {
+                    throw new UsbmuxException($"Failed to send {payload.Length} bytes; actually sent {res}", ex);
+                }
             }
             if (sent != header.Length) {
-                logger.LogError("ERROR: could not send whole packet (sent {sent} of {length})", sent, header.Length);
+                Logger.LogError("Could not send whole packet (sent {sent} of {length})", sent, header.Length);
                 Sock.Close();
                 return -1;
             }
@@ -176,7 +173,7 @@ namespace Netimobiledevice.Usbmuxd
         public Socket Connect(UsbmuxdDevice device, ushort port)
         {
             RequestConnect(device.DeviceId, port);
-            connected = true;
+            _connected = true;
             return Sock.GetInternalSocket();
         }
 
