@@ -3,10 +3,8 @@ using Netimobiledevice.Exceptions;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -21,45 +19,6 @@ namespace Netimobiledevice.NotificationProxy
         private const string RSD_INSECURE_SERVICE_NAME = "com.apple.mobile.insecure_notification_proxy.shim.remote";
 
         private static readonly SemaphoreSlim serviceLockSemaphoreSlim = new SemaphoreSlim(1, 1);
-
-        /// <summary>
-        /// Device-To-Host notifications.
-        /// </summary>
-        private static readonly Dictionary<ReceivableNotification, string> receivableNotifications = new() {
-            { ReceivableNotification.SyncCancelRequest, "com.apple.itunes-client.syncCancelRequest" },
-            { ReceivableNotification.SyncSuspendRequst, "com.apple.itunes-client.syncSuspendRequest" },
-            { ReceivableNotification.SyncResumeRequst, "com.apple.itunes-client.syncResumeRequest" },
-            { ReceivableNotification.PhoneNumberChanged, "com.apple.mobile.lockdown.phone_number_changed" },
-            { ReceivableNotification.DeviceNameChanged, "com.apple.mobile.lockdown.device_name_changed" },
-            { ReceivableNotification.TimezoneChanged, "com.apple.mobile.lockdown.timezone_changed" },
-            { ReceivableNotification.TrustedHostAttached, "com.apple.mobile.lockdown.trusted_host_attached" },
-            { ReceivableNotification.HostDetached, "com.apple.mobile.lockdown.host_detached" },
-            { ReceivableNotification.HostAttached, "com.apple.mobile.lockdown.host_attached" },
-            { ReceivableNotification.RegistrationFailed, "com.apple.mobile.lockdown.registration_failed" },
-            { ReceivableNotification.ActivationState, "com.apple.mobile.lockdown.activation_state" },
-            { ReceivableNotification.BrickState, "com.apple.mobile.lockdown.brick_state" },
-            { ReceivableNotification.DiskUsageChanged, "com.apple.mobile.lockdown.disk_usage_changed" },
-            { ReceivableNotification.DsDomainChanged, "com.apple.mobile.data_sync.domain_changed" },
-            { ReceivableNotification.AppInstalled, "com.apple.mobile.application_installed" },
-            { ReceivableNotification.AppUninstalled, "com.apple.mobile.application_uninstalled" },
-            { ReceivableNotification.DeveloperImageMounted, "com.apple.mobile.developer_image_mounted" },
-            { ReceivableNotification.AttemptActivation, "com.apple.springboard.attemptactivation" },
-            { ReceivableNotification.ItdbprepDidEnd, "com.apple.itdbprep.notification.didEnd" },
-            { ReceivableNotification.LanguageChanged, "com.apple.language.changed" },
-            { ReceivableNotification.AddressBookPreferenceChanged, "com.apple.AddressBook.PreferenceChanged" },
-            { ReceivableNotification.RequestPair, "com.apple.mobile.lockdown.request_pair" },
-            { ReceivableNotification.LocalAuthenticationUiPresented , "com.apple.LocalAuthentication.ui.presented" },
-            { ReceivableNotification.LocalAuthenticationUiDismissed, "com.apple.LocalAuthentication.ui.dismissed" }
-        };
-        /// <summary>
-        /// Host-To-Device notifications.
-        /// </summary>
-        private static readonly Dictionary<SendableNotificaton, string> sendableNotifications = new() {
-            { SendableNotificaton.SyncWillStart,  "com.apple.itunes-mobdev.syncWillStart" },
-            { SendableNotificaton.SyncDidStart, "com.apple.itunes-mobdev.syncDidStart" },
-            { SendableNotificaton.SyncDidFinish, "com.apple.itunes-mobdev.syncDidFinish" },
-            { SendableNotificaton.SyncLockRequest, "com.apple.itunes-mobdev.syncLockRequest" }
-        };
 
         private readonly BackgroundWorker notificationListener;
 
@@ -144,9 +103,7 @@ namespace Netimobiledevice.NotificationProxy
                 try {
                     string? notification = await GetNotification();
                     if (!string.IsNullOrEmpty(notification)) {
-                        KeyValuePair<ReceivableNotification, string> receivableNotificationKeyPair = receivableNotifications.AsEnumerable().First(x => x.Value.Equals(notification, StringComparison.Ordinal));
-                        ReceivableNotification receivedNotification = receivableNotificationKeyPair.Key;
-                        ReceivedNotification?.Invoke(this, new ReceivedNotificationEventArgs(receivedNotification, notification));
+                        ReceivedNotification?.Invoke(this, new ReceivedNotificationEventArgs(notification, notification));
                     }
                 }
                 catch (IOException) {
@@ -174,12 +131,11 @@ namespace Netimobiledevice.NotificationProxy
         /// Inform the iOS device to send a notification on the specified event
         /// </summary>
         /// <param name="name"></param>
-        private void RegisterNotification(ReceivableNotification notification)
+        private void RegisterNotification(string notification)
         {
-            string notificationToObserve = receivableNotifications[notification];
             DictionaryNode request = new DictionaryNode() {
                 { "Command", new StringNode("ObserveNotification") },
-                { "Name", new StringNode(notificationToObserve) }
+                { "Name", new StringNode(notification) }
             };
 
             serviceLockSemaphoreSlim.Wait();
@@ -199,12 +155,11 @@ namespace Netimobiledevice.NotificationProxy
         /// Posts the specified notification.
         /// </summary>
         /// <param name="notification">The notification to post.</param>
-        public void Post(SendableNotificaton notification)
+        public void Post(string notification)
         {
-            string notificationToSend = sendableNotifications[notification];
             DictionaryNode msg = new DictionaryNode() {
                 { "Command", new StringNode("PostNotification") },
-                { "Name", new StringNode(notificationToSend) }
+                { "Name", new StringNode(notification) }
             };
 
             serviceLockSemaphoreSlim.Wait();
@@ -220,7 +175,7 @@ namespace Netimobiledevice.NotificationProxy
         /// Inform the device of the notification we want to observe.
         /// </summary>
         /// <param name="notification"></param>
-        public void ObserveNotification(ReceivableNotification notification)
+        public void ObserveNotification(string notification)
         {
             RegisterNotification(notification);
         }
