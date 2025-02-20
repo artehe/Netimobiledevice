@@ -128,30 +128,6 @@ namespace Netimobiledevice.NotificationProxy
         }
 
         /// <summary>
-        /// Inform the iOS device to send a notification on the specified event
-        /// </summary>
-        /// <param name="name"></param>
-        private void RegisterNotification(string notification)
-        {
-            DictionaryNode request = new DictionaryNode() {
-                { "Command", new StringNode("ObserveNotification") },
-                { "Name", new StringNode(notification) }
-            };
-
-            serviceLockSemaphoreSlim.Wait();
-            try {
-                Service.SendPlist(request);
-            }
-            finally {
-                serviceLockSemaphoreSlim.Release();
-            }
-
-            if (!notificationListener.IsBusy) {
-                notificationListener.RunWorkerAsync();
-            }
-        }
-
-        /// <summary>
         /// Posts the specified notification.
         /// </summary>
         /// <param name="notification">The notification to post.</param>
@@ -172,12 +148,71 @@ namespace Netimobiledevice.NotificationProxy
         }
 
         /// <summary>
+        /// Posts the specified notification.
+        /// </summary>
+        /// <param name="notification">The notification to post.</param>
+        public async Task PostAsync(string notification)
+        {
+            DictionaryNode msg = new DictionaryNode() {
+                { "Command", new StringNode("PostNotification") },
+                { "Name", new StringNode(notification) }
+            };
+
+            await serviceLockSemaphoreSlim.WaitAsync().ConfigureAwait(false);
+            try {
+                await Service.SendPlistAsync(msg).ConfigureAwait(false);
+            }
+            finally {
+                serviceLockSemaphoreSlim.Release();
+            }
+        }
+
+        /// <summary>
         /// Inform the device of the notification we want to observe.
         /// </summary>
         /// <param name="notification"></param>
         public void ObserveNotification(string notification)
         {
-            RegisterNotification(notification);
+            DictionaryNode request = new DictionaryNode() {
+                { "Command", new StringNode("ObserveNotification") },
+                { "Name", new StringNode(notification) }
+            };
+
+            serviceLockSemaphoreSlim.Wait();
+            try {
+                Service.SendPlist(request);
+            }
+            finally {
+                serviceLockSemaphoreSlim.Release();
+            }
+
+            if (!notificationListener.IsBusy) {
+                notificationListener.RunWorkerAsync();
+            }
+        }
+
+        /// <summary>
+        /// Inform the device of the notification we want to observe.
+        /// </summary>
+        /// <param name="notification"></param>
+        public async Task ObserveNotificationAsync(string notification)
+        {
+            DictionaryNode request = new DictionaryNode() {
+                { "Command", new StringNode("ObserveNotification") },
+                { "Name", new StringNode(notification) }
+            };
+
+            await serviceLockSemaphoreSlim.WaitAsync().ConfigureAwait(false);
+            try {
+                await Service.SendPlistAsync(request).ConfigureAwait(false);
+            }
+            finally {
+                serviceLockSemaphoreSlim.Release();
+            }
+
+            if (!notificationListener.IsBusy) {
+                notificationListener.RunWorkerAsync();
+            }
         }
 
         /// <summary>
