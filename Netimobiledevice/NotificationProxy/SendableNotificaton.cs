@@ -3,23 +3,23 @@
     /// <summary>
     /// Host-To-Device (sendable) notifications.
     /// </summary>
-    public enum SendableNotificaton
+    public static class SendableNotificaton
     {
         /// <summary>
         /// The host notifies the device that it's about to start the backup.
         /// </summary>
-        SyncWillStart = 0,
+        public static string SyncWillStart => "com.apple.itunes-mobdev.syncWillStart";
         /// <summary>
         /// The host notifies the device that the backup has started.
         /// </summary>
-        SyncDidStart,
+        public static string SyncDidStart => "com.apple.itunes-mobdev.syncDidStart";
         /// <summary>
         /// The host notifies the device that the backup has finished.
         /// </summary>
-        SyncDidFinish,
+        public static string SyncDidFinish => "com.apple.itunes-mobdev.syncDidFinish";
         /// <summary>
         /// The host notifies the device about the lock request.
         /// </summary>
-        SyncLockRequest
+        public static string SyncLockRequest => "com.apple.itunes-mobdev.syncLockRequest";
     }
 }

@@ -432,7 +432,8 @@ namespace Netimobiledevice.Lockdown
         public virtual async Task<bool> PairAsync(IProgress<PairingState> progress, CancellationToken cancellationToken)
         {
             using (NotificationProxyService np = new NotificationProxyService(this, true)) {
-                np.ObserveNotification(ReceivableNotification.RequestPair);
+                await np.ObserveNotificationAsync(ReceivableNotification.RequestPair).ConfigureAwait(false);
+
                 LockdownError? err = null;
                 PairingState? lastPairingReport = null;
                 while (!cancellationToken.IsCancellationRequested) {

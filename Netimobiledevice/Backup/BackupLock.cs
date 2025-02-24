@@ -32,10 +32,10 @@ namespace Netimobiledevice.Backup
 
         public async Task AquireBackupLock(CancellationToken cancellationToken)
         {
-            _np.Post(SendableNotificaton.SyncWillStart);
+            await _np.PostAsync(SendableNotificaton.SyncWillStart).ConfigureAwait(false);
             _syncLockFileHandle = await _afc.FileOpen(SYNC_LOCK_FILE_PATH, cancellationToken, AfcFileOpenMode.ReadWrite).ConfigureAwait(false);
             if (_syncLockFileHandle > 0) {
-                _np.Post(SendableNotificaton.SyncLockRequest);
+                await _np.PostAsync(SendableNotificaton.SyncLockRequest).ConfigureAwait(false);
 
                 bool lockAquired = false;
                 for (int i = 0; i < 50; i++) {
@@ -59,7 +59,7 @@ namespace Netimobiledevice.Backup
                 }
 
                 if (lockAquired) {
-                    _np.Post(SendableNotificaton.SyncDidStart);
+                    await _np.PostAsync(SendableNotificaton.SyncDidStart).ConfigureAwait(false);
                 }
             }
             else {

@@ -370,9 +370,9 @@ namespace Netimobiledevice.Backup
 
                 using (NotificationProxyService np = new NotificationProxyService(this.Lockdown)) {
                     np.ReceivedNotification += NotificationProxy_ReceivedNotification;
-                    np.ObserveNotification(ReceivableNotification.SyncCancelRequest);
-                    np.ObserveNotification(ReceivableNotification.LocalAuthenticationUiPresented);
-                    np.ObserveNotification(ReceivableNotification.LocalAuthenticationUiDismissed);
+                    await np.ObserveNotificationAsync(ReceivableNotification.SyncCancelRequest).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.LocalAuthenticationUiPresented).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.LocalAuthenticationUiDismissed).ConfigureAwait(false);
 
                     using (AfcService afc = new AfcService(this.Lockdown)) {
                         using (BackupLock backupLock = new BackupLock(afc, np)) {
