@@ -9,16 +9,16 @@ namespace Netimobiledevice.NotificationProxy
     /// Create the event args.
     /// </remarks>
     /// <param name="event">The receivable event type</param>
-    /// <param name="name">The event name</param>
-    public sealed class ReceivedNotificationEventArgs(string @event, string name) : EventArgs()
+    /// <param name="udid">The UDID of the device which raised the notification</param>
+    public sealed class ReceivedNotificationEventArgs(string @event, string udid) : EventArgs()
     {
         /// <summary>
-        /// The type of the notification proxy event.
+        /// The name of the notification proxy event which was sent.
         /// </summary>
         public string Event { get; } = @event;
         /// <summary>
-        /// The name of the notification proxy event.
+        /// The UDID of the device which raised the notification.
         /// </summary>
-        public string Name { get; } = name;
+        public string UDID { get; } = udid;
     }
 }

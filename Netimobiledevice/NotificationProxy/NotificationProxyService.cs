@@ -103,7 +103,7 @@ namespace Netimobiledevice.NotificationProxy
                 try {
                     string? notification = await GetNotification();
                     if (!string.IsNullOrEmpty(notification)) {
-                        ReceivedNotification?.Invoke(this, new ReceivedNotificationEventArgs(notification, notification));
+                        ReceivedNotification?.Invoke(this, new ReceivedNotificationEventArgs(notification, this.Lockdown.Udid));
                     }
                 }
                 catch (IOException) {
