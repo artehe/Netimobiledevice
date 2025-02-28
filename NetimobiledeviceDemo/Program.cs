@@ -3,6 +3,7 @@ using Netimobiledevice;
 using Netimobiledevice.Backup;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Pairing;
+using Netimobiledevice.NotificationProxy;
 using Netimobiledevice.Usbmuxd;
 using System.ComponentModel;
 
@@ -50,6 +51,38 @@ public class Program
             }
         }
 
+        using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
+            using (NotificationProxyService np = new NotificationProxyService(lockdown)) {
+                np.ReceivedNotification += NotificationProxy_ReceivedNotification;
+                await np.ObserveNotificationAsync(ReceivableNotification.ActivationState).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.AddressBookPreferenceChanged).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.AppInstalled).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.AppUninstalled).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.AttemptActivation).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.BrickState).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.DeveloperImageMounted).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.DeviceNameChanged).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.DiskUsageChanged).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.DsDomainChanged).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.HostAttached).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.HostDetached).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.ItdbprepDidEnd).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.LanguageChanged).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.LocalAuthenticationUiDismissed).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.LocalAuthenticationUiPresented).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.PhoneNumberChanged).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.RegistrationFailed).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.RequestPair).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.SyncCancelRequest).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.SyncResumeRequst).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.SyncSuspendRequst).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.TimezoneChanged).ConfigureAwait(false);
+                await np.ObserveNotificationAsync(ReceivableNotification.TrustedHostAttached).ConfigureAwait(false);
+
+                await Task.Delay(100000).ConfigureAwait(false);
+            }
+        }
+
         using (UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
             using (Mobilebackup2Service mb2 = new Mobilebackup2Service(lockdown, logger: logger)) {
                 mb2.BeforeReceivingFile += BackupJob_BeforeReceivingFile;
@@ -66,6 +99,11 @@ public class Program
                 await mb2.Backup(false, false, "backups", tokenSource.Token);
             }
         }
+    }
+
+    private static void NotificationProxy_ReceivedNotification(object? sender, ReceivedNotificationEventArgs e)
+    {
+        Console.WriteLine(e.Event);
     }
 
     private static void BackupJob_Started(object? sender, EventArgs e)
