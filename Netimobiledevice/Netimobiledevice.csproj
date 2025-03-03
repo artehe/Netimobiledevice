@@ -4,6 +4,7 @@
 		<CheckForOverflowUnderflow>False</CheckForOverflowUnderflow>
 		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
 		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+		<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
 		<ImplicitUsings>disable</ImplicitUsings>
 		<IsTrimmable>true</IsTrimmable>
 		<Nullable>enable</Nullable>
