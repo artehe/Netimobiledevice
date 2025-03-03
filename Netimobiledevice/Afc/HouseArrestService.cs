@@ -14,25 +14,59 @@ namespace Netimobiledevice.Afc
         private const string VEND_CONTAINER = "VendContainer";
         private const string VEND_DOCUMENTS = "VendDocuments";
 
-        public HouseArrestService(LockdownServiceProvider lockdown, string serviceName, string bundleId, bool documentsOnly = false, ILogger? logger = null) : base(lockdown, serviceName, logger)
+        private HouseArrestService(LockdownServiceProvider lockdown, string serviceName, string bundleId, ILogger? logger = null) : base(lockdown, serviceName, logger) { }
+
+        public static HouseArrestService Create(LockdownServiceProvider lockdown, string bundleId, bool documentsOnly = false, ILogger? logger = null)
         {
+            string serviceToUse = RSD_SERVICE_NAME;
+            if (lockdown is LockdownClient) {
+                serviceToUse = SERVICE_NAME;
+            }
+
+            HouseArrestService houseArrestService = new HouseArrestService(lockdown, serviceToUse, bundleId, logger);
+
             string cmd = VEND_CONTAINER;
             if (documentsOnly) {
                 cmd = VEND_DOCUMENTS;
             }
 
             try {
-                this.SendCommand(bundleId, cmd);
+                houseArrestService.SendCommand(bundleId, cmd);
             }
             catch (AfcException ex) {
                 logger?.LogError(ex, "Error sending command to house arrest");
-                this.Close();
+                houseArrestService.Close();
+                throw;
             }
+
+            return houseArrestService;
         }
 
-        public HouseArrestService(LockdownServiceProvider lockdown, string bundleId, ILogger? logger = null) : this(lockdown, RSD_SERVICE_NAME, bundleId, false, logger) { }
+        public static async Task<HouseArrestService> Create(LockdownServiceProvider lockdown, string bundleId, bool documentsOnly = false, ILogger? logger = null, CancellationToken cancellationToken = default)
+        {
+            string serviceToUse = RSD_SERVICE_NAME;
+            if (lockdown is LockdownClient) {
+                serviceToUse = SERVICE_NAME;
+            }
 
-        public HouseArrestService(LockdownClient lockdown, string bundleId, ILogger? logger = null) : this(lockdown, SERVICE_NAME, bundleId, false, logger) { }
+            HouseArrestService houseArrestService = new HouseArrestService(lockdown, serviceToUse, bundleId, logger);
+
+            string cmd = VEND_CONTAINER;
+            if (documentsOnly) {
+                cmd = VEND_DOCUMENTS;
+            }
+
+            try {
+                await houseArrestService.SendCommandAsync(bundleId, cmd, cancellationToken).ConfigureAwait(false);
+            }
+            catch (AfcException ex) {
+                logger?.LogError(ex, "Error sending command to house arrest");
+                houseArrestService.Close();
+                throw;
+            }
+
+            return houseArrestService;
+        }
 
         public DictionaryNode SendCommand(string bundleId, string cmd = VEND_CONTAINER)
         {
