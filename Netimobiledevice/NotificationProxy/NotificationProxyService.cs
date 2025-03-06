@@ -5,6 +5,7 @@ using Netimobiledevice.Plist;
 using System;
 using System.ComponentModel;
 using System.IO;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -164,6 +165,21 @@ namespace Netimobiledevice.NotificationProxy
             }
             finally {
                 serviceLockSemaphoreSlim.Release();
+            }
+        }
+
+        /// <summary>
+        /// Attempts to observe all builtin receivable notifications.
+        /// </summary>
+        /// <returns></returns>
+        public async Task ObserveAll()
+        {
+            foreach (PropertyInfo prop in typeof(ReceivableNotification).GetProperties()) {
+                string notification = prop.GetValue(typeof(ReceivableNotification), null)?.ToString() ?? string.Empty;
+                if (string.IsNullOrEmpty(notification)) {
+                    continue;
+                }
+                await ObserveNotificationAsync(notification).ConfigureAwait(false);
             }
         }
 
