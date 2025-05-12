@@ -992,7 +992,7 @@ namespace Netimobiledevice.Diagnostics
             return response["Diagnostics"];
         }
 
-        private DictionaryNode IORegistry(string? plane = null, string? name = null, string? ioClass = null)
+        public DictionaryNode IORegistry(string? plane = null, string? name = null, string? ioClass = null)
         {
             DictionaryNode dict = new DictionaryNode() {
                 { "Request", new StringNode("IORegistry") }
