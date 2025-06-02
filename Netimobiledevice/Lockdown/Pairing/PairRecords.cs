@@ -43,7 +43,7 @@ namespace Netimobiledevice.Lockdown.Pairing
         public static DirectoryInfo? GetPairingRecordsCacheFolder(string pairingRecordsCacheFolder = "")
         {
             if (string.IsNullOrEmpty(pairingRecordsCacheFolder)) {
-                pairingRecordsCacheFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Netimobiledevice");
+                return null;
             }
             return new DirectoryInfo(pairingRecordsCacheFolder);
         }
