@@ -40,16 +40,10 @@ namespace Netimobiledevice.Lockdown.Pairing
             return null;
         }
 
-        public static DirectoryInfo? CreatePairingRecordsCacheFolder(string pairingRecordsCacheFolder = "")
+        public static DirectoryInfo? GetPairingRecordsCacheFolder(string pairingRecordsCacheFolder = "")
         {
             if (string.IsNullOrEmpty(pairingRecordsCacheFolder)) {
                 pairingRecordsCacheFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Netimobiledevice");
-            }
-            try {
-                Directory.CreateDirectory(pairingRecordsCacheFolder);
-            }
-            catch (Exception) {
-                return null;
             }
             return new DirectoryInfo(pairingRecordsCacheFolder);
         }

@@ -42,7 +42,7 @@ namespace Netimobiledevice.Lockdown
             ushort port = SERVICE_PORT, ILogger? logger = null)
         {
             string hostId = PairRecords.GenerateHostId(localHostname);
-            DirectoryInfo? pairingRecordsCacheDirectory = PairRecords.CreatePairingRecordsCacheFolder(pairingRecordsCacheFolder);
+            DirectoryInfo? pairingRecordsCacheDirectory = PairRecords.GetPairingRecordsCacheFolder(pairingRecordsCacheFolder);
 
             TcpLockdownClient lockdownClient = new(service, hostId: hostId, hostname: hostname, identifier: identifier, label: label, systemBuid: systemBuid, pairRecord: pairRecord,
                 pairingRecordsCacheDirectory: pairingRecordsCacheDirectory, port: port, logger: logger);
