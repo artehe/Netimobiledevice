@@ -329,6 +329,9 @@ namespace Netimobiledevice.Lockdown
         private void WriteStorageFile(string filename, byte[] data)
         {
             if (_pairingRecordsCacheDirectory != null) {
+                if (!_pairingRecordsCacheDirectory.Exists) {
+                    _pairingRecordsCacheDirectory.Create();
+                }
                 string file = Path.Combine(_pairingRecordsCacheDirectory.FullName, filename);
                 File.WriteAllBytes(file, data);
             }

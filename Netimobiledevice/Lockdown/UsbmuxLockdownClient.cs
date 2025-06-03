@@ -42,7 +42,7 @@ namespace Netimobiledevice.Lockdown
             ushort port = SERVICE_PORT, string usbmuxAddress = "", ILogger? logger = null)
         {
             string hostId = PairRecords.GenerateHostId(localHostname);
-            DirectoryInfo? pairingRecordsCacheDirectory = PairRecords.CreatePairingRecordsCacheFolder(pairingRecordsCacheFolder);
+            DirectoryInfo? pairingRecordsCacheDirectory = PairRecords.GetPairingRecordsCacheFolder(pairingRecordsCacheFolder);
 
             UsbmuxLockdownClient lockdownClient = new(service, hostId: hostId, identifier: identifier, label: label, systemBuid: systemBuid, pairRecord: pairRecord,
                 pairingRecordsCacheDirectory: pairingRecordsCacheDirectory, port: port, usbmuxAddress: usbmuxAddress, logger: logger);
