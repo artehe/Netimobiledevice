@@ -78,7 +78,7 @@ namespace Netimobiledevice.Backup
         /// <summary>
         /// Event raised when the backup started.
         /// </summary>
-        public event EventHandler? Started;
+        public event EventHandler<BackupStartedEventArgs>? Started;
         /// <summary>
         /// Event raised for signaling different kinds of the backup status.
         /// </summary>
@@ -306,14 +306,14 @@ namespace Netimobiledevice.Backup
         {
             Status?.Invoke(sender, e);
         }
-        private void DeviceLink_Started(object? sender, EventArgs e)
+        private void DeviceLink_Started(object? sender, BackupStartedEventArgs e)
         {
             Started?.Invoke(sender, e);
         }
 
         private async Task<DeviceLinkService> GetDeviceLink(string backupDirectory, bool ignoreTransferErrors, CancellationToken cancellationToken)
         {
-            DeviceLinkService dl = new DeviceLinkService(this.Service, backupDirectory, ignoreTransferErrors, Logger);
+            DeviceLinkService dl = new DeviceLinkService(this.Service, backupDirectory, this.Lockdown.OsVersion, ignoreTransferErrors, Logger);
             await dl.VersionExchange(MOBILEBACKUP2_VERSION_MAJOR, MOBILEBACKUP2_VERSION_MINOR, cancellationToken).ConfigureAwait(false);
             await VersionExchange(dl, cancellationToken).ConfigureAwait(false);
             return dl;
