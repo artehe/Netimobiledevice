@@ -72,19 +72,21 @@ namespace Netimobiledevice.NotificationProxy
                 PropertyNode? plist = await Service.ReceivePlistAsync(cancellationToken);
                 if (plist != null) {
                     DictionaryNode dict = plist.AsDictionaryNode();
-                    if (dict.ContainsKey("Command") && dict["Command"].AsStringNode().Value == "RelayNotification") {
-                        if (dict.ContainsKey("Name")) {
-                            string notificationName = dict["Name"].AsStringNode().Value;
-                            Logger.LogDebug("Got notification {notificationName}", notificationName);
-                            return notificationName;
+                    if (dict.TryGetValue("Command", out PropertyNode? commandNode)) {
+                        if (commandNode.AsStringNode().Value == "RelayNotification") {
+                            if (dict.TryGetValue("Name", out PropertyNode? notificationNameNode)) {
+                                string notificationName = notificationNameNode.AsStringNode().Value;
+                                Logger.LogDebug("Got notification {notificationName}", notificationName);
+                                return notificationName;
+                            }
                         }
-                    }
-                    else if (dict.ContainsKey("Command") && dict["Command"].AsStringNode().Value == "ProxyDeath") {
-                        Logger.LogError("NotificationProxy died");
-                        throw new NetimobiledeviceException("Notification proxy died, can't listen to notifications anymore");
-                    }
-                    else if (dict.ContainsKey("Command")) {
-                        Logger.LogWarning("Unknown NotificationProxy command {command}", dict["Command"]);
+                        else if (commandNode.AsStringNode().Value == "ProxyDeath") {
+                            Logger.LogError("NotificationProxy died");
+                            throw new NetimobiledeviceException("Notification proxy died, can't listen to notifications anymore");
+                        }
+                        else {
+                            Logger.LogWarning("Unknown NotificationProxy command {command}", commandNode.AsStringNode().Value);
+                        }
                     }
                 }
             }
