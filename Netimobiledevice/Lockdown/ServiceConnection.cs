@@ -143,23 +143,20 @@ namespace Netimobiledevice.Lockdown
 
                 int bytesRead;
                 if (Stream.ReadTimeout != -1) {
-                    CancellationTokenSource localTaskComplete = new CancellationTokenSource();
-
-                    Task<int> result = Stream.ReadAsync(buffer, totalBytesRead, readSize, localTaskComplete.Token);
-                    Task delay = Task.Delay(Stream.ReadTimeout, localTaskComplete.Token);
-
-                    await Task.WhenAny(result, delay).WaitAsync(cancellationToken).ConfigureAwait(false);
-                    if (cancellationToken.IsCancellationRequested) {
-                        localTaskComplete.Cancel();
+                    CancellationTokenSource localTaskComplete = new CancellationTokenSource(Stream.ReadTimeout);
+                    CancellationTokenSource linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(localTaskComplete.Token, cancellationToken);
+                    try {
+                        bytesRead = await Stream.ReadAsync(buffer.AsMemory(totalBytesRead, readSize), linkedCancellationTokenSource.Token).ConfigureAwait(false);
+                        if (bytesRead == 0) {
+                            _logger.LogError("Read zero bytes so the connection has been broken");
+                            break;
+                        }
                     }
-                    else if (!result.IsCompleted) {
-                        localTaskComplete.Cancel();
-                        throw new TimeoutException("Timeout waiting for message from service");
-                    }
-                    bytesRead = await result.ConfigureAwait(false);
-                    if (bytesRead == 0) {
-                        _logger.LogError("Read zero bytes so the connection has been broken");
-                        break;
+                    catch (OperationCanceledException) {
+                        if (localTaskComplete.IsCancellationRequested) {
+                            throw new TimeoutException("Timeout waiting for message from service");
+                        }
+                        throw;
                     }
                 }
                 else {
@@ -170,7 +167,7 @@ namespace Netimobiledevice.Lockdown
             }
 
             if (totalBytesRead < buffer.Length) {
-                return buffer.Take(totalBytesRead).ToArray();
+                return [.. buffer.Take(totalBytesRead)];
             }
             return buffer;
         }
