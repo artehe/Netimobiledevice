@@ -29,6 +29,7 @@ namespace Netimobiledevice.DeviceLink
         private readonly string _rootPath;
         private readonly ILogger _logger;
         private CancellationTokenSource _internalCancellationTokenSource;
+        private Version _iosVersion;
 
         private bool _ignoreTransferErrors;
         private FileStream? _fileStream;
@@ -80,7 +81,7 @@ namespace Netimobiledevice.DeviceLink
         /// <summary>
         /// Event raised when the backup started.
         /// </summary>
-        public event EventHandler? Started;
+        public event EventHandler<BackupStartedEventArgs>? Started;
         /// <summary>
         /// Event raised for signaling different kinds of the backup status.
         /// </summary>
@@ -90,11 +91,11 @@ namespace Netimobiledevice.DeviceLink
         /// </summary>
         public event SendFileErrorEventHandler? SendFileError;
 
-
-        public DeviceLinkService(ServiceConnection service, string backupDirectory, bool ignoreTransferErrors = true, ILogger? logger = null)
+        public DeviceLinkService(ServiceConnection service, string backupDirectory, Version iosVersion, bool ignoreTransferErrors = true, ILogger? logger = null)
         {
             _service = service;
             _rootPath = backupDirectory;
+            _iosVersion = iosVersion;
             _ignoreTransferErrors = ignoreTransferErrors;
             _logger = logger ?? NullLogger.Instance;
 
@@ -125,7 +126,7 @@ namespace Netimobiledevice.DeviceLink
                 _fileStream?.Flush();
             }
             catch (Exception fex) {
-                _logger.LogError($"Error flushing backup file : {fex.Message}");
+                _logger.LogError("Error flushing backup file: {message}", fex.Message);
             }
             _fileStream?.Close();
             _fileStream = null;
@@ -663,6 +664,7 @@ namespace Netimobiledevice.DeviceLink
 
         public async Task<ResultCode> DlLoop(CancellationToken cancellationToken = default)
         {
+            Started?.Invoke(this, new BackupStartedEventArgs(this._iosVersion));
             FailedFiles.Clear();
 
             _internalCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
