@@ -668,6 +668,11 @@ namespace Netimobiledevice.DeviceLink
             _internalCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             while (!cancellationToken.IsCancellationRequested) {
                 ArrayNode message = await ReceiveMessage(_internalCancellationTokenSource.Token).ConfigureAwait(false);
+                if (message.Count == 0) {
+                    _logger.LogWarning("Received array node with no elements");
+                    await Task.Delay(100, cancellationToken).ConfigureAwait(false);
+                    continue;
+                }
 
                 string command = message[0].AsStringNode().Value;
                 _logger.LogDebug("Command recieved: {command}", command);
