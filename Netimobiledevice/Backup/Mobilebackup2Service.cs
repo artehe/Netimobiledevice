@@ -135,7 +135,7 @@ namespace Netimobiledevice.Backup
                 throw new Mobilebackup2Exception("Both newPassword and oldPassword can't be null or empty");
             }
 
-            using (DeviceLinkService dl = await GetDeviceLink(string.Empty, true, cancellationToken).ConfigureAwait(false)) {
+            using (DeviceLinkService dl = await GetDeviceLink(string.Empty, true, true, cancellationToken).ConfigureAwait(false)) {
                 DictionaryNode message = new DictionaryNode() {
                     { "MessageName", new StringNode("ChangePassword") },
                     { "TargetIdentifier", new StringNode(Lockdown.Udid) },
@@ -311,9 +311,9 @@ namespace Netimobiledevice.Backup
             Started?.Invoke(sender, e);
         }
 
-        private async Task<DeviceLinkService> GetDeviceLink(string backupDirectory, bool ignoreTransferErrors, CancellationToken cancellationToken)
+        private async Task<DeviceLinkService> GetDeviceLink(string backupDirectory, bool ignoreTransferErrors, bool performBackupSizeCheck, CancellationToken cancellationToken)
         {
-            DeviceLinkService dl = new DeviceLinkService(this.Service, backupDirectory, this.Lockdown.OsVersion, ignoreTransferErrors, Logger);
+            DeviceLinkService dl = new DeviceLinkService(this.Service, backupDirectory, this.Lockdown.OsVersion, ignoreTransferErrors, performBackupSizeCheck, Logger);
             await dl.VersionExchange(MOBILEBACKUP2_VERSION_MAJOR, MOBILEBACKUP2_VERSION_MINOR, cancellationToken).ConfigureAwait(false);
             await VersionExchange(dl, cancellationToken).ConfigureAwait(false);
             return dl;
@@ -347,16 +347,19 @@ namespace Netimobiledevice.Backup
         /// Backup a device
         /// </summary>
         /// <param name="fullBackup">Whether to do a full backup; if true any previous backup attempts will be discarded</param>
+        /// <param name="ignoreTransferErrors">Whether to skip over any transfer errors</param>
+        /// <param name="performBackupSizeCheck">Whether to check that the size of the backup will fit onto this device</param>
         /// <param name="backupDirectory">Directory to write backup to</param>
+        /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        public async Task<ResultCode> Backup(bool fullBackup = true, bool ignoreTransferErrors = true, string backupDirectory = ".", CancellationToken cancellationToken = default)
+        public async Task<ResultCode> Backup(bool fullBackup = true, bool ignoreTransferErrors = true, bool performBackupSizeCheck = true, string backupDirectory = ".", CancellationToken cancellationToken = default)
         {
             _internalCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
             string deviceDirectory = Path.Combine(backupDirectory, Lockdown.Udid);
             Directory.CreateDirectory(deviceDirectory);
 
-            using (DeviceLinkService dl = await GetDeviceLink(backupDirectory, ignoreTransferErrors, _internalCts.Token).ConfigureAwait(false)) {
+            using (DeviceLinkService dl = await GetDeviceLink(backupDirectory, ignoreTransferErrors, performBackupSizeCheck, _internalCts.Token).ConfigureAwait(false)) {
                 dl.BeforeReceivingFile += DeviceLink_BeforeReceivingFile;
                 dl.Completed += DeviceLink_Completed;
                 dl.Error += DeviceLink_Error;
@@ -373,6 +376,7 @@ namespace Netimobiledevice.Backup
                     await np.ObserveNotificationAsync(ReceivableNotification.SyncCancelRequest).ConfigureAwait(false);
                     await np.ObserveNotificationAsync(ReceivableNotification.LocalAuthenticationUiPresented).ConfigureAwait(false);
                     await np.ObserveNotificationAsync(ReceivableNotification.LocalAuthenticationUiDismissed).ConfigureAwait(false);
+                    np.Start();
 
                     using (AfcService afc = new AfcService(this.Lockdown)) {
                         using (BackupLock backupLock = new BackupLock(afc, np)) {
@@ -465,7 +469,7 @@ namespace Netimobiledevice.Backup
                 throw new Mobilebackup2Exception("Backup not found");
             }
 
-            using (DeviceLinkService dl = await GetDeviceLink(backupDirectory, ignoreTransferErrors, cancellationToken).ConfigureAwait(false)) {
+            using (DeviceLinkService dl = await GetDeviceLink(backupDirectory, ignoreTransferErrors, true, cancellationToken).ConfigureAwait(false)) {
                 dl.BeforeReceivingFile += DeviceLink_BeforeReceivingFile;
                 dl.Completed += DeviceLink_Completed;
                 dl.Error += DeviceLink_Error;

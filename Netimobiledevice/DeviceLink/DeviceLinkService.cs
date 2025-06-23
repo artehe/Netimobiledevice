@@ -28,11 +28,11 @@ namespace Netimobiledevice.DeviceLink
         private readonly ServiceConnection _service;
         private readonly string _rootPath;
         private readonly ILogger _logger;
-        private CancellationTokenSource _internalCancellationTokenSource;
-        private Version _iosVersion;
-
-        private bool _ignoreTransferErrors;
+        private readonly Version _iosVersion;
+        private readonly bool _ignoreTransferErrors;
+        private readonly bool _performBackupSizeCheck;
         private FileStream? _fileStream;
+        private CancellationTokenSource _internalCancellationTokenSource;
 
         private Dictionary<string, Func<ArrayNode, CancellationToken, Task>> DeviceLinkHandlers { get; }
         /// <summary>
@@ -91,12 +91,13 @@ namespace Netimobiledevice.DeviceLink
         /// </summary>
         public event SendFileErrorEventHandler? SendFileError;
 
-        public DeviceLinkService(ServiceConnection service, string backupDirectory, Version iosVersion, bool ignoreTransferErrors = true, ILogger? logger = null)
+        public DeviceLinkService(ServiceConnection service, string backupDirectory, Version iosVersion, bool ignoreTransferErrors = true, bool performBackupSizeCheck = true, ILogger? logger = null)
         {
             _service = service;
             _rootPath = backupDirectory;
             _iosVersion = iosVersion;
             _ignoreTransferErrors = ignoreTransferErrors;
+            _performBackupSizeCheck = performBackupSizeCheck;
             _logger = logger ?? NullLogger.Instance;
 
             _internalCancellationTokenSource = new CancellationTokenSource();
@@ -299,23 +300,25 @@ namespace Netimobiledevice.DeviceLink
         /// <returns>0 on success, -1 on error.</returns>
         private async Task GetFreeDiskSpace(ArrayNode msg, CancellationToken cancellationToken)
         {
-            long freeSpace = 0;
-            DirectoryInfo dir = new DirectoryInfo(_rootPath);
-            foreach (DriveInfo drive in DriveInfo.GetDrives()) {
-                try {
-                    if (drive.IsReady && drive.Name == dir.Root.FullName) {
-                        freeSpace = drive.AvailableFreeSpace;
-                        break;
+            IntegerNode spaceItem = new IntegerNode(long.MaxValue);
+            if (_performBackupSizeCheck) {
+                long freeSpace = 0;
+                DirectoryInfo dir = new DirectoryInfo(_rootPath);
+                foreach (DriveInfo drive in DriveInfo.GetDrives()) {
+                    try {
+                        if (drive.IsReady && drive.Name == dir.Root.FullName) {
+                            freeSpace = drive.AvailableFreeSpace;
+                            break;
+                        }
+                    }
+                    catch (Exception ex) {
+                        _logger.LogError(ex, "Issue getting space from drive");
+                        Warning?.Invoke(this, new DetailedErrorEventArgs(ex, _rootPath));
+
                     }
                 }
-                catch (Exception ex) {
-                    _logger.LogError(ex, "Issue getting space from drive");
-                    Warning?.Invoke(this, new DetailedErrorEventArgs(ex, _rootPath));
-
-                }
+                spaceItem = new IntegerNode(freeSpace);
             }
-
-            IntegerNode spaceItem = new IntegerNode(freeSpace);
             await SendStatusReport(0, null, spaceItem, cancellationToken).ConfigureAwait(false);
         }
 
@@ -427,7 +430,7 @@ namespace Netimobiledevice.DeviceLink
             _logger.LogDebug("OnStatus: {message}", snapshotState);
         }
 
-        private async Task PurgeDiskSpace(ArrayNode message, CancellationToken cancellationToken)
+        private Task PurgeDiskSpace(ArrayNode message, CancellationToken cancellationToken)
         {
             throw new DeviceLinkException("Not enough Disk space for operation");
         }
