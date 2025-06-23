@@ -19,8 +19,6 @@ namespace Netimobiledevice.NotificationProxy
         private const string INSECURE_LOCKDOWN_SERVICE_NAME = "com.apple.mobile.insecure_notification_proxy";
         private const string RSD_INSECURE_SERVICE_NAME = "com.apple.mobile.insecure_notification_proxy.shim.remote";
 
-        private static readonly SemaphoreSlim serviceLockSemaphoreSlim = new SemaphoreSlim(1, 1);
-
         private readonly BackgroundWorker notificationListener;
 
         private static string ServiceNameUsed { get; set; } = LOCKDOWN_SERVICE_NAME;
@@ -65,11 +63,10 @@ namespace Netimobiledevice.NotificationProxy
             base.Dispose();
         }
 
-        private async Task<string?> GetNotification(CancellationToken cancellationToken = default)
+        private string? GetNotification()
         {
-            await serviceLockSemaphoreSlim.WaitAsync(cancellationToken);
             try {
-                PropertyNode? plist = await Service.ReceivePlistAsync(cancellationToken);
+                PropertyNode? plist = Service.ReceivePlist();
                 if (plist != null) {
                     DictionaryNode dict = plist.AsDictionaryNode();
                     if (dict.TryGetValue("Command", out PropertyNode? commandNode)) {
@@ -93,25 +90,21 @@ namespace Netimobiledevice.NotificationProxy
             catch (ArgumentException ex) {
                 Logger.LogError(ex, "Error");
             }
-            finally {
-                serviceLockSemaphoreSlim.Release();
-            }
             return null;
         }
 
-        private async void NotificationListener_DoWork(object? sender, DoWorkEventArgs e)
+        private void NotificationListener_DoWork(object? sender, DoWorkEventArgs e)
         {
-            Service.SetTimeout(500);
+            Service.SetTimeout(5000);
             do {
                 try {
-                    string? notification = await GetNotification();
+                    string? notification = GetNotification();
                     if (!string.IsNullOrEmpty(notification)) {
                         ReceivedNotification?.Invoke(this, new ReceivedNotificationEventArgs(notification, this.Lockdown.Udid));
                     }
                 }
-                catch (IOException) {
-                    // If there is an IO exception we also have to assume that the service is closed so we abort the listener
-                    break;
+                catch (IOException ex) {
+                    Logger.LogDebug(ex, "Recieved IO exception");
                 }
                 catch (ObjectDisposedException) {
                     // If the object is disposed the most likely reason is that the service is closed
@@ -126,7 +119,8 @@ namespace Netimobiledevice.NotificationProxy
                         throw;
                     }
                 }
-                await Task.Delay(100);
+
+                Thread.Sleep(100);
             } while (!notificationListener.CancellationPending);
         }
 
@@ -141,13 +135,7 @@ namespace Netimobiledevice.NotificationProxy
                 { "Name", new StringNode(notification) }
             };
 
-            serviceLockSemaphoreSlim.Wait();
-            try {
-                Service.SendPlist(msg);
-            }
-            finally {
-                serviceLockSemaphoreSlim.Release();
-            }
+            Service.SendPlist(msg);
         }
 
         /// <summary>
@@ -161,13 +149,7 @@ namespace Netimobiledevice.NotificationProxy
                 { "Name", new StringNode(notification) }
             };
 
-            await serviceLockSemaphoreSlim.WaitAsync().ConfigureAwait(false);
-            try {
-                await Service.SendPlistAsync(msg).ConfigureAwait(false);
-            }
-            finally {
-                serviceLockSemaphoreSlim.Release();
-            }
+            await Service.SendPlistAsync(msg).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -196,17 +178,7 @@ namespace Netimobiledevice.NotificationProxy
                 { "Name", new StringNode(notification) }
             };
 
-            serviceLockSemaphoreSlim.Wait();
-            try {
-                Service.SendPlist(request);
-            }
-            finally {
-                serviceLockSemaphoreSlim.Release();
-            }
-
-            if (!notificationListener.IsBusy) {
-                notificationListener.RunWorkerAsync();
-            }
+            Service.SendPlist(request);
         }
 
         /// <summary>
@@ -219,15 +191,14 @@ namespace Netimobiledevice.NotificationProxy
                 { "Command", new StringNode("ObserveNotification") },
                 { "Name", new StringNode(notification) }
             };
+            await Service.SendPlistAsync(request).ConfigureAwait(false);
+        }
 
-            await serviceLockSemaphoreSlim.WaitAsync().ConfigureAwait(false);
-            try {
-                await Service.SendPlistAsync(request).ConfigureAwait(false);
-            }
-            finally {
-                serviceLockSemaphoreSlim.Release();
-            }
-
+        /// <summary>
+        /// Starts observing any notifications from the device if it is not doing so already
+        /// </summary>
+        public void Start()
+        {
             if (!notificationListener.IsBusy) {
                 notificationListener.RunWorkerAsync();
             }
