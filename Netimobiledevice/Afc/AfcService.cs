@@ -204,6 +204,32 @@ namespace Netimobiledevice.Afc
             return [.. data];
         }
 
+        /// <summary>
+        /// Seeks to a given position of a pre-opened file on the device.
+        /// </summary>
+        /// <param name="handle">File handle of a previously opened.</param>
+        /// <param name="offset">Seek offset.</param>
+        /// <param name="whence">Seeking direction, one of SEEK_SET, SEEK_CUR, or SEEK_END.</param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        /// <exception cref="AfcException"></exception>
+        public async Task FileSeek(ulong handle, long offset, ulong whence, CancellationToken cancellationToken = default)
+        {
+            if (handle == 0) {
+                throw new AfcException(AfcError.InvalidArg);
+            }
+
+            // Send the command
+            AfcSeekInfoRequest seekInfo = new AfcSeekInfoRequest(handle, whence, offset);
+            await DispatchPacket(AfcOpCode.FileSeek, seekInfo, cancellationToken).ConfigureAwait(false);
+
+            // Receive response
+            (AfcError status, byte[] _) = await ReceiveData(cancellationToken);
+            if (status != AfcError.Success) {
+                throw new AfcException(status);
+            }
+        }
+
         public async Task FileWrite(ulong handle, byte[] data, CancellationToken cancellationToken, int chunkSize = 4096)
         {
             ulong dataSize = (ulong) data.Length;
@@ -215,7 +241,7 @@ namespace Netimobiledevice.Afc
                 cancellationToken.ThrowIfCancellationRequested();
                 Logger?.LogDebug("Writing chunk {i}", i);
 
-                AfcFileWritePacket packet = new AfcFileWritePacket(handle, data.Skip(i * chunkSize).Take(chunkSize).ToArray());
+                AfcFileWritePacket packet = new AfcFileWritePacket(handle, [.. data.Skip(i * chunkSize).Take(chunkSize)]);
                 await DispatchPacket(AfcOpCode.Write, packet, cancellationToken, 48).ConfigureAwait(false);
                 writtenData.AddRange(packet.Data);
 
@@ -228,7 +254,7 @@ namespace Netimobiledevice.Afc
 
             if (dataSize % (ulong) chunkSize > 0) {
                 Logger?.LogDebug("Writing last chunk");
-                AfcFileWritePacket packet = new AfcFileWritePacket(handle, data.Skip(chunksCount * chunkSize).ToArray());
+                AfcFileWritePacket packet = new AfcFileWritePacket(handle, [.. data.Skip(chunksCount * chunkSize)]);
                 await DispatchPacket(AfcOpCode.Write, packet, cancellationToken, 48).ConfigureAwait(false);
                 writtenData.AddRange(packet.Data);
 
@@ -345,7 +371,7 @@ namespace Netimobiledevice.Afc
         {
             byte[] data = await RunOperation(AfcOpCode.ReadDir, new AfcReadDirectoryRequest(filename), cancellationToken);
             // Make sure to skip "." and ".."
-            return AfcReadDirectoryResponse.Parse(data).Filenames.Skip(2).ToList();
+            return [.. AfcReadDirectoryResponse.Parse(data).Filenames.Skip(2)];
         }
 
         public async Task<byte[]> Lock(ulong handle, AfcLockModes operation, CancellationToken cancellationToken)
