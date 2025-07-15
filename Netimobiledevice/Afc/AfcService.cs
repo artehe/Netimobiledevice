@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice.Afc.Packets;
+using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Extentions;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
@@ -228,6 +229,32 @@ namespace Netimobiledevice.Afc
             if (status != AfcError.Success) {
                 throw new AfcException(status);
             }
+        }
+
+        /// <summary>
+        /// Returns current position in a pre-opened file on the device.
+        /// </summary>
+        /// <param name="handle">File handle of a previously opened.</param>
+        /// <param name="cancellationToken"></param>
+        /// <returns>Position in bytes of indicator</returns>
+        public async Task<ulong> FileTell(ulong handle, CancellationToken cancellationToken = default)
+        {
+            if (handle == 0) {
+                throw new AfcException(AfcError.InvalidArg);
+            }
+
+            // Send the command 
+            AfcTellRequest packet = new AfcTellRequest(handle);
+            await DispatchPacket(AfcOpCode.FileTell, packet, cancellationToken).ConfigureAwait(false);
+
+            // Receive the data 
+            (AfcError status, byte[] data) = await ReceiveData(cancellationToken).ConfigureAwait(false);
+            if (data.Length > 0) {
+                // Get the position 
+                ulong value = EndianBitConverter.LittleEndian.ToUInt64(data, 0);
+                return value;
+            }
+            throw new AfcException(status);
         }
 
         public async Task FileWrite(ulong handle, byte[] data, CancellationToken cancellationToken, int chunkSize = 4096)
