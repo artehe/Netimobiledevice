@@ -21,7 +21,7 @@ namespace Netimobiledevice.Afc
         private const string LOCKDOWN_SERVICE_NAME = "com.apple.afc";
         private const string RSD_SERVICE_NAME = "com.apple.afc.shim.remote";
 
-        private const int MAXIMUM_READ_SIZE = 1024 ^ 2; // 1 MB
+        private const int MAXIMUM_READ_SIZE = 1024 * 1024; // 1 MB
 
         private static string[] DirectoryTraversalFiles { get; } = [".", "..", ""];
 
