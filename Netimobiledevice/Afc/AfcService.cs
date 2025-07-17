@@ -175,39 +175,35 @@ namespace Netimobiledevice.Afc
             return StructExtentions.FromBytes<AfcFileOpenResponse>(data).Handle;
         }
 
-        public async Task<byte[]> FileRead(ulong handle, ulong size, CancellationToken cancellationToken)
+        public async Task<byte[]> FileRead(ulong handle, ulong size, CancellationToken cancellationToken = default)
         {
-            List<byte> data = [];
+            byte[] result = new byte[size];
+            int offset = 0;
             while (size > 0) {
-                ulong toRead;
-                if (size > MAXIMUM_READ_SIZE) {
-                    toRead = MAXIMUM_READ_SIZE;
-                }
-                else {
-                    toRead = size;
-                }
+                ulong toRead = Math.Min(size, MAXIMUM_READ_SIZE);
 
                 AfcFileReadRequest readRequest = new AfcFileReadRequest() {
                     Handle = handle,
-                    Size = toRead
+                    Size = (ulong) toRead
                 };
-
                 await DispatchPacket(AfcOpCode.Read, readRequest, cancellationToken).ConfigureAwait(false);
+
                 (AfcError status, byte[] chunk) = await ReceiveData(cancellationToken).ConfigureAwait(false);
                 if (status != AfcError.Success) {
                     throw new AfcException(status, "File Read Error");
                 }
 
-                ulong bytesRead = (ulong) chunk.LongLength;
-                if (bytesRead < toRead) {
+                int bytesRead = chunk.Length;
+                if ((ulong) bytesRead < toRead) {
                     throw new AfcException(AfcError.NotEnoughData, $"Expected {toRead} and got {bytesRead} bytes");
                 }
 
-                size -= bytesRead;
-                data.AddRange(chunk);
-            }
+                Buffer.BlockCopy(chunk, 0, result, offset, chunk.Length);
 
-            return [.. data];
+                offset += bytesRead;
+                size -= (ulong) bytesRead;
+            }
+            return result;
         }
 
         /// <summary>
