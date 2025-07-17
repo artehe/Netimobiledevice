@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice.Afc.Packets;
+using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Extentions;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
@@ -60,75 +61,6 @@ namespace Netimobiledevice.Afc
 
             _packetNumber++;
             await Service.SendAsync(packet.GetBytes(), cancellationToken).ConfigureAwait(false);
-        }
-
-        private async Task<byte[]> FileRead(ulong handle, ulong size, CancellationToken cancellationToken)
-        {
-            List<byte> data = [];
-            while (size > 0) {
-                ulong toRead;
-                if (size > MAXIMUM_READ_SIZE) {
-                    toRead = MAXIMUM_READ_SIZE;
-                }
-                else {
-                    toRead = size;
-                }
-
-                AfcFileReadRequest readRequest = new AfcFileReadRequest() {
-                    Handle = handle,
-                    Size = size
-                };
-
-                await DispatchPacket(AfcOpCode.Read, readRequest, cancellationToken).ConfigureAwait(false);
-                (AfcError status, byte[] chunk) = await ReceiveData(cancellationToken).ConfigureAwait(false);
-                if (status != AfcError.Success) {
-                    throw new AfcException(status, "File Read Error");
-                }
-
-                size -= toRead;
-                data.AddRange(chunk);
-            }
-
-            return [.. data];
-        }
-
-        public async Task<DictionaryNode?> GetFileInfo(string filename, CancellationToken cancellationToken)
-        {
-            Dictionary<string, string> stat;
-            try {
-                AfcFileInfoRequest request = new AfcFileInfoRequest(filename);
-                byte[] response = await RunOperation(AfcOpCode.GetFileInfo, request, cancellationToken).ConfigureAwait(false);
-                stat = ParseFileInfoResponseToDict(response);
-            }
-            catch (AfcException ex) {
-                if (ex.AfcError != AfcError.ReadError) {
-                    throw;
-                }
-                throw new AfcFileNotFoundException(ex.AfcError, filename);
-            }
-
-            if (stat.Count == 0) {
-                return null;
-            }
-
-            // Convert timestamps from unix epoch ticks (nanoseconds) to DateTime
-            long divisor = (long) Math.Pow(10, 6);
-            long mTimeMilliseconds = long.Parse(stat["st_mtime"], CultureInfo.InvariantCulture.NumberFormat) / divisor;
-            long birthTimeMilliseconds = long.Parse(stat["st_birthtime"], CultureInfo.InvariantCulture.NumberFormat) / divisor;
-
-            DateTime mTime = DateTimeOffset.FromUnixTimeMilliseconds(mTimeMilliseconds).LocalDateTime;
-            DateTime birthTime = DateTimeOffset.FromUnixTimeMilliseconds(birthTimeMilliseconds).LocalDateTime;
-
-            DictionaryNode fileInfo = new DictionaryNode {
-                { "st_ifmt", new StringNode(stat["st_ifmt"]) },
-                { "st_size", new IntegerNode(ulong.Parse(stat["st_size"], CultureInfo.InvariantCulture.NumberFormat)) },
-                { "st_blocks", new IntegerNode(ulong.Parse(stat["st_blocks"], CultureInfo.InvariantCulture.NumberFormat)) },
-                { "st_nlink", new IntegerNode(ulong.Parse(stat["st_nlink"], CultureInfo.InvariantCulture.NumberFormat)) },
-                { "st_mtime", new DateNode(mTime) },
-                { "st_birthtime", new DateNode(birthTime) }
-            };
-
-            return fileInfo;
         }
 
         private static List<string> ParseFileInfoResponseForMessage(byte[] data)
@@ -236,6 +168,138 @@ namespace Netimobiledevice.Afc
             }
         }
 
+        public async Task FileClose(ulong handle, CancellationToken cancellationToken)
+        {
+            AfcFileCloseRequest request = new AfcFileCloseRequest(handle);
+            await RunOperation(AfcOpCode.FileClose, request, cancellationToken).ConfigureAwait(false);
+        }
+
+        public async Task<ulong> FileOpen(string filename, CancellationToken cancellationToken, AfcFileOpenMode mode = AfcFileOpenMode.ReadOnly)
+        {
+            AfcFileOpenRequest openRequest = new AfcFileOpenRequest(mode, filename);
+            byte[] data = await RunOperation(AfcOpCode.FileOpen, openRequest, cancellationToken).ConfigureAwait(false);
+            return StructExtentions.FromBytes<AfcFileOpenResponse>(data).Handle;
+        }
+
+        public async Task<byte[]> FileRead(ulong handle, ulong size, CancellationToken cancellationToken = default)
+        {
+            byte[] result = new byte[size];
+            int offset = 0;
+            while (size > 0) {
+                ulong toRead = Math.Min(size, MAXIMUM_READ_SIZE);
+
+                AfcFileReadRequest readRequest = new AfcFileReadRequest() {
+                    Handle = handle,
+                    Size = (ulong) toRead
+                };
+                await DispatchPacket(AfcOpCode.Read, readRequest, cancellationToken).ConfigureAwait(false);
+
+                (AfcError status, byte[] chunk) = await ReceiveData(cancellationToken).ConfigureAwait(false);
+                if (status != AfcError.Success) {
+                    throw new AfcException(status, "File Read Error");
+                }
+
+                int bytesRead = chunk.Length;
+                if ((ulong) bytesRead < toRead) {
+                    throw new AfcException(AfcError.NotEnoughData, $"Expected {toRead} and got {bytesRead} bytes");
+                }
+
+                Buffer.BlockCopy(chunk, 0, result, offset, chunk.Length);
+
+                offset += bytesRead;
+                size -= (ulong) bytesRead;
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Seeks to a given position of a pre-opened file on the device.
+        /// </summary>
+        /// <param name="handle">File handle of a previously opened.</param>
+        /// <param name="offset">Seek offset.</param>
+        /// <param name="whence">Seeking direction, one of SEEK_SET, SEEK_CUR, or SEEK_END.</param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        /// <exception cref="AfcException"></exception>
+        public async Task FileSeek(ulong handle, long offset, ulong whence, CancellationToken cancellationToken = default)
+        {
+            if (handle == 0) {
+                throw new AfcException(AfcError.InvalidArg);
+            }
+
+            // Send the command
+            AfcSeekInfoRequest seekInfo = new AfcSeekInfoRequest(handle, whence, offset);
+            await DispatchPacket(AfcOpCode.FileSeek, seekInfo, cancellationToken).ConfigureAwait(false);
+
+            // Receive response
+            (AfcError status, byte[] _) = await ReceiveData(cancellationToken);
+            if (status != AfcError.Success) {
+                throw new AfcException(status);
+            }
+        }
+
+        /// <summary>
+        /// Returns current position in a pre-opened file on the device.
+        /// </summary>
+        /// <param name="handle">File handle of a previously opened.</param>
+        /// <param name="cancellationToken"></param>
+        /// <returns>Position in bytes of indicator</returns>
+        public async Task<ulong> FileTell(ulong handle, CancellationToken cancellationToken = default)
+        {
+            if (handle == 0) {
+                throw new AfcException(AfcError.InvalidArg);
+            }
+
+            // Send the command 
+            AfcTellRequest packet = new AfcTellRequest(handle);
+            await DispatchPacket(AfcOpCode.FileTell, packet, cancellationToken).ConfigureAwait(false);
+
+            // Receive the data 
+            (AfcError status, byte[] data) = await ReceiveData(cancellationToken).ConfigureAwait(false);
+            if (data.Length > 0) {
+                // Get the position 
+                ulong value = EndianBitConverter.LittleEndian.ToUInt64(data, 0);
+                return value;
+            }
+            throw new AfcException(status);
+        }
+
+        public async Task FileWrite(ulong handle, byte[] data, CancellationToken cancellationToken, int chunkSize = 4096)
+        {
+            ulong dataSize = (ulong) data.Length;
+            int chunksCount = data.Length / chunkSize;
+            Logger?.LogDebug("Writing {dataSize} bytes in {chunksCount} chunks", dataSize, chunksCount);
+
+            List<byte> writtenData = [];
+            for (int i = 0; i < chunksCount; i++) {
+                cancellationToken.ThrowIfCancellationRequested();
+                Logger?.LogDebug("Writing chunk {i}", i);
+
+                AfcFileWritePacket packet = new AfcFileWritePacket(handle, [.. data.Skip(i * chunkSize).Take(chunkSize)]);
+                await DispatchPacket(AfcOpCode.Write, packet, cancellationToken, 48).ConfigureAwait(false);
+                writtenData.AddRange(packet.Data);
+
+                (AfcError status, byte[] _) = await ReceiveData(cancellationToken).ConfigureAwait(false);
+                if (status != AfcError.Success) {
+                    throw new AfcException(status, $"Failed to write chunk: {status}");
+                }
+                Logger?.LogDebug("Chunk {i} written", i);
+            }
+
+            if (dataSize % (ulong) chunkSize > 0) {
+                Logger?.LogDebug("Writing last chunk");
+                AfcFileWritePacket packet = new AfcFileWritePacket(handle, [.. data.Skip(chunksCount * chunkSize)]);
+                await DispatchPacket(AfcOpCode.Write, packet, cancellationToken, 48).ConfigureAwait(false);
+                writtenData.AddRange(packet.Data);
+
+                (AfcError status, byte[] _) = await ReceiveData(cancellationToken).ConfigureAwait(false);
+                if (status != AfcError.Success) {
+                    throw new AfcException(status, $"Failed to write last chunk: {status}");
+                }
+                Logger?.LogDebug("Last chunk written");
+            }
+        }
+
         public async Task<bool> Exists(string filename, CancellationToken cancellationToken)
         {
             try {
@@ -250,6 +314,20 @@ namespace Netimobiledevice.Afc
                     throw;
                 }
             }
+        }
+
+        public async Task<List<string>> GetDirectoryList(CancellationToken cancellationToken)
+        {
+            List<string> directoryList = [];
+            try {
+                AfcFileInfoRequest request = new AfcFileInfoRequest("/");
+                byte[] response = await RunOperation(AfcOpCode.ReadDir, request, cancellationToken).ConfigureAwait(false);
+                directoryList = ParseFileInfoResponseForMessage(response);
+            }
+            catch (Exception ex) {
+                Logger?.LogError(ex, "Error trying to get directory list");
+            }
+            return directoryList;
         }
 
         public async Task<byte[]?> GetFileContents(string filename, CancellationToken cancellationToken)
@@ -275,109 +353,43 @@ namespace Netimobiledevice.Afc
             return details;
         }
 
-        public async Task<byte[]> Lock(ulong handle, AfcLockModes operation, CancellationToken cancellationToken)
+        public async Task<DictionaryNode?> GetFileInfo(string filename, CancellationToken cancellationToken)
         {
-            AfcLockRequest request = new AfcLockRequest(handle, (ulong) operation);
-            return await RunOperation(AfcOpCode.FileLock, request, cancellationToken).ConfigureAwait(false);
-        }
-
-        public async Task<byte[]> FileClose(ulong handle, CancellationToken cancellationToken)
-        {
-            AfcFileCloseRequest request = new AfcFileCloseRequest(handle);
-            return await RunOperation(AfcOpCode.FileClose, request, cancellationToken).ConfigureAwait(false);
-        }
-
-        public async Task<ulong> FileOpen(string filename, CancellationToken cancellationToken, AfcFileOpenMode mode = AfcFileOpenMode.ReadOnly)
-        {
-            AfcFileOpenRequest openRequest = new AfcFileOpenRequest(mode, filename);
-            byte[] data = await RunOperation(AfcOpCode.FileOpen, openRequest, cancellationToken).ConfigureAwait(false);
-            return StructExtentions.FromBytes<AfcFileOpenResponse>(data).Handle;
-        }
-
-        public async Task FileWrite(ulong handle, byte[] data, CancellationToken cancellationToken, int chunkSize = 4096)
-        {
-            ulong dataSize = (ulong) data.Length;
-            int chunksCount = data.Length / chunkSize;
-            Logger?.LogDebug("Writing {dataSize} bytes in {chunksCount} chunks", dataSize, chunksCount);
-
-            List<byte> writtenData = [];
-            for (int i = 0; i < chunksCount; i++) {
-                cancellationToken.ThrowIfCancellationRequested();
-                Logger?.LogDebug("Writing chunk {i}", i);
-
-                AfcFileWritePacket packet = new AfcFileWritePacket(handle, data.Skip(i * chunkSize).Take(chunkSize).ToArray());
-                await DispatchPacket(AfcOpCode.Write, packet, cancellationToken, 48).ConfigureAwait(false);
-                writtenData.AddRange(packet.Data);
-
-                (AfcError status, byte[] _) = await ReceiveData(cancellationToken).ConfigureAwait(false);
-                if (status != AfcError.Success) {
-                    throw new AfcException(status, $"Failed to write chunk: {status}");
-                }
-                Logger?.LogDebug("Chunk {i} written", i);
-            }
-
-            if (dataSize % (ulong) chunkSize > 0) {
-                Logger?.LogDebug("Writing last chunk");
-                AfcFileWritePacket packet = new AfcFileWritePacket(handle, data.Skip(chunksCount * chunkSize).ToArray());
-                await DispatchPacket(AfcOpCode.Write, packet, cancellationToken, 48).ConfigureAwait(false);
-                writtenData.AddRange(packet.Data);
-
-                (AfcError status, byte[] _) = await ReceiveData(cancellationToken).ConfigureAwait(false);
-                if (status != AfcError.Success) {
-                    throw new AfcException(status, $"Failed to write last chunk: {status}");
-                }
-                Logger?.LogDebug("Last chunk written");
-            }
-        }
-
-        public async Task<List<string>> GetDirectoryList(CancellationToken cancellationToken)
-        {
-            List<string> directoryList = [];
+            Dictionary<string, string> stat;
             try {
-                AfcFileInfoRequest request = new AfcFileInfoRequest("/");
-                byte[] response = await RunOperation(AfcOpCode.ReadDir, request, cancellationToken).ConfigureAwait(false);
-                directoryList = ParseFileInfoResponseForMessage(response);
+                AfcFileInfoRequest request = new AfcFileInfoRequest(filename);
+                byte[] response = await RunOperation(AfcOpCode.GetFileInfo, request, cancellationToken).ConfigureAwait(false);
+                stat = ParseFileInfoResponseToDict(response);
             }
-            catch (Exception ex) {
-                Logger?.LogError(ex, "Error trying to get directory list");
-            }
-            return directoryList;
-        }
-
-        private async Task<List<string>> ListDirectory(string filename, CancellationToken cancellationToken)
-        {
-            byte[] data = await RunOperation(AfcOpCode.ReadDir, new AfcReadDirectoryRequest(filename), cancellationToken);
-            // Make sure to skip "." and ".."
-            return AfcReadDirectoryResponse.Parse(data).Filenames.Skip(2).ToList();
-        }
-
-        private async IAsyncEnumerable<Tuple<string, List<string>, List<string>>> Walk(string directory, [EnumeratorCancellation] CancellationToken cancellationToken)
-        {
-            List<string> directories = [];
-            List<string> files = [];
-
-            foreach (string fd in await ListDirectory(directory, cancellationToken).ConfigureAwait(false)) {
-                if (DirectoryTraversalFiles.Contains(fd)) {
-                    continue;
+            catch (AfcException ex) {
+                if (ex.AfcError != AfcError.ReadError) {
+                    throw;
                 }
-
-                DictionaryNode fileInfo = await GetFileInfo($"{directory}/{fd}", cancellationToken).ConfigureAwait(false) ?? [];
-                if (fileInfo.TryGetValue("st_ifmt", out PropertyNode? value)) {
-                    if (value is StringNode node && node.Value == "S_IFDIR") {
-                        directories.Add(fd);
-                    }
-                    else {
-                        files.Add(fd);
-                    }
-                }
+                throw new AfcFileNotFoundException(ex.AfcError, filename);
             }
-            yield return Tuple.Create(directory, directories, files);
 
-            foreach (string dir in directories) {
-                await foreach (Tuple<string, List<string>, List<string>> result in Walk($"{directory}/{dir}", cancellationToken).ConfigureAwait(false)) {
-                    yield return result;
-                }
+            if (stat.Count == 0) {
+                return null;
             }
+
+            // Convert timestamps from unix epoch ticks (nanoseconds) to DateTime
+            long divisor = (long) Math.Pow(10, 6);
+            long mTimeMilliseconds = long.Parse(stat["st_mtime"], CultureInfo.InvariantCulture.NumberFormat) / divisor;
+            long birthTimeMilliseconds = long.Parse(stat["st_birthtime"], CultureInfo.InvariantCulture.NumberFormat) / divisor;
+
+            DateTime mTime = DateTimeOffset.FromUnixTimeMilliseconds(mTimeMilliseconds).LocalDateTime;
+            DateTime birthTime = DateTimeOffset.FromUnixTimeMilliseconds(birthTimeMilliseconds).LocalDateTime;
+
+            DictionaryNode fileInfo = new DictionaryNode {
+                { "st_ifmt", new StringNode(stat["st_ifmt"]) },
+                { "st_size", new IntegerNode(ulong.Parse(stat["st_size"], CultureInfo.InvariantCulture.NumberFormat)) },
+                { "st_blocks", new IntegerNode(ulong.Parse(stat["st_blocks"], CultureInfo.InvariantCulture.NumberFormat)) },
+                { "st_nlink", new IntegerNode(ulong.Parse(stat["st_nlink"], CultureInfo.InvariantCulture.NumberFormat)) },
+                { "st_mtime", new DateNode(mTime) },
+                { "st_birthtime", new DateNode(birthTime) }
+            };
+
+            return fileInfo;
         }
 
         public async Task<bool> IsDir(string filename, CancellationToken cancellationToken)
@@ -387,6 +399,19 @@ namespace Netimobiledevice.Afc
                 return value.AsStringNode().Value == "S_IFDIR";
             }
             return false;
+        }
+
+        private async Task<List<string>> ListDirectory(string filename, CancellationToken cancellationToken)
+        {
+            byte[] data = await RunOperation(AfcOpCode.ReadDir, new AfcReadDirectoryRequest(filename), cancellationToken);
+            // Make sure to skip "." and ".."
+            return [.. AfcReadDirectoryResponse.Parse(data).Filenames.Skip(2)];
+        }
+
+        public async Task<byte[]> Lock(ulong handle, AfcLockModes operation, CancellationToken cancellationToken)
+        {
+            AfcLockRequest request = new AfcLockRequest(handle, (ulong) operation);
+            return await RunOperation(AfcOpCode.FileLock, request, cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -525,6 +550,35 @@ namespace Netimobiledevice.Afc
             }
             await FileWrite(handle, data, cancellationToken).ConfigureAwait(false);
             await FileClose(handle, cancellationToken).ConfigureAwait(false);
+        }
+
+        private async IAsyncEnumerable<Tuple<string, List<string>, List<string>>> Walk(string directory, [EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            List<string> directories = [];
+            List<string> files = [];
+
+            foreach (string fd in await ListDirectory(directory, cancellationToken).ConfigureAwait(false)) {
+                if (DirectoryTraversalFiles.Contains(fd)) {
+                    continue;
+                }
+
+                DictionaryNode fileInfo = await GetFileInfo($"{directory}/{fd}", cancellationToken).ConfigureAwait(false) ?? [];
+                if (fileInfo.TryGetValue("st_ifmt", out PropertyNode? value)) {
+                    if (value is StringNode node && node.Value == "S_IFDIR") {
+                        directories.Add(fd);
+                    }
+                    else {
+                        files.Add(fd);
+                    }
+                }
+            }
+            yield return Tuple.Create(directory, directories, files);
+
+            foreach (string dir in directories) {
+                await foreach (Tuple<string, List<string>, List<string>> result in Walk($"{directory}/{dir}", cancellationToken).ConfigureAwait(false)) {
+                    yield return result;
+                }
+            }
         }
     }
 }
