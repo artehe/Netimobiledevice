@@ -189,7 +189,7 @@ namespace Netimobiledevice.Afc
 
                 AfcFileReadRequest readRequest = new AfcFileReadRequest() {
                     Handle = handle,
-                    Size = size
+                    Size = toRead
                 };
 
                 await DispatchPacket(AfcOpCode.Read, readRequest, cancellationToken).ConfigureAwait(false);
@@ -198,7 +198,12 @@ namespace Netimobiledevice.Afc
                     throw new AfcException(status, "File Read Error");
                 }
 
-                size -= toRead;
+                ulong bytesRead = (ulong) chunk.LongLength;
+                if (bytesRead < toRead) {
+                    throw new AfcException(AfcError.NotEnoughData, $"Expected {toRead} and got {bytesRead} bytes");
+                }
+
+                size -= bytesRead;
                 data.AddRange(chunk);
             }
 
