@@ -162,10 +162,10 @@ namespace Netimobiledevice.Afc
             }
         }
 
-        public async Task<byte[]> FileClose(ulong handle, CancellationToken cancellationToken)
+        public async Task FileClose(ulong handle, CancellationToken cancellationToken)
         {
             AfcFileCloseRequest request = new AfcFileCloseRequest(handle);
-            return await RunOperation(AfcOpCode.FileClose, request, cancellationToken).ConfigureAwait(false);
+            await RunOperation(AfcOpCode.FileClose, request, cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<ulong> FileOpen(string filename, CancellationToken cancellationToken, AfcFileOpenMode mode = AfcFileOpenMode.ReadOnly)
