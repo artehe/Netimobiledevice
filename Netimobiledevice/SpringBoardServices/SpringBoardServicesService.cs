@@ -5,6 +5,11 @@ using Netimobiledevice.Plist;
 
 namespace Netimobiledevice.SpringBoardServices
 {
+    /// <summary>
+    /// Provides a service to interact with the home screen getting icons from the installed apps on the device, the current device wallpaper, or the orientation of the device.
+    /// </summary>
+    /// <param name="lockdown"></param>
+    /// <param name="logger"></param>
     public sealed class SpringBoardServicesService(LockdownServiceProvider lockdown, ILogger? logger = null) : LockdownService(lockdown, LOCKDOWN_SERVICE_NAME, RSD_SERVICE_NAME, logger: logger)
     {
         private const string LOCKDOWN_SERVICE_NAME = "com.apple.springboardservices";

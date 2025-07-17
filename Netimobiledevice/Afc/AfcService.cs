@@ -16,6 +16,12 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Afc
 {
+    /// <summary>
+    /// Interact with the publicly available directories and files
+    /// </summary>
+    /// <param name="lockdown"></param>
+    /// <param name="serviceName"></param>
+    /// <param name="logger"></param>
     public class AfcService(LockdownServiceProvider lockdown, string serviceName = "", ILogger? logger = null) : LockdownService(lockdown, GetServiceName(lockdown, serviceName), logger: logger)
     {
         private const string LOCKDOWN_SERVICE_NAME = "com.apple.afc";

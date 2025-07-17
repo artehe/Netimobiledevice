@@ -1,10 +1,9 @@
 # Netimobiledevice
 
-Netimobiledevice is a pure C# implementation for working with iOS devices (iPhone, iPad, iPod). Implements quite a lot of the services available from lockdownd and remoted. This library isn't a wrapper around the libimobiledevice library (but is inspired by it among others such as pymobiledevice3) and is designed to be used in .NET applications. It is a cross-platform library that can be used on Windows, Linux and MacOS.
+Netimobiledevice is a pure C# implementation for working with iOS devices (iPhone, iPad, iPod). Provides a way to interact with the services available for an iOS device via lockdownd and/or remoted. This library isn't a wrapper around the libimobiledevice library (but is inspired by it among others such as pymobiledevice3) and is designed to be used in .NET applications. It is a cross-platform library that can be used on Windows and MacOS as well as Linux (although this may require a bit more work).
 
 - [Netimobiledevice](#Netimobiledevice)
     * [Features](#Features)
-    * [Installation](#Installation)
     * [Usage](#Usage)
     * [Services](#Services)
     * [License](#License)
@@ -22,24 +21,10 @@ Netimobiledevice is a pure C# implementation for working with iOS devices (iPhon
  - Viewing syslog lines
  - Profile management
  - Application management
- - File system management
+ - File system management via AFC
  - Crash reports management
  - Notification listening
  - Querying and setting SpringBoard options
-
-## Installation
-
-To install Netimobiledevice, you can use the following command in the Package Manager Console:
-
-```powershell
-Install-Package Netimobiledevice
-```
-
-Alternatively, you can use the .NET CLI:
-
-```csharp
-dotnet add package Netimobiledevice
-```
 
 # Usage
 
@@ -129,43 +114,13 @@ using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(testDevice?.Seri
 }
 ```
 
-## Services
-
-The list of all the services from lockdownd which have been implemented and the functions available for each one. Clicking on the service name will take you to it's implementation, to learn more about it.
-
-- [com.apple.afc](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Afc/AfcService.cs)
-  * Interact with the publicly available directories and files
-- [com.apple.mobile.heartbeat](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/HeartbeatService.cs)
-  * A regular ping to used to keep an active connection with lockdownd
-- [com.apple.misagent](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Misagent/MisagentService.cs)
-  * Management for provisioning profiles 
-- [com.apple.mobile.diagnostics_relay](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/DiagnosticsService.cs)
-  * Query MobileGestalt & IORegistry keys.
-  * Reboot, shutdown or put the device in sleep mode.
-- [com.apple.mobile.installation_proxy](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/OsTraceService.cs)
-  * Browse installed applications
-  * Manage applications (install/uninstall/update)
-- [com.apple.mobile.notification_proxy](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/NotificationProxyService.cs) & [com.apple.mobile.insecure_notification_proxy](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/NotificationProxyService.cs)
-  * Send and receive notifications from the device for example informing a backup sync is about to occur.
-- [com.apple.mobilebackup2](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Backup/Mobilebackup2Service.cs)
-  * Backup Creation
-  * Restore a backup to the iOS device
-  * Communication with the Backup service
-- [com.apple.os_trace_relay](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/InstallationProxyService.cs)
-  * Get pid list
-  * More structural syslog lines.
-- [com.apple.springboardservices](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/SpringBoardServices/SpringBoardServicesService.cs)
-  * Get icons from the installed apps on the device.
-- [com.apple.syslog_relay](https://github.com/artehe/Netimobiledevice/blob/main/Netimobiledevice/Lockdown/Services/SyslogService.cs)
-  * Stream raw syslog lines from the device.
-
 ## License
 
 This project is licensed under the [MIT LICENSE](https://github.com/artehe/Netimobiledevice/blob/main/LICENSE).
 
 ## Contributing
 
-Contributions are welcome. Please submit a pull request or create an issue to discuss your proposed changes.
+Any and all contributions are welcome. Please submit a pull request, create an issue, or start a discussion.
 
 ## Acknowledgments
 

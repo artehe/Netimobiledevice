@@ -11,6 +11,9 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.NotificationProxy
 {
+    /// <summary>
+    /// Send and receive notifications from the device for example informing a backup sync is about to occur.
+    /// </summary>
     public sealed class NotificationProxyService : LockdownService
     {
         private const string LOCKDOWN_SERVICE_NAME = "com.apple.mobile.notification_proxy";

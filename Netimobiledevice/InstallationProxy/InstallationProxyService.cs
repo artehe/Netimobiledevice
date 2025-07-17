@@ -10,6 +10,11 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.InstallationProxy
 {
+    /// <summary>
+    /// Interract with applications on the device either querying for what is available or managing them through install/uninstall/update
+    /// </summary>
+    /// <param name="lockdown"></param>
+    /// <param name="logger"></param>
     public sealed class InstallationProxyService(LockdownServiceProvider lockdown, ILogger? logger = null) : LockdownService(lockdown, LOCKDOWN_SERVICE_NAME, RSD_SERVICE_NAME, logger: logger)
     {
         private const string LOCKDOWN_SERVICE_NAME = "com.apple.mobile.installation_proxy";

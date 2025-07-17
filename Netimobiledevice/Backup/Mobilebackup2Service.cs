@@ -15,6 +15,11 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Backup
 {
+    /// <summary>
+    /// Communication with the Backup service to either create or restore a backup as well as configuring the backup encryption password.
+    /// </summary>
+    /// <param name="lockdown"></param>
+    /// <param name="logger"></param>
     public sealed class Mobilebackup2Service(LockdownServiceProvider lockdown, ILogger? logger = null) : LockdownService(lockdown, LOCKDOWN_SERVICE_NAME, RSD_SERVICE_NAME, useEscrowBag: true, logger: logger)
     {
         private const int MOBILEBACKUP2_VERSION_MAJOR = 400;
