@@ -8,7 +8,7 @@ using System.Text;
 namespace Netimobiledevice.Diagnostics
 {
     /// <summary>
-    /// Read the raw system logs
+    /// Reads a stream of the raw system logs
     /// </summary>
     public sealed class SyslogService : LockdownService
     {

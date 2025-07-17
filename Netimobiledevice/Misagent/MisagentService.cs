@@ -11,6 +11,11 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Misagent
 {
+    /// <summary>
+    /// Management for provisioning profiles 
+    /// </summary>
+    /// <param name="lockdown"></param>
+    /// <param name="logger"></param>
     public class MisagentService(LockdownServiceProvider lockdown, ILogger? logger = null) : LockdownService(lockdown, LOCKDOWN_SERVICE_NAME, RSD_SERVICE_NAME, logger: logger)
     {
         private const string LOCKDOWN_SERVICE_NAME = "com.apple.misagent";

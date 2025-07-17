@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 namespace Netimobiledevice.Heartbeat
 {
     /// <summary>
-    /// Used to keep an active connection with lockdownd
+    /// Used to keep an active connection with lockdownd by providing a regular ping
     /// </summary>
     public sealed class HeartbeatService : LockdownService
     {
