@@ -393,6 +393,7 @@ namespace Netimobiledevice.Backup
                             using (FileStream fs = File.OpenWrite(infoPlistPath)) {
                                 byte[] infoPlistData = PropertyList.SaveAsByteArray(infoPlist, PlistFormat.Xml);
                                 await fs.WriteAsync(infoPlistData, _internalCts.Token).ConfigureAwait(false);
+                                FileReceived?.Invoke(this, new BackupFileEventArgs(new BackupFile(string.Empty, infoPlistPath, deviceDirectory)));
                             }
 
                             // Create Manifest.plist if doesn't exist.
