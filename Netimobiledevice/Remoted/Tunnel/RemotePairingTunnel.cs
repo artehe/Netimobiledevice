@@ -9,7 +9,7 @@ namespace Netimobiledevice.Remoted.Tunnel
 {
     public abstract class RemotePairingTunnel
     {
-        private CancellationTokenSource cts = new CancellationTokenSource();
+        private CancellationTokenSource cts = new();
         private Task? _tunReadTask;
 
         private byte[] LoopbackHeader => [0x00, 0x00, 0x86, 0xDD];
@@ -24,18 +24,12 @@ namespace Netimobiledevice.Remoted.Tunnel
 
         private async Task TunReadTask(CancellationToken cancellationToken)
         {
-            while (!cancellationToken.IsCancellationRequested) {
-                if (OperatingSystem.IsWindows()) {
-                    while (!cancellationToken.IsCancellationRequested) {
-                        byte[] packet = Tun?.Read() ?? [];
-                        if (packet.Length > 0) {
-                            await SendPacketToDevice(packet);
-                        }
-                    }
-                }
-                else {
-                    throw new InvalidOperationException("Not implemented anything other than WIndows yet");
-                }
+            if (OperatingSystem.IsWindows()) {
+                byte[] packet = Tun == null ? [] : await Tun.ReadAsync(cancellationToken).ConfigureAwait(false);
+                await SendPacketToDevice(packet).ConfigureAwait(false);
+            }
+            else {
+                throw new InvalidOperationException("Not implemented anything other than Windows yet");
             }
         }
 
@@ -49,7 +43,7 @@ namespace Netimobiledevice.Remoted.Tunnel
             cts = new CancellationTokenSource();
 
             Tun = new TunTapDevice();
-            Tun.Address = address;
+            Tun.SetAddress(address);
             Tun.Mtu = mtu;
 
             Tun.Up();

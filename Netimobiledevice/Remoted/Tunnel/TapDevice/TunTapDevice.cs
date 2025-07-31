@@ -1,50 +1,46 @@
 ﻿using Netimobiledevice.Remoted.Tunnel.TapDevice;
 using System;
 using System.Diagnostics;
-using System.Linq;
 using System.Net.Sockets;
-using WinTun;
+using NetWintun;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Netimobiledevice.Remoted.Tunnel
 {
     public class TunTapDevice : IDisposable
     {
         private const string DEFAULT_ADAPTER_NAME = "netwintun";
-        private const uint DEFAULT_RING_CAPCITY = 0x400000;
 
         private readonly Adapter _handle;
         private Session? _session;
 
         public string Name { get; }
 
-        public string Address {
-            get {
-                return string.Empty;
-            }
+        public void SetAddress(string value)
+        {
+            // Create the command
+            string command = $"netsh interface ipv6 set address interface={InterfaceIndex} address={value}/64";
 
-            set {
-                // Create the command
-                string command = $"netsh interface ipv6 set address interface={InterfaceIndex} address={value}/64";
+            // Initialize the process
+            Process process = new Process();
+            process.StartInfo.FileName = "cmd.exe";
+            process.StartInfo.Arguments = $"/C {command}"; // Use /C to run the command and then terminate cmd
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.RedirectStandardError = true;
+            process.StartInfo.UseShellExecute = false; // Must be false to redirect output
+            process.StartInfo.CreateNoWindow = true; // Hides the command window
 
-                // Initialize the process
-                Process process = new Process();
-                process.StartInfo.FileName = "cmd.exe";
-                process.StartInfo.Arguments = $"/C {command}"; // Use /C to run the command and then terminate cmd
-                process.StartInfo.RedirectStandardOutput = true;
-                process.StartInfo.RedirectStandardError = true;
-                process.StartInfo.UseShellExecute = false; // Must be false to redirect output
-                process.StartInfo.CreateNoWindow = true; // Hides the command window
+            // Start the process and wait for it to exit
+            process.Start();
+            string output = process.StandardOutput.ReadToEnd();
+            string error = process.StandardError.ReadToEnd();
+            process.WaitForExit();
 
-                // Start the process and wait for it to exit
-                process.Start();
-                string output = process.StandardOutput.ReadToEnd();
-                string error = process.StandardError.ReadToEnd();
-                process.WaitForExit();
-
-                // Combine output and error messages for simplicity
-                if (!string.IsNullOrEmpty(error)) {
-                    throw new Exception($"Failed to set IPv6 address. Error: {error}");
-                }
+            // Combine output and error messages for simplicity
+            if (!string.IsNullOrEmpty(error))
+            {
+                throw new Exception($"Failed to set IPv6 address. Error: {error}");
             }
         }
 
@@ -120,50 +116,39 @@ namespace Netimobiledevice.Remoted.Tunnel
         public void Close()
         {
             Down();
-            _handle.Close();
+            _handle.Dispose();
         }
 
         public void Down()
         {
-            _session?.Close();
+            _session?.Dispose();
             _session = null;
         }
 
-        public byte[] Read()
+        public async Task<byte[]> ReadAsync(CancellationToken cancellationToken = default)
         {
-            Packet packet = new Packet();
-            bool success = _session?.ReceivePacket(out packet) ?? false;
-            if (!success) {
+            if (_session == null) {
                 return [];
             }
 
-            byte[] packetData = [.. packet.Span];
-            _session?.ReleaseReceivePacket(packet);
-
-            if (packetData[0] >> 4 != 6) {
-                // Make sure we only output IPv6 packets
-                return [];
-            }
-            return packetData;
+            byte[] packetData = await _session.ReceivePacketAsync(cancellationToken);
+            // Make sure we only output IPv6 packets
+            return packetData[0] >> 4 != 6 
+                ? [] 
+                : packetData;
         }
 
-        public void Up(uint capacity = DEFAULT_RING_CAPCITY)
+        public void Up(uint capacity = Wintun.Constants.MaxRingCapacity)
         {
             _session = _handle.StartSession(capacity);
         }
 
-        public void Write(byte[] data)
+        public void Write(ReadOnlySpan<byte> data)
         {
             if (data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x86 && data[3] == 0xDD) {
-                data = data.Skip(4).ToArray();
+                data = data[4..];
             }
-
-            Packet packet = new Packet();
-            _session?.AllocateSendPacket((uint) data.Length, out packet);
-            for (int i = 0; i < packet.Span.Length; i++) {
-                packet.Span[i] = data[i];
-            }
-            _session?.SendPacket(packet);
+            _session?.SendPacket(data);
         }
     }
 }
