@@ -31,8 +31,9 @@ public class Program
         };
         Console.WriteLine("Press Ctrl+C to cancel the operation.");
 
-        List<UsbmuxdDevice> devices = Usbmux.GetDeviceList();
+        Usbmux.Subscribe(SubscriptionCallback, SubscriptionErrorCallback, logger);
 
+        List<UsbmuxdDevice> devices = Usbmux.GetDeviceList();
         if (devices.Count == 0) {
             logger.LogError("No device is connected to the system.");
             return;
