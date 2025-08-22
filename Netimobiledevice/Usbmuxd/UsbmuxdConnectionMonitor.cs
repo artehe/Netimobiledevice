@@ -14,7 +14,7 @@ namespace Netimobiledevice.Usbmuxd;
 internal class UsbmuxdConnectionMonitor(Action<UsbmuxdDevice, UsbmuxdConnectionEventType> callback, Action<Exception>? errorCallback = null, ILogger? logger = null)
 {
     private readonly Action<UsbmuxdDevice, UsbmuxdConnectionEventType> _callback = callback;
-    private readonly ConcurrentDictionary<ulong, UsbmuxdDevice> _connectedDevices = [];
+    private readonly ConcurrentDictionary<long, UsbmuxdDevice> _connectedDevices = [];
     private readonly Action<Exception>? _errorCallback = errorCallback;
     /// <summary>
     /// The internal logger
@@ -76,7 +76,7 @@ internal class UsbmuxdConnectionMonitor(Action<UsbmuxdDevice, UsbmuxdConnectionE
 
             // When then usbmuxd connection fails, generate remove events for every device that
             // is still present so applications know something has happened
-            foreach (ulong deviceId in _connectedDevices.Keys) {
+            foreach (long deviceId in _connectedDevices.Keys) {
                 _connectedDevices.Remove(deviceId, out UsbmuxdDevice? device);
                 if (device is not null) {
                     _callback(device, UsbmuxdConnectionEventType.Remove);
@@ -116,11 +116,11 @@ internal class UsbmuxdConnectionMonitor(Action<UsbmuxdDevice, UsbmuxdConnectionE
                     AddDevice(usbmuxdDevice);
                 }
                 else if (messageType == "Detached") {
-                    ulong deviceId = responseDict["DeviceID"].AsIntegerNode().Value;
+                    long deviceId = responseDict["DeviceID"].AsIntegerNode().SignedValue;
                     RemoveDevice(deviceId);
                 }
                 else if (messageType == "Paired") {
-                    ulong deviceId = responseDict["DeviceID"].AsIntegerNode().Value;
+                    long deviceId = responseDict["DeviceID"].AsIntegerNode().SignedValue;
                     PairedDevice(deviceId);
                 }
                 else {
@@ -139,7 +139,7 @@ internal class UsbmuxdConnectionMonitor(Action<UsbmuxdDevice, UsbmuxdConnectionE
         return UsbmuxdResult.Ok;
     }
 
-    private void PairedDevice(ulong deviceId)
+    private void PairedDevice(long deviceId)
     {
         if (_connectedDevices.TryGetValue(deviceId, out UsbmuxdDevice? device)) {
             _callback(device, UsbmuxdConnectionEventType.Paired);
@@ -149,7 +149,7 @@ internal class UsbmuxdConnectionMonitor(Action<UsbmuxdDevice, UsbmuxdConnectionE
         }
     }
 
-    private void RemoveDevice(ulong deviceId)
+    private void RemoveDevice(long deviceId)
     {
         if (_connectedDevices.TryRemove(deviceId, out UsbmuxdDevice? device)) {
             _callback(device, UsbmuxdConnectionEventType.Remove);
