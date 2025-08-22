@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice.Plist;
 using System;
+using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown
 {
@@ -49,6 +50,6 @@ namespace Netimobiledevice.Lockdown
             return GetValue(null, null);
         }
 
-        public abstract ServiceConnection StartLockdownService(string name, bool useEscrowBag = false, bool useTrustedConnection = true);
+        public abstract Task<ServiceConnection> StartLockdownService(string name, bool useEscrowBag = false, bool useTrustedConnection = true);
     }
 }

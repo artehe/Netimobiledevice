@@ -26,7 +26,7 @@ namespace Netimobiledevice.Lockdown
             Lockdown = lockdown;
             Logger = logger ?? NullLogger.Instance;
             ServiceName = serviceName;
-            Service = service ?? lockdown.StartLockdownService(ServiceName, useEscrowBag);
+            Service = service ?? lockdown.StartLockdownService(ServiceName, useEscrowBag).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -48,7 +48,7 @@ namespace Netimobiledevice.Lockdown
 
             Lockdown = lockdown;
             Logger = logger ?? NullLogger.Instance;
-            Service = service ?? lockdown.StartLockdownService(ServiceName, useEscrowBag);
+            Service = service ?? lockdown.StartLockdownService(ServiceName, useEscrowBag).GetAwaiter().GetResult();
         }
 
         public void Close()

@@ -52,10 +52,10 @@ namespace Netimobiledevice.Remoted
             ProductType = peerInfo["Properties"].AsXpcDictionary()["ProductType"].AsXpcString().Data ?? string.Empty;
 
             try {
-                Lockdown = MobileDevice.CreateUsingRemote(StartLockdownService(TRUSTED_SERVICE_NAME));
+                Lockdown = MobileDevice.CreateUsingRemote(await StartLockdownService(TRUSTED_SERVICE_NAME).ConfigureAwait(false));
             }
             catch (Exception) {
-                Lockdown = MobileDevice.CreateUsingRemote(StartLockdownService(UNTRUSTED_SERVICE_NAME));
+                Lockdown = MobileDevice.CreateUsingRemote(await StartLockdownService(UNTRUSTED_SERVICE_NAME).ConfigureAwait(false));
             }
             PropertyNode? allValues = Lockdown.GetValue();
         }
@@ -79,7 +79,7 @@ namespace Netimobiledevice.Remoted
             throw new NetimobiledeviceException($"No such service {name}");
         }
 
-        public override ServiceConnection StartLockdownService(string name, bool useEscrowBag = false, bool useTrustedConnection = true)
+        public override async Task<ServiceConnection> StartLockdownService(string name, bool useEscrowBag = false, bool useTrustedConnection = true)
         {
             ServiceConnection serviceConnection = StartLockdownServiceWithoutCheckin(name);
 

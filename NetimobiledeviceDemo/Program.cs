@@ -31,8 +31,9 @@ public class Program
         };
         Console.WriteLine("Press Ctrl+C to cancel the operation.");
 
-        List<UsbmuxdDevice> devices = Usbmux.GetDeviceList();
+        Usbmux.Subscribe(SubscriptionCallback, SubscriptionErrorCallback, logger);
 
+        List<UsbmuxdDevice> devices = Usbmux.GetDeviceList();
         if (devices.Count == 0) {
             logger.LogError("No device is connected to the system.");
             return;
@@ -43,7 +44,7 @@ public class Program
             Console.WriteLine($"Device found: {device.DeviceId} - {device.Serial}");
         }
 
-        using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
+        using (LockdownClient lockdown = await MobileDevice.CreateUsingUsbmux(logger: logger)) {
             Progress<PairingState> progress = new();
             progress.ProgressChanged += Progress_ProgressChanged;
             if (!lockdown.IsPaired) {
@@ -51,7 +52,7 @@ public class Program
             }
         }
 
-        using (LockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
+        using (LockdownClient lockdown = await MobileDevice.CreateUsingUsbmux(logger: logger)) {
             using (NotificationProxyService np = new NotificationProxyService(lockdown)) {
                 np.ReceivedNotification += NotificationProxy_ReceivedNotification;
                 await np.ObserveNotificationAsync(ReceivableNotification.ActivationState).ConfigureAwait(false);
@@ -83,7 +84,7 @@ public class Program
             }
         }
 
-        using (UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux(logger: logger)) {
+        using (UsbmuxLockdownClient lockdown = await MobileDevice.CreateUsingUsbmux(logger: logger)) {
             using (Mobilebackup2Service mb2 = new Mobilebackup2Service(lockdown, logger: logger)) {
                 mb2.BeforeReceivingFile += BackupJob_BeforeReceivingFile;
                 mb2.Completed += BackupJob_Completed;
@@ -98,6 +99,10 @@ public class Program
 
                 await mb2.Backup(false, false, true, "backups", tokenSource.Token);
             }
+        }
+
+        while (true) {
+            await Task.Delay(1000);
         }
     }
 

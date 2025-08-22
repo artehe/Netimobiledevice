@@ -1,16 +1,9 @@
 ﻿using System;
 
-namespace Netimobiledevice.Usbmuxd.Responses
-{
-    internal readonly struct RemoveResponse
-    {
-        public UsbmuxdHeader Header { get; }
-        public uint DeviceId { get; }
+namespace Netimobiledevice.Usbmuxd.Responses;
 
-        public RemoveResponse(UsbmuxdHeader header, byte[] data)
-        {
-            Header = header;
-            DeviceId = BitConverter.ToUInt32(data);
-        }
-    }
+internal readonly struct RemoveResponse(UsbmuxdHeader header, byte[] data)
+{
+    public UsbmuxdHeader Header { get; } = header;
+    public uint DeviceId { get; } = BitConverter.ToUInt32(data);
 }

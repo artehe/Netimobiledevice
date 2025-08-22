@@ -3,6 +3,7 @@ using Netimobiledevice.Lockdown.Pairing;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown
 {
@@ -18,9 +19,9 @@ namespace Netimobiledevice.Lockdown
             ConnectionType = UsbmuxdConnectionType.Usb;
         }
 
-        public override ServiceConnection CreateServiceConnection(ushort port)
+        public override async Task<ServiceConnection> CreateServiceConnection(ushort port)
         {
-            return ServiceConnection.CreateUsingUsbmux(Identifier, port, _service?.MuxDevice?.ConnectionType, _usbmuxAddress, Logger);
+            return await ServiceConnection.CreateUsingUsbmux(Identifier, port, _service?.MuxDevice?.ConnectionType, _usbmuxAddress, Logger).ConfigureAwait(false);
         }
 
         /// <summary>

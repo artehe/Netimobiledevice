@@ -20,7 +20,7 @@ namespace Netimobiledevice.Remoted.Tunnel
 
         public override async Task<TunnelResult> StartTunnel()
         {
-            _service = _lockdown.StartLockdownService(SERVICE_NAME);
+            _service = await _lockdown.StartLockdownService(SERVICE_NAME).ConfigureAwait(false);
             RemotePairingTcpTunnel tunnel = new RemotePairingTcpTunnel(_service.Stream);
             EstablishTunnelResponse handshakeResponse = tunnel.RequestTunnelEstablish();
             tunnel.StartTunnel(handshakeResponse.ClientParameters.Address, handshakeResponse.ClientParameters.Mtu);

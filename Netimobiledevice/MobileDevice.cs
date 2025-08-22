@@ -2,6 +2,7 @@
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd;
+using System.Threading.Tasks;
 
 namespace Netimobiledevice
 {
@@ -22,11 +23,11 @@ namespace Netimobiledevice
         /// <param name="port">lockdownd service port</param>
         /// <param name="usbmuxAddress">usbmuxd address</param>
         /// <returns></returns>
-        public static UsbmuxLockdownClient CreateUsingUsbmux(string serial = "", string identifier = "", string label = LockdownClient.DEFAULT_CLIENT_NAME,
+        public static async Task<UsbmuxLockdownClient> CreateUsingUsbmux(string serial = "", string identifier = "", string label = LockdownClient.DEFAULT_CLIENT_NAME,
             bool autopair = true, UsbmuxdConnectionType? connectionType = null, float? pairTimeout = null, string localHostname = "", DictionaryNode? pairRecord = null,
             string pairingRecordsCacheDir = "", ushort port = LockdownClient.SERVICE_PORT, string usbmuxAddress = "", ILogger? logger = null)
         {
-            ServiceConnection service = ServiceConnection.CreateUsingUsbmux(serial, port, connectionType: connectionType, usbmuxAddress: usbmuxAddress, logger);
+            ServiceConnection service = await ServiceConnection.CreateUsingUsbmux(serial, port, connectionType: connectionType, usbmuxAddress: usbmuxAddress, logger).ConfigureAwait(false);
 
             string systemBuid = string.Empty;
 
@@ -67,8 +68,8 @@ namespace Netimobiledevice
         /// <param name="port">lockdownd service port</param>
         /// <param name="service">Service connection to use</param>
         /// <returns>RemoteLockdownClient instance</returns>
-        public static RemoteLockdownClient CreateUsingRemote(ServiceConnection service, string? identifier = null, string label = LockdownClient.DEFAULT_CLIENT_NAME,
-            bool autopair = true, float? pairTimeout = null, string? localHostname = null, DictionaryNode? pairRecord = null, string pairingRecordsCacheDir = "",
+        public static RemoteLockdownClient CreateUsingRemote(ServiceConnection service, string identifier = "", string label = LockdownClient.DEFAULT_CLIENT_NAME,
+            bool autopair = true, float? pairTimeout = null, string localHostname = "", DictionaryNode? pairRecord = null, string pairingRecordsCacheDir = "",
             ushort port = LockdownClient.SERVICE_PORT, ILogger? logger = null)
         {
             RemoteLockdownClient client = RemoteLockdownClient.Create(service, identifier, label: label, localHostname: localHostname, pairRecord: pairRecord,

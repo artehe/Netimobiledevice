@@ -60,7 +60,7 @@ namespace Netimobiledevice.Lockdown
             return lockdownClient;
         }
 
-        public override ServiceConnection CreateServiceConnection(ushort port)
+        public override Task<ServiceConnection> CreateServiceConnection(ushort port)
         {
             throw new NotImplementedException("RemoteXPC service connections should only be created using RemoteServiceDiscoveryService");
 

@@ -17,7 +17,7 @@ namespace Netimobiledevice.Diagnostics
         private const string LOCKDOWN_SERVICE_NAME_OLD = "com.apple.iosdiagnostics.relay";
         private const string RSD_SERVICE_NAME = "com.apple.mobile.diagnostics_relay.shim.remote";
 
-        private static string[] _mobileGestaltKeys = [
+        private static readonly string[] _mobileGestaltKeys = [
             "3GProximityCapability",
             "3GVeniceCapability",
             "3Gvenice",
@@ -964,12 +964,12 @@ namespace Netimobiledevice.Diagnostics
             ServiceConnection? service = null;
             if (lockdown is LockdownClient) {
                 try {
-                    service = lockdown.StartLockdownService(LOCKDOWN_SERVICE_NAME_NEW);
+                    service = lockdown.StartLockdownService(LOCKDOWN_SERVICE_NAME_NEW).GetAwaiter().GetResult();
                     ServiceNameUsed = LOCKDOWN_SERVICE_NAME_NEW;
                 }
                 catch (Exception ex) {
                     lockdown.Logger.LogWarning(ex, "Failed to start the new lockdown service, falling back to the old service.");
-                    service = lockdown.StartLockdownService(LOCKDOWN_SERVICE_NAME_OLD);
+                    service = lockdown.StartLockdownService(LOCKDOWN_SERVICE_NAME_OLD).GetAwaiter().GetResult();
                     ServiceNameUsed = LOCKDOWN_SERVICE_NAME_OLD;
                 }
             }

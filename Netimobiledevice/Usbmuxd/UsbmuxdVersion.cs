@@ -1,8 +1,7 @@
-﻿namespace Netimobiledevice.Usbmuxd
+﻿namespace Netimobiledevice.Usbmuxd;
+
+internal enum UsbmuxdVersion : uint
 {
-    internal enum UsbmuxdVersion : uint
-    {
-        Binary = 0,
-        Plist = 1
-    }
+    Binary = 0,
+    Plist = 1
 }
