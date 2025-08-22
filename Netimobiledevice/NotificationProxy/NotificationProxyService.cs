@@ -54,7 +54,7 @@ namespace Netimobiledevice.NotificationProxy
                     ServiceNameUsed = RSD_SERVICE_NAME;
                 }
             }
-            return lockdown.StartLockdownService(ServiceNameUsed);
+            return lockdown.StartLockdownService(ServiceNameUsed).GetAwaiter().GetResult();
         }
 
         public override void Dispose()

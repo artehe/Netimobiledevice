@@ -96,7 +96,7 @@ namespace Netimobiledevice.Remoted.Tunnel
                             }
                             CoreDeviceTunnelProxy service;
                             try {
-                                service = new CoreDeviceTunnelProxy(MobileDevice.CreateUsingUsbmux(muxDevice.Serial));
+                                service = new CoreDeviceTunnelProxy(await MobileDevice.CreateUsingUsbmux(muxDevice.Serial).ConfigureAwait(false));
                             }
                             catch (Exception) {
                                 continue;
