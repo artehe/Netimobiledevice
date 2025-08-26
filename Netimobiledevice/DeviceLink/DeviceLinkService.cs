@@ -314,7 +314,6 @@ namespace Netimobiledevice.DeviceLink
                     catch (Exception ex) {
                         _logger.LogError(ex, "Issue getting space from drive");
                         Warning?.Invoke(this, new DetailedErrorEventArgs(ex, _rootPath));
-
                     }
                 }
                 spaceItem = new IntegerNode(freeSpace);
@@ -690,6 +689,9 @@ namespace Netimobiledevice.DeviceLink
                 }
                 else if (command == DeviceLinkMessage.GetFreeDiskSpace) {
                     // We don't do anything specific for this command we just don't want to update progress as there isn't any attached to this message.
+                }
+                else if (command == DeviceLinkMessage.PurgeDiskSpace) {
+                    throw new DiskSpacePurgeException($"Device requested {message[1].AsIntegerNode().SignedValue} bytes of disk space, but the host could not free enough space.");
                 }
                 else if (command == DeviceLinkMessage.UploadFiles) {
                     UpdateProgressForMessage(message[2].AsRealNode());

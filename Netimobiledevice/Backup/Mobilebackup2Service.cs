@@ -365,71 +365,80 @@ namespace Netimobiledevice.Backup
             Directory.CreateDirectory(deviceDirectory);
 
             using (DeviceLinkService dl = await GetDeviceLink(backupDirectory, ignoreTransferErrors, performBackupSizeCheck, _internalCts.Token).ConfigureAwait(false)) {
-                dl.BeforeReceivingFile += DeviceLink_BeforeReceivingFile;
-                dl.Completed += DeviceLink_Completed;
-                dl.Error += DeviceLink_Error;
-                dl.FileReceived += DeviceLink_FileReceived;
-                dl.FileReceiving += DeviceLink_FileReceiving;
-                dl.FileTransferError += DeviceLink_FileTransferError;
-                dl.PasscodeRequiredForBackup += DeviceLink_PasscodeRequiredForBackup;
-                dl.Progress += DeviceLink_Progress;
-                dl.Status += DeviceLink_Status;
-                dl.Started += DeviceLink_Started;
+                try {
+                    dl.BeforeReceivingFile += DeviceLink_BeforeReceivingFile;
+                    dl.Completed += DeviceLink_Completed;
+                    dl.Error += DeviceLink_Error;
+                    dl.FileReceived += DeviceLink_FileReceived;
+                    dl.FileReceiving += DeviceLink_FileReceiving;
+                    dl.FileTransferError += DeviceLink_FileTransferError;
+                    dl.PasscodeRequiredForBackup += DeviceLink_PasscodeRequiredForBackup;
+                    dl.Progress += DeviceLink_Progress;
+                    dl.Status += DeviceLink_Status;
+                    dl.Started += DeviceLink_Started;
 
-                using (NotificationProxyService np = new NotificationProxyService(this.Lockdown)) {
-                    np.ReceivedNotification += NotificationProxy_ReceivedNotification;
-                    await np.ObserveNotificationAsync(ReceivableNotification.SyncCancelRequest).ConfigureAwait(false);
-                    await np.ObserveNotificationAsync(ReceivableNotification.LocalAuthenticationUiPresented).ConfigureAwait(false);
-                    await np.ObserveNotificationAsync(ReceivableNotification.LocalAuthenticationUiDismissed).ConfigureAwait(false);
-                    np.Start();
+                    using (NotificationProxyService np = new NotificationProxyService(this.Lockdown)) {
+                        np.ReceivedNotification += NotificationProxy_ReceivedNotification;
+                        await np.ObserveNotificationAsync(ReceivableNotification.SyncCancelRequest).ConfigureAwait(false);
+                        await np.ObserveNotificationAsync(ReceivableNotification.LocalAuthenticationUiPresented)
+                            .ConfigureAwait(false);
+                        await np.ObserveNotificationAsync(ReceivableNotification.LocalAuthenticationUiDismissed)
+                            .ConfigureAwait(false);
+                        np.Start();
 
-                    using (AfcService afc = new AfcService(this.Lockdown)) {
-                        using (BackupLock backupLock = new BackupLock(afc, np)) {
-                            await backupLock.AquireBackupLock(_internalCts.Token).ConfigureAwait(false);
+                        using (AfcService afc = new AfcService(this.Lockdown)) {
+                            using (BackupLock backupLock = new BackupLock(afc, np)) {
+                                await backupLock.AquireBackupLock(_internalCts.Token).ConfigureAwait(false);
 
-                            // Create Info.plist
-                            string infoPlistPath = Path.Combine(deviceDirectory, "Info.plist");
-                            DictionaryNode infoPlist = await CreateInfoPlist(afc, _internalCts.Token).ConfigureAwait(false);
-                            using (FileStream fs = File.OpenWrite(infoPlistPath)) {
-                                byte[] infoPlistData = PropertyList.SaveAsByteArray(infoPlist, PlistFormat.Xml);
-                                await fs.WriteAsync(infoPlistData, _internalCts.Token).ConfigureAwait(false);
-                                FileReceived?.Invoke(this, new BackupFileEventArgs(new BackupFile(string.Empty, infoPlistPath, deviceDirectory)));
-                            }
+                                // Create Info.plist
+                                string infoPlistPath = Path.Combine(deviceDirectory, "Info.plist");
+                                DictionaryNode infoPlist = await CreateInfoPlist(afc, _internalCts.Token).ConfigureAwait(false);
+                                using (FileStream fs = File.OpenWrite(infoPlistPath)) {
+                                    byte[] infoPlistData = PropertyList.SaveAsByteArray(infoPlist, PlistFormat.Xml);
+                                    await fs.WriteAsync(infoPlistData, _internalCts.Token).ConfigureAwait(false);
+                                    FileReceived?.Invoke(this, new BackupFileEventArgs(new BackupFile(string.Empty, infoPlistPath, deviceDirectory)));
+                                }
 
-                            // Create Manifest.plist if doesn't exist.
-                            string manifestPlistPath = Path.Combine(deviceDirectory, "Manifest.plist");
-                            if (fullBackup && File.Exists(manifestPlistPath)) {
-                                File.Delete(manifestPlistPath);
-                            }
-                            else if (!fullBackup && !File.Exists(manifestPlistPath)) {
-                                fullBackup = true;
-                            }
+                                // Create Manifest.plist if doesn't exist.
+                                string manifestPlistPath = Path.Combine(deviceDirectory, "Manifest.plist");
+                                if (fullBackup && File.Exists(manifestPlistPath)) {
+                                    File.Delete(manifestPlistPath);
+                                }
+                                else if (!fullBackup && !File.Exists(manifestPlistPath)) {
+                                    fullBackup = true;
+                                }
 
-                            // Create Status.plist file if doesn't exist.
-                            string statusPlistPath = Path.Combine(deviceDirectory, "Status.plist");
-                            if (fullBackup || !File.Exists(statusPlistPath)) {
-                                BackupStatus status = new BackupStatus() {
-                                    IsFullBackup = fullBackup
+                                // Create Status.plist file if doesn't exist.
+                                string statusPlistPath = Path.Combine(deviceDirectory, "Status.plist");
+                                if (fullBackup || !File.Exists(statusPlistPath)) {
+                                    BackupStatus status = new BackupStatus() { IsFullBackup = fullBackup };
+                                    await File.WriteAllBytesAsync(statusPlistPath, PropertyList.SaveAsByteArray(status.ToPlist(), PlistFormat.Binary), _internalCts.Token).ConfigureAwait(false);
+                                }
+
+                                DictionaryNode message = new DictionaryNode() {
+                                    { "MessageName", new StringNode("Backup") },
+                                    { "TargetIdentifier", new StringNode(Lockdown.Udid) }
                                 };
-                                await File.WriteAllBytesAsync(statusPlistPath, PropertyList.SaveAsByteArray(status.ToPlist(), PlistFormat.Binary), _internalCts.Token).ConfigureAwait(false);
-                            }
+                                dl.SendProcessMessage(message);
 
-                            DictionaryNode message = new DictionaryNode() {
-                                { "MessageName", new StringNode("Backup") },
-                                { "TargetIdentifier", new StringNode(Lockdown.Udid) }
-                            };
-                            dl.SendProcessMessage(message);
-
-                            // Wait for 3 seconds to see if the device passcode is requested
-                            await Task.Delay(3000, _internalCts.Token).ConfigureAwait(false);
-                            while (_passcodeRequired) {
-                                // Keep waiting till the passcode has been entered
+                                // Wait for 3 seconds to see if the device passcode is requested
                                 await Task.Delay(3000, _internalCts.Token).ConfigureAwait(false);
-                            }
+                                while (_passcodeRequired) {
+                                    // Keep waiting till the passcode has been entered
+                                    await Task.Delay(3000, _internalCts.Token).ConfigureAwait(false);
+                                }
 
-                            return await dl.DlLoop(_internalCts.Token).ConfigureAwait(false);
+                                return await dl.DlLoop(_internalCts.Token).ConfigureAwait(false);
+                            }
                         }
                     }
+                }
+                finally {
+                    DictionaryNode message1 = new DictionaryNode() {
+                        { "MessageName", new StringNode("CancelBackup") },
+                        { "TargetIdentifier", new StringNode(Lockdown.Udid) }
+                    };
+                    dl.SendProcessMessage(message1);
                 }
             }
         }
@@ -464,8 +473,10 @@ namespace Netimobiledevice.Backup
         /// <param name="remove">Remove items which aren't being restored; defaults to false</param>
         /// <param name="password">The password for the backup if it is encrypted</param>
         /// <param name="source">Identifier of device to restore it's backup</param>
-        public async Task<ResultCode> Restore(string backupDirectory, bool system = false, bool reboot = false, bool copy = true,
-            bool settings = true, bool remove = false, string password = "", string source = "", bool ignoreTransferErrors = false, CancellationToken cancellationToken = default)
+        public async Task<ResultCode> Restore(string backupDirectory, bool system = false, bool reboot = false,
+            bool copy = true,
+            bool settings = true, bool remove = false, string password = "", string source = "",
+            bool ignoreTransferErrors = false, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrEmpty(source)) {
                 source = Lockdown.Udid;
@@ -475,7 +486,9 @@ namespace Netimobiledevice.Backup
                 throw new Mobilebackup2Exception("Backup not found");
             }
 
-            using (DeviceLinkService dl = await GetDeviceLink(backupDirectory, ignoreTransferErrors, true, cancellationToken).ConfigureAwait(false)) {
+            using (DeviceLinkService dl =
+                   await GetDeviceLink(backupDirectory, ignoreTransferErrors, true, cancellationToken)
+                       .ConfigureAwait(false)) {
                 dl.BeforeReceivingFile += DeviceLink_BeforeReceivingFile;
                 dl.Completed += DeviceLink_Completed;
                 dl.Error += DeviceLink_Error;
@@ -542,9 +555,11 @@ namespace Netimobiledevice.Backup
         /// </summary>
         /// <param name="currentPassword"></param>
         /// <param name="newPassword"></param>
-        public async Task<ResultCode> ChangeBackupPassword(string currentPassword, string newPassword, CancellationToken cancellationToken = default)
+        public async Task<ResultCode> ChangeBackupPassword(string currentPassword, string newPassword,
+            CancellationToken cancellationToken = default)
         {
-            return await ChangeBackupEncryptionPassword(currentPassword, newPassword, BackupEncryptionFlags.ChangePassword, cancellationToken).ConfigureAwait(false);
+            return await ChangeBackupEncryptionPassword(currentPassword, newPassword,
+                BackupEncryptionFlags.ChangePassword, cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -554,16 +569,19 @@ namespace Netimobiledevice.Backup
         /// <param name="password">The password to set for backup encryption</param>
         public async Task<ResultCode> SetBackupPassword(string password, CancellationToken cancellationToken = default)
         {
-            return await ChangeBackupEncryptionPassword(null, password, BackupEncryptionFlags.Enable, cancellationToken).ConfigureAwait(false);
+            return await ChangeBackupEncryptionPassword(null, password, BackupEncryptionFlags.Enable, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         /// <summary>
         /// Disables encrypted backups on the device by removing the password for backups
         /// </summary>
         /// <param name="currentPassword">The current password for the enabled backup encryption</param>
-        public async Task<ResultCode> RemoveBackupPassword(string currentPassword, CancellationToken cancellationToken = default)
+        public async Task<ResultCode> RemoveBackupPassword(string currentPassword,
+            CancellationToken cancellationToken = default)
         {
-            return await ChangeBackupEncryptionPassword(currentPassword, null, BackupEncryptionFlags.Disable, cancellationToken).ConfigureAwait(false);
+            return await ChangeBackupEncryptionPassword(currentPassword, null, BackupEncryptionFlags.Disable,
+                cancellationToken).ConfigureAwait(false);
         }
     }
 }
