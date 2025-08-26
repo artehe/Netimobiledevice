@@ -434,11 +434,11 @@ namespace Netimobiledevice.Backup
                     }
                 }
                 finally {
-                    DictionaryNode message1 = new DictionaryNode() {
+                    DictionaryNode message = new DictionaryNode() {
                         { "MessageName", new StringNode("CancelBackup") },
                         { "TargetIdentifier", new StringNode(Lockdown.Udid) }
                     };
-                    dl.SendProcessMessage(message1);
+                    dl.SendProcessMessage(message);
                 }
             }
         }
