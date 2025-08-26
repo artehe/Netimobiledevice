@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice;
 using Netimobiledevice.Backup;
+using Netimobiledevice.Heartbeat;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Pairing;
 using Netimobiledevice.NotificationProxy;
@@ -53,34 +54,38 @@ public class Program
         }
 
         using (LockdownClient lockdown = await MobileDevice.CreateUsingUsbmux(logger: logger)) {
-            using (NotificationProxyService np = new NotificationProxyService(lockdown)) {
-                np.ReceivedNotification += NotificationProxy_ReceivedNotification;
-                await np.ObserveNotificationAsync(ReceivableNotification.ActivationState).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.AddressBookPreferenceChanged).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.AppInstalled).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.AppUninstalled).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.AttemptActivation).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.BrickState).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.DeveloperImageMounted).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.DeviceNameChanged).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.DiskUsageChanged).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.DsDomainChanged).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.HostAttached).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.HostDetached).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.ItdbprepDidEnd).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.LanguageChanged).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.LocalAuthenticationUiDismissed).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.LocalAuthenticationUiPresented).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.PhoneNumberChanged).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.RegistrationFailed).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.RequestPair).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.SyncCancelRequest).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.SyncResumeRequst).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.SyncSuspendRequst).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.TimezoneChanged).ConfigureAwait(false);
-                await np.ObserveNotificationAsync(ReceivableNotification.TrustedHostAttached).ConfigureAwait(false);
+            using (HeartbeatService hb = new HeartbeatService(lockdown, logger)) {
+                hb.Start();
 
-                await Task.Delay(100000).ConfigureAwait(false);
+                using (NotificationProxyService np = new NotificationProxyService(lockdown)) {
+                    np.ReceivedNotification += NotificationProxy_ReceivedNotification;
+                    await np.ObserveNotificationAsync(ReceivableNotification.ActivationState).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.AddressBookPreferenceChanged).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.AppInstalled).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.AppUninstalled).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.AttemptActivation).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.BrickState).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.DeveloperImageMounted).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.DeviceNameChanged).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.DiskUsageChanged).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.DsDomainChanged).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.HostAttached).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.HostDetached).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.ItdbprepDidEnd).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.LanguageChanged).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.LocalAuthenticationUiDismissed).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.LocalAuthenticationUiPresented).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.PhoneNumberChanged).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.RegistrationFailed).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.RequestPair).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.SyncCancelRequest).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.SyncResumeRequst).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.SyncSuspendRequst).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.TimezoneChanged).ConfigureAwait(false);
+                    await np.ObserveNotificationAsync(ReceivableNotification.TrustedHostAttached).ConfigureAwait(false);
+
+                    await Task.Delay(100000).ConfigureAwait(false);
+                }
             }
         }
 

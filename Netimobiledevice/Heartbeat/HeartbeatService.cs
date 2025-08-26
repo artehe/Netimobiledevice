@@ -2,91 +2,86 @@
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
 using System;
-using System.ComponentModel;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Netimobiledevice.Heartbeat
+namespace Netimobiledevice.Heartbeat;
+
+/// <summary>
+/// Used to keep an active connection with lockdownd by providing a regular ping
+/// </summary>
+public sealed class HeartbeatService(LockdownServiceProvider lockdown, ILogger? logger) : LockdownService(lockdown, LOCKDOWN_SERVICE_NAME, RSD_SERVICE_NAME, logger: logger)
 {
+    private const string LOCKDOWN_SERVICE_NAME = "com.apple.mobile.heartbeat";
+    private const string RSD_SERVICE_NAME = "com.apple.mobile.heartbeat.shim.remote";
+
+    private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
     /// <summary>
-    /// Used to keep an active connection with lockdownd by providing a regular ping
+    /// Have the interval be 10 seconds as default for the heartbeat
     /// </summary>
-    public sealed class HeartbeatService : LockdownService
+    private int _interval = 10 * 1000;
+    private Task? _heartbeatTask;
+
+    private async Task Heartbeat()
     {
-        private const string LOCKDOWN_SERVICE_NAME = "com.apple.mobile.heartbeat";
-        private const string RSD_SERVICE_NAME = "com.apple.mobile.heartbeat.shim.remote";
+        Service.SetTimeout(500);
+        do {
+            try {
+                PropertyNode? response = await Service.ReceivePlistAsync(_cancellationTokenSource.Token).ConfigureAwait(false);
+                DictionaryNode responseDict = response?.AsDictionaryNode() ?? [];
 
-        private readonly BackgroundWorker heartbeatWorker;
-        // Have the interval be 10 seconds as default
-        private int interval = 10 * 1000;
+                // If the interval exists update it adding an extra second to be certain we have waited long enough
+                if (responseDict.TryGetValue("Interval", out PropertyNode? intervalNode)) {
+                    _interval = (int) ((intervalNode.AsIntegerNode().Value + 1) * 1000);
+                }
 
-        public HeartbeatService(LockdownServiceProvider lockdown, ILogger? logger) : base(lockdown, LOCKDOWN_SERVICE_NAME, RSD_SERVICE_NAME, logger: logger)
-        {
-            heartbeatWorker = new BackgroundWorker {
-                WorkerSupportsCancellation = true
-            };
-            heartbeatWorker.DoWork += HeartbeatWorker_DoWork;
-        }
-
-        private async void HeartbeatWorker_DoWork(object? sender, DoWorkEventArgs e)
-        {
-            Service.SetTimeout(500);
-            do {
-                try {
-                    PropertyNode? response = await Service.ReceivePlistAsync(CancellationToken.None);
-                    DictionaryNode responseDict = response?.AsDictionaryNode() ?? [];
-
-                    // Update the interval adding an extra second to be certain we have waited long enough
-                    interval = ((int) responseDict["Interval"].AsIntegerNode().Value + 1) * 1000;
-
-                    await Service.SendPlistAsync(new DictionaryNode() {
+                await Service.SendPlistAsync(
+                    new DictionaryNode() {
                         { "Command", new StringNode("Polo") }
-                    });
-                }
-                catch (IOException) {
-                    // If there is an IO exception we also have to assume that the service is closed so we abort the listener
-                    break;
-                }
-                catch (ObjectDisposedException) {
-                    // If the object is disposed the most likely reason is that the service is closed
-                    break;
-                }
-                catch (TimeoutException) {
-                    Logger.LogDebug("No heartbeat received, trying again");
-                }
-                catch (Exception ex) {
-                    if (!heartbeatWorker.CancellationPending) {
-                        Logger.LogError(ex, "Heartbeat service has an error");
-                        throw;
                     }
+                ).ConfigureAwait(false);
+            }
+            catch (IOException) {
+                // If there is an IO exception we also have to assume that the service is closed so we abort the listener
+                break;
+            }
+            catch (ObjectDisposedException) {
+                // If the object is disposed the most likely reason is that the service is closed
+                break;
+            }
+            catch (TimeoutException) {
+                Logger.LogDebug("No heartbeat received, trying again");
+            }
+            catch (Exception ex) {
+                if (!_cancellationTokenSource.Token.IsCancellationRequested) {
+                    throw new HeartbeatException("Heartbeat service has an error", ex);
                 }
-                await Task.Delay(interval);
-            } while (!heartbeatWorker.CancellationPending);
-        }
-
-        public override void Dispose()
-        {
-            if (heartbeatWorker.IsBusy) {
-                heartbeatWorker.CancelAsync();
             }
-            heartbeatWorker.Dispose();
-            base.Dispose();
-        }
+            await Task.Delay(_interval);
+        } while (!_cancellationTokenSource.Token.IsCancellationRequested);
+    }
 
-        /// <summary>
-        /// Start the heartbeat service
-        /// </summary>
-        public void Start()
-        {
-            if (!heartbeatWorker.IsBusy) {
-                heartbeatWorker.RunWorkerAsync();
-            }
-        }
+    public override void Dispose()
+    {
+        Stop();
+        base.Dispose();
+    }
 
-        public void Stop()
-        {
-            heartbeatWorker.CancelAsync();
+    /// <summary>
+    /// Start the heartbeat service
+    /// </summary>
+    public void Start()
+    {
+        if (_heartbeatTask == null) {
+            _cancellationTokenSource = new CancellationTokenSource();
+            _heartbeatTask = Task.Run(Heartbeat, _cancellationTokenSource.Token);
         }
+    }
+
+    public void Stop()
+    {
+        _cancellationTokenSource.Cancel();
+        _heartbeatTask = null;
     }
 }
