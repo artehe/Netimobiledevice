@@ -31,8 +31,8 @@ namespace Netimobiledevice.Lockdown
         /// </summary>
         private readonly ILogger _logger;
         private readonly ConnectionMedium _medium;
-        private ushort _port;
-        private string _sessionId;
+        private readonly ushort _port;
+        private readonly string _sessionId;
         private string _systemBuid;
 
         protected readonly DirectoryInfo? _pairingRecordsCacheDirectory;
@@ -64,7 +64,7 @@ namespace Netimobiledevice.Lockdown
 
         public string ProductFriendlyName => ModelIdentifier.GetDeviceModelName(ProductType);
 
-        public string SerialNumber { get; private set; }
+        public string SerialNumber { get; private set; } = string.Empty;
 
         public string WifiMacAddress => GetValue("WiFiAddress")?.AsStringNode().Value ?? string.Empty;
 
@@ -249,7 +249,7 @@ namespace Netimobiledevice.Lockdown
 
                 UsbmuxConnection mux = UsbmuxConnection.Create(logger: Logger);
                 if (mux is PlistMuxConnection plistMuxConnection) {
-                    ulong deviceId = _service?.MuxDevice?.DeviceId ?? 0;
+                    long deviceId = _service?.MuxDevice?.DeviceId ?? -1;
                     plistMuxConnection.SavePairRecord(Udid, deviceId, recordData);
                 }
                 mux.Close();
@@ -535,15 +535,15 @@ namespace Netimobiledevice.Lockdown
         /// </summary>
         /// <param name="port"></param>
         /// <returns></returns>
-        public virtual ServiceConnection CreateServiceConnection(ushort port)
+        public virtual Task<ServiceConnection> CreateServiceConnection(ushort port)
         {
             throw new NotImplementedException();
         }
 
-        public override ServiceConnection StartLockdownService(string name, bool useEscrowBag = false, bool useTrustedConnection = true)
+        public override async Task<ServiceConnection> StartLockdownService(string name, bool useEscrowBag = false, bool useTrustedConnection = true)
         {
             DictionaryNode attr = GetServiceConnectionAttributes(name, useEscrowBag, useTrustedConnection).AsDictionaryNode();
-            ServiceConnection serviceConnection = CreateServiceConnection((ushort) attr["Port"].AsIntegerNode().Value);
+            ServiceConnection serviceConnection = await CreateServiceConnection((ushort) attr["Port"].AsIntegerNode().Value).ConfigureAwait(false);
 
             if (attr.TryGetValue("EnableServiceSSL", out PropertyNode? enableServiceSsl) && enableServiceSsl?.AsBooleanNode().Value == true) {
                 if (_pairRecord == null) {

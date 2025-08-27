@@ -18,11 +18,11 @@ namespace Netimobiledevice.Lockdown
         {
             base.SavePairRecord();
 
-            ulong? deviceId = _service?.MuxDevice?.DeviceId;
-            if (deviceId != null && _pairRecord != null) {
+            long deviceId = _service?.MuxDevice?.DeviceId ?? -1;
+            if (_pairRecord is not null) {
                 byte[] recordData = PropertyList.SaveAsByteArray(_pairRecord, PlistFormat.Xml);
                 using (PlistMuxConnection muxConnection = (PlistMuxConnection) UsbmuxConnection.Create(logger: Logger)) {
-                    muxConnection.SavePairRecord(Identifier, (ulong) deviceId, recordData);
+                    muxConnection.SavePairRecord(Identifier, deviceId, recordData);
                 }
             }
         }

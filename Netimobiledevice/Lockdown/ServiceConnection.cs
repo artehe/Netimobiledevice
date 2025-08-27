@@ -67,7 +67,7 @@ namespace Netimobiledevice.Lockdown
             return new ServiceConnection(sock, logger ?? NullLogger.Instance);
         }
 
-        internal static ServiceConnection CreateUsingUsbmux(string udid, ushort port, UsbmuxdConnectionType? connectionType = null, string usbmuxAddress = "", ILogger? logger = null)
+        internal static async Task<ServiceConnection> CreateUsingUsbmux(string udid, ushort port, UsbmuxdConnectionType? connectionType = null, string usbmuxAddress = "", ILogger? logger = null)
         {
             UsbmuxdDevice? targetDevice = Usbmux.GetDevice(udid, connectionType: connectionType, usbmuxAddress: usbmuxAddress);
             if (targetDevice == null) {
@@ -76,7 +76,7 @@ namespace Netimobiledevice.Lockdown
                 }
                 throw new NoDeviceConnectedException();
             }
-            Socket sock = targetDevice.Connect(port, usbmuxAddress: usbmuxAddress, logger);
+            Socket sock = await targetDevice.Connect(port, usbmuxAddress: usbmuxAddress, logger).ConfigureAwait(false);
             return new ServiceConnection(sock, logger ?? NullLogger.Instance, targetDevice);
         }
 
@@ -121,7 +121,7 @@ namespace Netimobiledevice.Lockdown
             }
 
             if (totalBytesRead < buffer.Length) {
-                return buffer.Take(totalBytesRead).ToArray();
+                return [.. buffer.Take(totalBytesRead)];
             }
             return buffer;
         }
