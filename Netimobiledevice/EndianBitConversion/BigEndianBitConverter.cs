@@ -1,55 +1,54 @@
-﻿namespace Netimobiledevice.EndianBitConversion
+﻿namespace Netimobiledevice.EndianBitConversion;
+
+/// <summary>
+/// A big-endian BitConverter that converts base data types to an array of bytes, and an array of bytes to base data types. All conversions are in
+/// big-endian format regardless of machine architecture.
+/// </summary>
+internal class BigEndianBitConverter : EndianBitConverter
 {
-    /// <summary>
-    /// A big-endian BitConverter that converts base data types to an array of bytes, and an array of bytes to base data types. All conversions are in
-    /// big-endian format regardless of machine architecture.
-    /// </summary>
-    internal class BigEndianBitConverter : EndianBitConverter
+    public override bool IsLittleEndian { get; }
+
+    // Instance available from EndianBitConverter.BigEndian
+    internal BigEndianBitConverter() { }
+
+    public override byte[] GetBytes(short value)
     {
-        public override bool IsLittleEndian { get; }
+        return [(byte) (value >> 8), (byte) value];
+    }
 
-        // Instance available from EndianBitConverter.BigEndian
-        internal BigEndianBitConverter() { }
+    public override byte[] GetBytes(int value)
+    {
+        return [(byte) (value >> 24), (byte) (value >> 16), (byte) (value >> 8), (byte) value];
+    }
 
-        public override byte[] GetBytes(short value)
-        {
-            return new byte[] { (byte) (value >> 8), (byte) value };
-        }
+    public override byte[] GetBytes(long value)
+    {
+        return [
+            (byte)(value >> 56), (byte)(value >> 48), (byte)(value >> 40), (byte)(value >> 32),
+            (byte)(value >> 24), (byte)(value >> 16), (byte)(value >> 8), (byte)value
+        ];
+    }
 
-        public override byte[] GetBytes(int value)
-        {
-            return new byte[] { (byte) (value >> 24), (byte) (value >> 16), (byte) (value >> 8), (byte) value };
-        }
+    public override short ToInt16(byte[] value, int startIndex)
+    {
+        CheckArguments(value, startIndex, sizeof(short));
 
-        public override byte[] GetBytes(long value)
-        {
-            return new byte[] {
-                (byte)(value >> 56), (byte)(value >> 48), (byte)(value >> 40), (byte)(value >> 32),
-                (byte)(value >> 24), (byte)(value >> 16), (byte)(value >> 8), (byte)value
-            };
-        }
+        return (short) ((value[startIndex] << 8) | (value[startIndex + 1]));
+    }
 
-        public override short ToInt16(byte[] value, int startIndex)
-        {
-            CheckArguments(value, startIndex, sizeof(short));
+    public override int ToInt32(byte[] value, int startIndex)
+    {
+        CheckArguments(value, startIndex, sizeof(int));
 
-            return (short) ((value[startIndex] << 8) | (value[startIndex + 1]));
-        }
+        return (value[startIndex] << 24) | (value[startIndex + 1] << 16) | (value[startIndex + 2] << 8) | (value[startIndex + 3]);
+    }
 
-        public override int ToInt32(byte[] value, int startIndex)
-        {
-            CheckArguments(value, startIndex, sizeof(int));
+    public override long ToInt64(byte[] value, int startIndex)
+    {
+        CheckArguments(value, startIndex, sizeof(long));
 
-            return (value[startIndex] << 24) | (value[startIndex + 1] << 16) | (value[startIndex + 2] << 8) | (value[startIndex + 3]);
-        }
-
-        public override long ToInt64(byte[] value, int startIndex)
-        {
-            CheckArguments(value, startIndex, sizeof(long));
-
-            int highBytes = (value[startIndex] << 24) | (value[startIndex + 1] << 16) | (value[startIndex + 2] << 8) | (value[startIndex + 3]);
-            int lowBytes = (value[startIndex + 4] << 24) | (value[startIndex + 5] << 16) | (value[startIndex + 6] << 8) | (value[startIndex + 7]);
-            return (uint) lowBytes | ((long) highBytes << 32);
-        }
+        int highBytes = (value[startIndex] << 24) | (value[startIndex + 1] << 16) | (value[startIndex + 2] << 8) | (value[startIndex + 3]);
+        int lowBytes = (value[startIndex + 4] << 24) | (value[startIndex + 5] << 16) | (value[startIndex + 6] << 8) | (value[startIndex + 7]);
+        return (uint) lowBytes | ((long) highBytes << 32);
     }
 }
