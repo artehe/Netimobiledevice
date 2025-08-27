@@ -1,13 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
 		<CheckForOverflowUnderflow>False</CheckForOverflowUnderflow>
 		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
-		<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
-		<ImplicitUsings>disable</ImplicitUsings>
-		<IsTrimmable>true</IsTrimmable>
-		<Nullable>enable</Nullable>
+		<EnableTrimAnalyzer>True</EnableTrimAnalyzer>
+		<EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
+		<ImplicitUsings>Disable</ImplicitUsings>
+		<IsTrimmable>True</IsTrimmable>
+		<Nullable>Enable</Nullable>
 		<TargetFrameworks>net8.0</TargetFrameworks>
 	</PropertyGroup>
 
@@ -28,6 +28,21 @@
 	<ItemGroup>
 		<None Include="..\LICENSE" Pack="true" PackagePath="" />
 		<None Include="..\README.md" Pack="true" PackagePath="" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Compile Update="Lockdown\ModelIdentifiers.Designer.cs">
+			<DesignTime>True</DesignTime>
+			<AutoGen>True</AutoGen>
+			<DependentUpon>ModelIdentifiers.resx</DependentUpon>
+		</Compile>
+	</ItemGroup>
+
+	<ItemGroup>
+		<EmbeddedResource Update="Lockdown\ModelIdentifiers.resx">
+			<Generator>ResXFileCodeGenerator</Generator>
+			<LastGenOutput>ModelIdentifiers.Designer.cs</LastGenOutput>
+		</EmbeddedResource>
 	</ItemGroup>
 	
 	<ItemGroup>
