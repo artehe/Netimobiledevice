@@ -1,8 +1,7 @@
-﻿namespace Netimobiledevice.Lockdown
+﻿namespace Netimobiledevice.Lockdown;
+
+public enum ConnectionMedium
 {
-    public enum ConnectionMedium
-    {
-        TCP,
-        USBMUX
-    }
+    Tcp,
+    Usbmux
 }
