@@ -964,12 +964,12 @@ namespace Netimobiledevice.Diagnostics
             ServiceConnection? service = null;
             if (lockdown is LockdownClient) {
                 try {
-                    service = lockdown.StartLockdownService(LOCKDOWN_SERVICE_NAME_NEW).GetAwaiter().GetResult();
+                    service = lockdown.StartLockdownService(LOCKDOWN_SERVICE_NAME_NEW);
                     ServiceNameUsed = LOCKDOWN_SERVICE_NAME_NEW;
                 }
                 catch (Exception ex) {
                     lockdown.Logger.LogWarning(ex, "Failed to start the new lockdown service, falling back to the old service.");
-                    service = lockdown.StartLockdownService(LOCKDOWN_SERVICE_NAME_OLD).GetAwaiter().GetResult();
+                    service = lockdown.StartLockdownService(LOCKDOWN_SERVICE_NAME_OLD);
                     ServiceNameUsed = LOCKDOWN_SERVICE_NAME_OLD;
                 }
             }
