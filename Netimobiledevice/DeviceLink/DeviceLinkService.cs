@@ -114,7 +114,6 @@ namespace Netimobiledevice.DeviceLink
                 { DeviceLinkMessage.GetFreeDiskSpace, GetFreeDiskSpace },
                 { DeviceLinkMessage.MoveFiles, MoveItems },
                 { DeviceLinkMessage.MoveItems, MoveItems },
-                { DeviceLinkMessage.PurgeDiskSpace, PurgeDiskSpace },
                 { DeviceLinkMessage.RemoveFiles, RemoveItems },
                 { DeviceLinkMessage.RemoveItems, RemoveItems },
                 { DeviceLinkMessage.UploadFiles, UploadFiles }
@@ -427,11 +426,6 @@ namespace Netimobiledevice.DeviceLink
             string snapshotState = $"{status.SnapshotState}";
             Status?.Invoke(this, new StatusEventArgs(snapshotState, status));
             _logger.LogDebug("OnStatus: {message}", snapshotState);
-        }
-
-        private Task PurgeDiskSpace(ArrayNode message, CancellationToken cancellationToken)
-        {
-            throw new DeviceLinkException("Not enough Disk space for operation");
         }
 
         private async Task<ResultCode> ReadCode(CancellationToken cancellationToken)
