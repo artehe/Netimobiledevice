@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice.EndianBitConversion;
-using Netimobiledevice.Exceptions;
 using Netimobiledevice.Usbmuxd.Responses;
 using System;
 using System.Threading;

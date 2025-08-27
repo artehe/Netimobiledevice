@@ -70,7 +70,20 @@ public class UsbmuxdDevice
         ConnectionType = connectionType;
     }
 
-    public async Task<Socket> Connect(ushort port, string usbmuxAddress = "", ILogger? logger = null)
+    public Socket Connect(ushort port, string usbmuxAddress = "", ILogger? logger = null)
+    {
+        UsbmuxConnection muxConnection = UsbmuxConnection.Create(usbmuxAddress, logger);
+        try {
+            return muxConnection.Connect(this, port);
+        }
+        catch (Exception ex) {
+            logger?.LogWarning(ex, "Couldn't connect to port {port}", port);
+            muxConnection.Close();
+            throw;
+        }
+    }
+
+    public async Task<Socket> ConnectAsync(ushort port, string usbmuxAddress = "", ILogger? logger = null)
     {
         UsbmuxConnection muxConnection = UsbmuxConnection.Create(usbmuxAddress, logger);
         try {
