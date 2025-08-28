@@ -96,7 +96,17 @@ internal class PlistMuxConnection(UsbmuxdSocket sock, ILogger? logger = null) : 
         return result;
     }
 
-    protected override async Task RequestConnect(long deviceId, ushort port, CancellationToken cancellationToken = default)
+    protected override void RequestConnect(long deviceId, ushort port, CancellationToken cancellationToken = default)
+    {
+        DictionaryNode dict = new DictionaryNode {
+            { "MessageType", new StringNode("Connect") },
+            { "DeviceID", new IntegerNode(deviceId) },
+            { "PortNumber", new IntegerNode(EndianNetworkConverter.HostToNetworkOrder(port)) }
+        };
+        SendReceive(dict);
+    }
+
+    protected override async Task RequestConnectAsync(long deviceId, ushort port, CancellationToken cancellationToken = default)
     {
         DictionaryNode dict = new DictionaryNode {
             { "MessageType", new StringNode("Connect") },
@@ -206,6 +216,31 @@ internal class PlistMuxConnection(UsbmuxdSocket sock, ILogger? logger = null) : 
         Send(plistMessage);
 
         PlistResponse response = ReceivePlist(Tag - 1);
+        DictionaryNode responseDict = response.Plist.AsDictionaryNode();
+        ArrayNode deviceListPlist = responseDict["DeviceList"].AsArrayNode();
+        foreach (PropertyNode entry in deviceListPlist) {
+            DictionaryNode dict = entry.AsDictionaryNode();
+            string messageType = dict["MessageType"].AsStringNode().Value;
+            if (messageType == "Attached") {
+                AddDevice(new UsbmuxdDevice(dict["DeviceID"].AsIntegerNode(), dict["Properties"].AsDictionaryNode()));
+            }
+            else if (messageType == "Detached") {
+                RemoveDevice(dict["DeviceID"].AsIntegerNode().SignedValue);
+            }
+            else {
+                throw new UsbmuxException($"Invalid packet type received: {entry}");
+            }
+        }
+    }
+
+    public override async Task UpdateDeviceListAsync(int timeout = 5000, CancellationToken cancellationToken = default)
+    {
+        // Get the list of devices synchronously without waiting for the timeout
+        Devices.Clear();
+        PropertyNode plistMessage = CreatePlistMessage("ListDevices");
+        await SendAsync(plistMessage, cancellationToken).ConfigureAwait(false);
+
+        PlistResponse response = await ReceivePlistAsync(Tag - 1, cancellationToken).ConfigureAwait(false);
         DictionaryNode responseDict = response.Plist.AsDictionaryNode();
         ArrayNode deviceListPlist = responseDict["DeviceList"].AsArrayNode();
         foreach (PropertyNode entry in deviceListPlist) {

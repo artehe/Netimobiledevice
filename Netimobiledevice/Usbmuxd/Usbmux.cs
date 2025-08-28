@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Usbmuxd;
@@ -22,8 +23,10 @@ public static class Usbmux
     /// <returns>The device info.</returns>
     public static UsbmuxdDevice? GetDevice(string udid, UsbmuxdConnectionType? connectionType = null, string usbmuxAddress = "")
     {
+        List<UsbmuxdDevice> deviceList = GetDeviceList(usbmuxAddress: usbmuxAddress);
+
         UsbmuxdDevice? tmp = null;
-        foreach (UsbmuxdDevice device in GetDeviceList(usbmuxAddress: usbmuxAddress)) {
+        foreach (UsbmuxdDevice device in deviceList) {
             if (connectionType != null && device.ConnectionType != connectionType) {
                 // If a specific connectionType was desired and not of this one then skip
                 continue;
@@ -55,10 +58,12 @@ public static class Usbmux
     /// USB connections
     /// </param>
     /// <returns>The device info.</returns>
-    public static UsbmuxdDevice? GetDeviceAsync(string udid, UsbmuxdConnectionType? connectionType = null, string usbmuxAddress = "")
+    public static async Task<UsbmuxdDevice?> GetDeviceAsync(string udid, UsbmuxdConnectionType? connectionType = null, string usbmuxAddress = "")
     {
+        List<UsbmuxdDevice> deviceList = await GetDeviceListAsync(usbmuxAddress: usbmuxAddress).ConfigureAwait(false);
+
         UsbmuxdDevice? tmp = null;
-        foreach (UsbmuxdDevice device in GetDeviceListAsync(usbmuxAddress: usbmuxAddress)) {
+        foreach (UsbmuxdDevice device in deviceList) {
             if (connectionType != null && device.ConnectionType != connectionType) {
                 // If a specific connectionType was desired and not of this one then skip
                 continue;
@@ -89,11 +94,10 @@ public static class Usbmux
     public static List<UsbmuxdDevice> GetDeviceList(string usbmuxAddress = "", ILogger? logger = null)
     {
         logger ??= NullLogger.Instance;
-        UsbmuxConnection muxConnection = UsbmuxConnection.Create(usbmuxAddress, logger);
-        muxConnection.UpdateDeviceList(100);
-        List<UsbmuxdDevice> devices = muxConnection.Devices;
-        muxConnection.Close();
-        return devices;
+        using (UsbmuxConnection muxConnection = UsbmuxConnection.Create(usbmuxAddress, logger)) {
+            muxConnection.UpdateDeviceList(100);
+            return muxConnection.Devices;
+        }
     }
 
     /// <summary>
@@ -102,14 +106,13 @@ public static class Usbmux
     /// <returns>
     /// A list of connected Usbmux devices
     /// </returns>
-    public static async Task<List<UsbmuxdDevice>> GetDeviceListAsync(string usbmuxAddress = "", ILogger? logger = null)
+    public static async Task<List<UsbmuxdDevice>> GetDeviceListAsync(string usbmuxAddress = "", ILogger? logger = null, CancellationToken cancellationToken = default)
     {
         logger ??= NullLogger.Instance;
-        UsbmuxConnection muxConnection = UsbmuxConnection.Create(usbmuxAddress, logger);
-        muxConnection.UpdateDeviceList(100);
-        List<UsbmuxdDevice> devices = muxConnection.Devices;
-        muxConnection.Close();
-        return devices;
+        using (UsbmuxConnection muxConnection = UsbmuxConnection.Create(usbmuxAddress, logger)) {
+            await muxConnection.UpdateDeviceListAsync(100, cancellationToken).ConfigureAwait(false);
+            return muxConnection.Devices;
+        }
     }
 
     public static bool IsDeviceConnected(string udid, UsbmuxdConnectionType? connectionType = null)
@@ -120,7 +123,7 @@ public static class Usbmux
 
     public static async Task<bool> IsDeviceConnectedAsync(string udid, UsbmuxdConnectionType? connectionType = null)
     {
-        UsbmuxdDevice? device = GetDeviceAsync(udid, connectionType);
+        UsbmuxdDevice? device = await GetDeviceAsync(udid, connectionType).ConfigureAwait(false);
         return device != null;
     }
 
