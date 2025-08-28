@@ -23,11 +23,11 @@ namespace Netimobiledevice
         /// <param name="port">lockdownd service port</param>
         /// <param name="usbmuxAddress">usbmuxd address</param>
         /// <returns></returns>
-        public static async Task<UsbmuxLockdownClient> CreateUsingUsbmux(string serial = "", string identifier = "", string label = LockdownClient.DEFAULT_CLIENT_NAME,
+        public static async Task<UsbmuxLockdownClient> CreateUsingUsbmuxAsync(string serial = "", string identifier = "", string label = LockdownClient.DEFAULT_CLIENT_NAME,
             bool autopair = true, UsbmuxdConnectionType? connectionType = null, float? pairTimeout = null, string localHostname = "", DictionaryNode? pairRecord = null,
             string pairingRecordsCacheDir = "", ushort port = LockdownClient.SERVICE_PORT, string usbmuxAddress = "", ILogger? logger = null)
         {
-            ServiceConnection service = await ServiceConnection.CreateUsingUsbmux(serial, port, connectionType: connectionType, usbmuxAddress: usbmuxAddress, logger).ConfigureAwait(false);
+            ServiceConnection service = await ServiceConnection.CreateUsingUsbmuxAsync(serial, port, connectionType: connectionType, usbmuxAddress: usbmuxAddress, logger).ConfigureAwait(false);
 
             string systemBuid = string.Empty;
 

@@ -45,7 +45,7 @@ public class Program
             Console.WriteLine($"Device found: {device.DeviceId} - {device.Serial}");
         }
 
-        using (LockdownClient lockdown = await MobileDevice.CreateUsingUsbmux(logger: logger)) {
+        using (LockdownClient lockdown = await MobileDevice.CreateUsingUsbmuxAsync(logger: logger)) {
             Progress<PairingState> progress = new();
             progress.ProgressChanged += Progress_ProgressChanged;
             if (!lockdown.IsPaired) {
@@ -53,7 +53,7 @@ public class Program
             }
         }
 
-        using (LockdownClient lockdown = await MobileDevice.CreateUsingUsbmux(logger: logger)) {
+        using (LockdownClient lockdown = await MobileDevice.CreateUsingUsbmuxAsync(logger: logger)) {
             using (HeartbeatService hb = new HeartbeatService(lockdown, logger)) {
                 hb.Start();
 
@@ -89,7 +89,7 @@ public class Program
             }
         }
 
-        using (UsbmuxLockdownClient lockdown = await MobileDevice.CreateUsingUsbmux(logger: logger)) {
+        using (UsbmuxLockdownClient lockdown = await MobileDevice.CreateUsingUsbmuxAsync(logger: logger)) {
             using (Mobilebackup2Service mb2 = new Mobilebackup2Service(lockdown, logger: logger)) {
                 mb2.BeforeReceivingFile += BackupJob_BeforeReceivingFile;
                 mb2.Completed += BackupJob_Completed;

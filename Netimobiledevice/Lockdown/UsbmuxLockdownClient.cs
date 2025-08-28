@@ -21,7 +21,7 @@ namespace Netimobiledevice.Lockdown
 
         public override async Task<ServiceConnection> CreateServiceConnection(ushort port)
         {
-            return await ServiceConnection.CreateUsingUsbmux(Identifier, port, _service?.MuxDevice?.ConnectionType, _usbmuxAddress, Logger).ConfigureAwait(false);
+            return await ServiceConnection.CreateUsingUsbmuxAsync(Identifier, port, _service?.MuxDevice?.ConnectionType, _usbmuxAddress, Logger).ConfigureAwait(false);
         }
 
         /// <summary>
