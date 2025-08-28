@@ -1,0 +1,648 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="i386" xml:space="preserve">
+    <value>Simulator</value>
+  </data>
+  <data name="iPad2,5" xml:space="preserve">
+    <value>iPad mini Wi-Fi</value>
+  </data>
+  <data name="iPad2,6" xml:space="preserve">
+    <value>iPad mini Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad2,7" xml:space="preserve">
+    <value>iPad mini</value>
+  </data>
+  <data name="iPad4,1" xml:space="preserve">
+    <value>iPad Air Wi-Fi</value>
+  </data>
+  <data name="iPad4,2" xml:space="preserve">
+    <value>iPad Air Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad4,3" xml:space="preserve">
+    <value>iPad Air Wi-Fi + Cellular (TD-LTE)</value>
+  </data>
+  <data name="iPad4,4" xml:space="preserve">
+    <value>iPad mini 2 Wi-Fi</value>
+  </data>
+  <data name="iPad4,5" xml:space="preserve">
+    <value>iPad mini 2 Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad4,6" xml:space="preserve">
+    <value>iPad mini 2 Wi-Fi + Cellular (TD-LTE)</value>
+  </data>
+  <data name="iPad4,7" xml:space="preserve">
+    <value>iPad mini 3 Wi-Fi</value>
+  </data>
+  <data name="iPad4,8" xml:space="preserve">
+    <value>iPad mini 3 Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad4,9" xml:space="preserve">
+    <value>iPad mini 3 Wi-Fi + Cellular (TD-LTE)</value>
+  </data>
+  <data name="iPad5,1" xml:space="preserve">
+    <value>iPad mini 4 Wi-Fi</value>
+  </data>
+  <data name="iPad5,2" xml:space="preserve">
+    <value>iPad mini 4 Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad5,3" xml:space="preserve">
+    <value>iPad Air 2 Wi-Fi</value>
+  </data>
+  <data name="iPad5,4" xml:space="preserve">
+    <value>iPad Air 2 Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad5,5" xml:space="preserve">
+    <value>Unreleased iPad Pro</value>
+  </data>
+  <data name="iPad5,6" xml:space="preserve">
+    <value>Unreleased iPad Pro</value>
+  </data>
+  <data name="iPad6,1" xml:space="preserve">
+    <value>Unreleased iPad mini</value>
+  </data>
+  <data name="iPad6,2" xml:space="preserve">
+    <value>Unreleased iPad mini</value>
+  </data>
+  <data name="iPad6,3" xml:space="preserve">
+    <value>iPad Pro (9.7-inch) Wi-Fi</value>
+  </data>
+  <data name="iPad6,4" xml:space="preserve">
+    <value>iPad Pro (9.7-inch) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad6,7" xml:space="preserve">
+    <value>iPad Pro (12.9-inch) (1st generation) Wi-Fi</value>
+  </data>
+  <data name="iPad6,8" xml:space="preserve">
+    <value>iPad Pro (12.9-inch) (1st generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad7,1" xml:space="preserve">
+    <value>iPad Pro (12.9-inch) (2nd generation) Wi-Fi</value>
+  </data>
+  <data name="iPad7,2" xml:space="preserve">
+    <value>iPad Pro (12.9-inch) (2nd generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad7,3" xml:space="preserve">
+    <value>iPad Pro (10.5-inch) Wi-Fi</value>
+  </data>
+  <data name="iPad7,4" xml:space="preserve">
+    <value>iPad Pro (10.5-inch) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad7,5" xml:space="preserve">
+    <value>iPad (6th generation) Wi-Fi</value>
+  </data>
+  <data name="iPad7,11" xml:space="preserve">
+    <value>iPad (7th generation) Wi-Fi</value>
+  </data>
+  <data name="iPad7,12" xml:space="preserve">
+    <value>iPad (7th generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad8,1" xml:space="preserve">
+    <value>iPad Pro 11-inch (1st generation) Wi-Fi</value>
+  </data>
+  <data name="iPad8,2" xml:space="preserve">
+    <value>iPad Pro 11-inch (1st generation) Wi-Fi (1TB)</value>
+  </data>
+  <data name="iPad8,3" xml:space="preserve">
+    <value>iPad Pro 11-inch (1st generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad8,4" xml:space="preserve">
+    <value>iPad Pro 11-inch (1st generation) Wi-Fi + Cellular (1TB)</value>
+  </data>
+  <data name="iPad8,5" xml:space="preserve">
+    <value>iPad Pro 12.9-inch (3rd generation) Wi-Fi</value>
+  </data>
+  <data name="iPad8,6" xml:space="preserve">
+    <value>iPad Pro 12.9-inch (3rd generation) Wi-Fi (1TB)</value>
+  </data>
+  <data name="iPad8,7" xml:space="preserve">
+    <value>iPad Pro 12.9-inch (3rd generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad8,8" xml:space="preserve">
+    <value>iPad Pro 12.9-inch (3rd generation) Wi-Fi + Cellular (1TB)</value>
+  </data>
+  <data name="iPad8,9" xml:space="preserve">
+    <value>iPad Pro 11-inch (2nd generation) Wi-Fi</value>
+  </data>
+  <data name="iPad8,10" xml:space="preserve">
+    <value>iPad Pro 11-inch (2nd generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad8,11" xml:space="preserve">
+    <value>iPad Pro 12.9-inch (4th generation) Wi-Fi</value>
+  </data>
+  <data name="iPad8,12" xml:space="preserve">
+    <value>iPad Pro 12.9-inch (4th generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad11,1" xml:space="preserve">
+    <value>iPad mini (5th generation) Wi-Fi</value>
+  </data>
+  <data name="iPad11,2" xml:space="preserve">
+    <value>iPad mini (5th generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad11,3" xml:space="preserve">
+    <value>iPad Air (3rd generation) Wi-Fi</value>
+  </data>
+  <data name="iPad11,4" xml:space="preserve">
+    <value>iPad Air (3rd generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad11,6" xml:space="preserve">
+    <value>iPad (8th generation) Wi-Fi</value>
+  </data>
+  <data name="iPad11,7" xml:space="preserve">
+    <value>iPad (8th generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad12,1" xml:space="preserve">
+    <value>iPad (9th generation) Wi-Fi</value>
+  </data>
+  <data name="iPad12,2" xml:space="preserve">
+    <value>iPad (9th generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad13,1" xml:space="preserve">
+    <value>iPad Air (4th generation) Wi-Fi</value>
+  </data>
+  <data name="iPad13,2" xml:space="preserve">
+    <value>iPad Air (4th generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad13,4" xml:space="preserve">
+    <value>iPad Pro 11-inch (3rd generation) Wi-Fi</value>
+  </data>
+  <data name="iPad13,5" xml:space="preserve">
+    <value>iPad Pro 11-inch (3rd generation) Wi-Fi (1 or 2 TB)</value>
+  </data>
+  <data name="iPad13,6" xml:space="preserve">
+    <value>iPad Pro 11-inch (3rd generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad13,7" xml:space="preserve">
+    <value>iPad Pro 11-inch (3rd generation) Wi-Fi + Cellular (1 or 2 TB)</value>
+  </data>
+  <data name="iPad13,8" xml:space="preserve">
+    <value>iPad Pro 12.9-inch (5th generation) Wi-Fi</value>
+  </data>
+  <data name="iPad13,9" xml:space="preserve">
+    <value>iPad Pro 12.9-inch (5th generation) Wi-Fi (1 or 2 TB)</value>
+  </data>
+  <data name="iPad13,10" xml:space="preserve">
+    <value>iPad Pro 12.9-inch (5th generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad13,11" xml:space="preserve">
+    <value>iPad Pro 12.9-inch (5th generation) Wi-Fi + Cellular (1 or 2 TB)</value>
+  </data>
+  <data name="iPad13,16" xml:space="preserve">
+    <value>iPad Air (5th generation) Wi-Fi</value>
+  </data>
+  <data name="iPad13,17" xml:space="preserve">
+    <value>iPad Air (5th generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad13,18" xml:space="preserve">
+    <value>iPad (10th generation) Wi-Fi</value>
+  </data>
+  <data name="iPad13,19" xml:space="preserve">
+    <value>iPad (10th generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad14,1" xml:space="preserve">
+    <value>iPad mini (6th generation) Wi-Fi</value>
+  </data>
+  <data name="iPad14,2" xml:space="preserve">
+    <value>iPad mini (6th generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad14,3" xml:space="preserve">
+    <value>iPad Pro 11-inch (4th generation) Wi-Fi</value>
+  </data>
+  <data name="iPad14,4" xml:space="preserve">
+    <value>iPad Pro 11-inch (4th generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad14,5" xml:space="preserve">
+    <value>iPad Pro 12.9-inch (6th generation) Wi-Fi</value>
+  </data>
+  <data name="iPad14,6" xml:space="preserve">
+    <value>iPad Pro 12.9-inch (6th generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad14,8" xml:space="preserve">
+    <value>iPad Air 11-inch (M2) Wi-Fi</value>
+  </data>
+  <data name="iPad14,9" xml:space="preserve">
+    <value>iPad Air 11-inch (M2) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad14,10" xml:space="preserve">
+    <value>iPad Air 13-inch (M2) Wi-Fi</value>
+  </data>
+  <data name="iPad14,11" xml:space="preserve">
+    <value>iPad Air 13-inch (M2) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad15,3" xml:space="preserve">
+    <value>iPad Air 11-inch (M3) Wi-Fi</value>
+  </data>
+  <data name="iPad15,4" xml:space="preserve">
+    <value>iPad Air 11-inch (M3) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad15,5" xml:space="preserve">
+    <value>iPad Air 13-inch (M3) Wi-Fi</value>
+  </data>
+  <data name="iPad15,6" xml:space="preserve">
+    <value>iPad Air 13-inch (M3) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad15,7" xml:space="preserve">
+    <value>iPad (A16) Wi-Fi</value>
+  </data>
+  <data name="iPad15,8" xml:space="preserve">
+    <value>iPad (A16) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad16,1" xml:space="preserve">
+    <value>iPad mini (A17 Pro) Wi-Fi</value>
+  </data>
+  <data name="iPad16,2" xml:space="preserve">
+    <value>iPad mini (A17 Pro) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad16,3" xml:space="preserve">
+    <value>iPad Pro 11-inch (M4) Wi-Fi</value>
+  </data>
+  <data name="iPad16,4" xml:space="preserve">
+    <value>iPad Pro 11-inch (M4) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad16,5" xml:space="preserve">
+    <value>iPad Pro 13-inch (M4) Wi-Fi</value>
+  </data>
+  <data name="iPad16,6" xml:space="preserve">
+    <value>iPad Pro 13-inch (M4) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPod1,1" xml:space="preserve">
+    <value>iPod touch (1st generation)</value>
+  </data>
+  <data name="iPod2,1" xml:space="preserve">
+    <value>iPod touch (2nd generation)</value>
+  </data>
+  <data name="iPod2,2" xml:space="preserve">
+    <value>Unreleased iPod touch (2nd generation, Rev. A)</value>
+  </data>
+  <data name="iPod3,1" xml:space="preserve">
+    <value>iPod touch (3rd generation)</value>
+  </data>
+  <data name="iPod4,1" xml:space="preserve">
+    <value>iPod touch (4th generation)</value>
+  </data>
+  <data name="iPod4,2" xml:space="preserve">
+    <value>Unreleased iPod touch</value>
+  </data>
+  <data name="iPod5,1" xml:space="preserve">
+    <value>iPod touch (5th generation)</value>
+  </data>
+  <data name="iPod7,1" xml:space="preserve">
+    <value>iPod touch (6th generation)</value>
+  </data>
+  <data name="iPod9,1" xml:space="preserve">
+    <value>iPod touch (7th generation)</value>
+  </data>
+  <data name="x86_64" xml:space="preserve">
+    <value>Simulator</value>
+  </data>
+  <data name="iPad7,6" xml:space="preserve">
+    <value>iPad (6th generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad6,11" xml:space="preserve">
+    <value>iPad (5th generation) Wi-Fi</value>
+  </data>
+  <data name="iPad6,12" xml:space="preserve">
+    <value>iPad (5th generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad3,4" xml:space="preserve">
+    <value>iPad (4th generation) Wi-Fi</value>
+  </data>
+  <data name="iPad3,5" xml:space="preserve">
+    <value>iPad (4th generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad3,6" xml:space="preserve">
+    <value>iPad (4th generation) Wi-Fi + Cellular (MM)</value>
+  </data>
+  <data name="iPad3,1" xml:space="preserve">
+    <value>iPad (3rd generation) Wi-Fi</value>
+  </data>
+  <data name="iPad3,2" xml:space="preserve">
+    <value>iPad (3rd generation) Wi-Fi + Cellular (VZ)</value>
+  </data>
+  <data name="iPad3,3" xml:space="preserve">
+    <value>iPad (3rd generation) Wi-Fi + Cellular</value>
+  </data>
+  <data name="iPad2,1" xml:space="preserve">
+    <value>iPad 2 Wi-Fi</value>
+  </data>
+  <data name="iPad2,2" xml:space="preserve">
+    <value>iPad 2 Wi-Fi + 3G (GSM)</value>
+  </data>
+  <data name="iPad2,3" xml:space="preserve">
+    <value>iPad 2 Wi-Fi + 3G (CDMA)</value>
+  </data>
+  <data name="iPad2,4" xml:space="preserve">
+    <value>iPad 2 Wi-Fi (Mid 2012)</value>
+  </data>
+  <data name="iPad1,1" xml:space="preserve">
+    <value>iPad</value>
+  </data>
+  <data name="iPad13,20" xml:space="preserve">
+    <value>Unreleased iPad</value>
+  </data>
+  <data name="iPad13,21" xml:space="preserve">
+    <value>Unreleased iPad</value>
+  </data>
+  <data name="iPad17,1" xml:space="preserve">
+    <value>Unreleased iPad</value>
+  </data>
+  <data name="iPad17,2" xml:space="preserve">
+    <value>Unreleased iPad</value>
+  </data>
+  <data name="iPad17,3" xml:space="preserve">
+    <value>Unreleased iPad</value>
+  </data>
+  <data name="iPad17,4" xml:space="preserve">
+    <value>Unreleased iPad</value>
+  </data>
+  <data name="iPhone1,1" xml:space="preserve">
+    <value>iPhone 2G</value>
+  </data>
+  <data name="iPhone1,2" xml:space="preserve">
+    <value>iPhone 3G</value>
+  </data>
+  <data name="iPhone2,1" xml:space="preserve">
+    <value>iPhone 3GS</value>
+  </data>
+  <data name="iPhone3,1" xml:space="preserve">
+    <value>iPhone 4 (GSM)</value>
+  </data>
+  <data name="iPhone3,2" xml:space="preserve">
+    <value>iPhone 4 (GSM, 2012)</value>
+  </data>
+  <data name="iPhone3,3" xml:space="preserve">
+    <value>iPhone 4 (CDMA)</value>
+  </data>
+  <data name="iPhone4,1" xml:space="preserve">
+    <value>iPhone 4S</value>
+  </data>
+  <data name="iPhone5,1" xml:space="preserve">
+    <value>iPhone 5 (GSM)</value>
+  </data>
+  <data name="iPhone5,2" xml:space="preserve">
+    <value>iPhone 5 (CDMA)</value>
+  </data>
+  <data name="iPhone5,3" xml:space="preserve">
+    <value>iPhone 5c (GSM)</value>
+  </data>
+  <data name="iPhone5,4" xml:space="preserve">
+    <value>iPhone 5c (CDMA)</value>
+  </data>
+  <data name="iPhone6,1" xml:space="preserve">
+    <value>iPhone 5s (GSM)</value>
+  </data>
+  <data name="iPhone6,2" xml:space="preserve">
+    <value>iPhone 5s (CDMA)</value>
+  </data>
+  <data name="iPhone7,2" xml:space="preserve">
+    <value>iPhone 6</value>
+  </data>
+  <data name="iPhone7,1" xml:space="preserve">
+    <value>iPhone 6 Plus</value>
+  </data>
+  <data name="iPhone8,1" xml:space="preserve">
+    <value>iPhone 6s</value>
+  </data>
+  <data name="iPhone8,2" xml:space="preserve">
+    <value>iPhone 6s Plus</value>
+  </data>
+  <data name="iPhone8,4" xml:space="preserve">
+    <value>iPhone SE (1st generation)</value>
+  </data>
+  <data name="iPhone9,1" xml:space="preserve">
+    <value>iPhone 7 (CDMA)</value>
+  </data>
+  <data name="iPhone9,3" xml:space="preserve">
+    <value>iPhone 7 (GSM)</value>
+  </data>
+  <data name="iPhone9,2" xml:space="preserve">
+    <value>iPhone 7 Plus (CDMA)</value>
+  </data>
+  <data name="iPhone9,4" xml:space="preserve">
+    <value>iPhone 7 Plus (GSM)</value>
+  </data>
+  <data name="iPhone10,1" xml:space="preserve">
+    <value>iPhone 8 (CDMA)</value>
+  </data>
+  <data name="iPhone10,4" xml:space="preserve">
+    <value>iPhone 8 (GSM)</value>
+  </data>
+  <data name="iPhone10,2" xml:space="preserve">
+    <value>iPhone 8 Plus (CDMA)</value>
+  </data>
+  <data name="iPhone10,5" xml:space="preserve">
+    <value>iPhone 8 Plus (GSM)</value>
+  </data>
+  <data name="iPhone10,3" xml:space="preserve">
+    <value>iPhone X (CDMA)</value>
+  </data>
+  <data name="iPhone10,6" xml:space="preserve">
+    <value>iPhone X (GSM)</value>
+  </data>
+  <data name="iPhone11,2" xml:space="preserve">
+    <value>iPhone XS</value>
+  </data>
+  <data name="iPhone11,4" xml:space="preserve">
+    <value>iPhone XS Max (China mainland)</value>
+  </data>
+  <data name="iPhone11,6" xml:space="preserve">
+    <value>iPhone XS Max</value>
+  </data>
+  <data name="iPhone11,8" xml:space="preserve">
+    <value>iPhone XR</value>
+  </data>
+  <data name="iPhone12,1" xml:space="preserve">
+    <value>iPhone 11</value>
+  </data>
+  <data name="iPhone12,3" xml:space="preserve">
+    <value>iPhone 11 Pro</value>
+  </data>
+  <data name="iPhone12,5" xml:space="preserve">
+    <value>iPhone 11 Pro Max</value>
+  </data>
+  <data name="iPhone12,8" xml:space="preserve">
+    <value>iPhone SE (2nd generation)</value>
+  </data>
+  <data name="iPhone13,2" xml:space="preserve">
+    <value>iPhone 12</value>
+  </data>
+  <data name="iPhone13,1" xml:space="preserve">
+    <value>iPhone 12 mini</value>
+  </data>
+  <data name="iPhone13,3" xml:space="preserve">
+    <value>iPhone 12 Pro</value>
+  </data>
+  <data name="iPhone13,4" xml:space="preserve">
+    <value>iPhone 12 Pro Max</value>
+  </data>
+  <data name="iPhone14,5" xml:space="preserve">
+    <value>iPhone 13</value>
+  </data>
+  <data name="iPhone14,4" xml:space="preserve">
+    <value>iPhone 13 mini</value>
+  </data>
+  <data name="iPhone14,2" xml:space="preserve">
+    <value>iPhone 13 Pro</value>
+  </data>
+  <data name="iPhone14,3" xml:space="preserve">
+    <value>iPhone 13 Pro Max</value>
+  </data>
+  <data name="iPhone14,6" xml:space="preserve">
+    <value>iPhone SE (3rd generation)</value>
+  </data>
+  <data name="iPhone14,7" xml:space="preserve">
+    <value>iPhone 14</value>
+  </data>
+  <data name="iPhone14,8" xml:space="preserve">
+    <value>iPhone 14 Plus</value>
+  </data>
+  <data name="iPhone15,2" xml:space="preserve">
+    <value>iPhone 14 Pro</value>
+  </data>
+  <data name="iPhone15,3" xml:space="preserve">
+    <value>iPhone 14 Pro Max</value>
+  </data>
+  <data name="iPhone15,4" xml:space="preserve">
+    <value>iPhone 15</value>
+  </data>
+  <data name="iPhone15,5" xml:space="preserve">
+    <value>iPhone 15 Plus</value>
+  </data>
+  <data name="iPhone16,1" xml:space="preserve">
+    <value>iPhone 15 Pro</value>
+  </data>
+  <data name="iPhone16,2" xml:space="preserve">
+    <value>iPhone 15 Pro Max</value>
+  </data>
+  <data name="iPhone17,3" xml:space="preserve">
+    <value>iPhone 16</value>
+  </data>
+  <data name="iPhone17,4" xml:space="preserve">
+    <value>iPhone 16 Plus</value>
+  </data>
+  <data name="iPhone17,1" xml:space="preserve">
+    <value>iPhone 16 Pro</value>
+  </data>
+  <data name="iPhone17,2" xml:space="preserve">
+    <value>iPhone 16 Pro Max</value>
+  </data>
+  <data name="iPhone17,5" xml:space="preserve">
+    <value>iPhone 16e</value>
+  </data>
+</root>
