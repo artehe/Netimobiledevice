@@ -43,23 +43,63 @@ internal class BinaryUsbmuxConnection(UsbmuxdSocket sock, ILogger? logger = null
 
     private void ReceiveDeviceStateUpdate()
     {
-        (UsbmuxdHeader header, byte[] payload) = Receive();
-        if (header.Message == UsbmuxdMessageType.Add) {
+        UsbmuxPacket packet = Receive();
+        if (packet.Header.Message == UsbmuxdMessageType.Add) {
             // Old protocol only supported USB devices
-            AddResponse response = new AddResponse(header, payload);
+            AddResponse response = new AddResponse(packet.Header, packet.Payload);
             UsbmuxdDevice usbmuxdDevice = new UsbmuxdDevice(response.DeviceRecord.DeviceId, response.DeviceRecord.SerialNumber, UsbmuxdConnectionType.Usb);
             AddDevice(usbmuxdDevice);
         }
-        else if (header.Message == UsbmuxdMessageType.Remove) {
-            RemoveResponse response = new RemoveResponse(header, payload);
+        else if (packet.Header.Message == UsbmuxdMessageType.Remove) {
+            RemoveResponse response = new RemoveResponse(packet.Header, packet.Payload);
             RemoveDevice(response.DeviceId);
         }
         else {
-            throw new UsbmuxException($"Invalid packet type received: {header.Message}");
+            throw new UsbmuxException($"Invalid packet type received: {packet.Header.Message}");
         }
     }
 
-    protected override async Task RequestConnect(long deviceId, ushort port, CancellationToken cancellationToken = default)
+    private async Task ReceiveDeviceStateUpdateAsync(CancellationToken cancellationToken = default)
+    {
+        UsbmuxPacket packet = await ReceiveAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (packet.Header.Message == UsbmuxdMessageType.Add) {
+            // Old protocol only supported USB devices
+            AddResponse response = new AddResponse(packet.Header, packet.Payload);
+            UsbmuxdDevice usbmuxdDevice = new UsbmuxdDevice(response.DeviceRecord.DeviceId, response.DeviceRecord.SerialNumber, UsbmuxdConnectionType.Usb);
+            AddDevice(usbmuxdDevice);
+        }
+        else if (packet.Header.Message == UsbmuxdMessageType.Remove) {
+            RemoveResponse response = new RemoveResponse(packet.Header, packet.Payload);
+            RemoveDevice(response.DeviceId);
+        }
+        else {
+            throw new UsbmuxException($"Invalid packet type received: {packet.Header.Message}");
+        }
+    }
+
+    protected override void RequestConnect(long deviceId, ushort port, CancellationToken cancellationToken = default)
+    {
+        byte[] message =
+        [
+            .. BitConverter.GetBytes((int) deviceId),
+            .. BitConverter.GetBytes((int) EndianNetworkConverter.HostToNetworkOrder(port)),
+            0x00,
+            0x00,
+        ];
+        SendPacket(UsbmuxdMessageType.Connect, Tag, message);
+
+        UsbmuxPacket packet = Receive();
+        if (packet.Header.Message != UsbmuxdMessageType.Result) {
+            throw new UsbmuxException($"Unxepected message type received: {packet.Header.Message}");
+        }
+
+        ResultResponse response = new ResultResponse(packet.Header, packet.Payload);
+        if (response.Result != UsbmuxdResult.Ok) {
+            throw new UsbmuxException($"{UsbmuxdMessageType.Connect} failed with error code {response.Result}");
+        }
+    }
+
+    protected override async Task RequestConnectAsync(long deviceId, ushort port, CancellationToken cancellationToken = default)
     {
         byte[] message =
         [
@@ -101,6 +141,22 @@ internal class BinaryUsbmuxConnection(UsbmuxdSocket sock, ILogger? logger = null
             Sock.SetTimeout((int) (end - DateTime.Now).TotalMilliseconds);
             try {
                 ReceiveDeviceStateUpdate();
+            }
+            catch (Exception ex) {
+                throw new UsbmuxException("Exception in listener socket", ex);
+            }
+        }
+    }
+
+    public override async Task UpdateDeviceListAsync(int timeout = 5000, CancellationToken cancellationToken = default)
+    {
+        AssertNotConnected();
+        DateTime end = DateTime.Now + new TimeSpan(timeout * 1000 * 10);
+        await ListenAsync(cancellationToken).ConfigureAwait(false);
+        while (DateTime.Now < end) {
+            Sock.SetTimeout((int) (end - DateTime.Now).TotalMilliseconds);
+            try {
+                await ReceiveDeviceStateUpdateAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex) {
                 throw new UsbmuxException("Exception in listener socket", ex);

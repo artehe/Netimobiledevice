@@ -6,14 +6,19 @@ using System.IO;
 
 namespace Netimobiledevice.Lockdown;
 
-public class PlistUsbmuxLockdownClient : UsbmuxLockdownClient
+public class PlistUsbmuxLockdownClient(
+    ServiceConnection service,
+    string hostId,
+    string identifier = "",
+    string label = LockdownClient.DEFAULT_CLIENT_NAME,
+    string systemBuid = LockdownClient.SYSTEM_BUID,
+    DictionaryNode? pairRecord = null,
+    DirectoryInfo? pairingRecordsCacheDirectory = null,
+    ushort port = LockdownClient.SERVICE_PORT,
+    string usbmuxAddress = "",
+    ILogger? logger = null
+) : UsbmuxLockdownClient(service, hostId, identifier, label, systemBuid, pairRecord, pairingRecordsCacheDirectory, port, usbmuxAddress, logger)
 {
-    public PlistUsbmuxLockdownClient(ServiceConnection service, string hostId, string identifier = "", string label = DEFAULT_CLIENT_NAME, string systemBuid = SYSTEM_BUID,
-        DictionaryNode? pairRecord = null, DirectoryInfo? pairingRecordsCacheDirectory = null, ushort port = SERVICE_PORT, string usbmuxAddress = "", ILogger? logger = null)
-        : base(service, hostId, identifier, label, systemBuid, pairRecord, pairingRecordsCacheDirectory, port, usbmuxAddress, logger)
-    {
-    }
-
     public override void SavePairRecord()
     {
         base.SavePairRecord();
