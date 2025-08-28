@@ -168,6 +168,70 @@ namespace Netimobiledevice.Afc
             }
         }
 
+        /// <summary>
+        /// Reads data from an open file handle and writes it to the specified local file path.
+        /// </summary>
+        /// <param name="handle">The handle of the remote file to read from.</param>
+        /// <param name="size">The total size of the file in bytes.</param>
+        /// <param name="sourceFilePath">The remote source file path being downloaded.</param>
+        /// <param name="downloadFilePath">The local file path where the file will be saved.</param>
+        /// <param name="progressTrakerFunc">A callback function to report download progress (source file and total bytes downloaded).</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests during the download process.</param>
+        /// <returns>A task representing the asynchronous file download operation.</returns>
+        /// <exception cref="AfcException">
+        /// Thrown when an AFC protocol error occurs or if the file read operation fails.
+        /// </exception>
+        private async Task DownloadFileAsync(ulong handle, ulong size, string sourceFilePath, string downloadFilePath, Action<string, int> progressTrakerFunc, CancellationToken cancellationToken)
+        {
+            int totalBytes = 0;
+            using FileStream? fileStream = new FileStream(downloadFilePath, FileMode.Create);
+            AfcFileReadRequest packet = new AfcFileReadRequest {
+                Handle = handle,
+                Size = size
+            };
+
+            while (size > (ulong) totalBytes) {
+                await DispatchPacket(AfcOpCode.Read, packet, cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
+
+                //var (afcError, collection) = await ReceiveData(cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
+                byte[] fileChunkBytes = await base.Service.ReceiveAsync(AfcHeader.GetSize(), cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
+                AfcError afcError = AfcError.Success;
+                byte[] fileChunk = Array.Empty<byte>();
+                if (fileChunkBytes.Length != 0) {
+                    AfcHeader afcHeader = AfcHeader.FromBytes(fileChunkBytes);
+                    if (afcHeader.EntireLength < (ulong) AfcHeader.GetSize()) {
+                        throw new AfcException("Expected more bytes in afc header than receieved");
+                    }
+
+                    int num = (int) afcHeader.EntireLength - AfcHeader.GetSize();
+                    fileChunk = await base.Service.ReceiveAsync(num, cancellationToken);
+                    if (afcHeader.Operation == AfcOpCode.Status) {
+                        if (num != 8) {
+                            base.Logger?.LogWarning("Status length is not 8 bytes long");
+                        }
+
+                        afcError = (AfcError) BitConverter.ToUInt64(fileChunk, 0);
+                    }
+                }
+
+                if (afcError != AfcError.Success) {
+                    throw new AfcException(afcError, "File Read Error");
+                }
+
+                int bytesRead = fileChunk.Length;
+
+                await fileStream.WriteAsync(fileChunk, 0, bytesRead);
+
+                totalBytes += bytesRead;
+
+                if (progressTrakerFunc != null) {
+                    Task.Run(() => progressTrakerFunc(sourceFilePath, totalBytes));
+                }
+
+            }
+
+        }
+
         public async Task FileClose(ulong handle, CancellationToken cancellationToken)
         {
             AfcFileCloseRequest request = new AfcFileCloseRequest(handle);
@@ -580,5 +644,45 @@ namespace Netimobiledevice.Afc
                 }
             }
         }
+
+        /// <summary>
+        /// Downloads the contents of a file from the specified source path to a local destination.
+        /// </summary>
+        /// <param name="sourceFilePath">The remote source file path to download from.</param>
+        /// <param name="downloadFilePath">The local file path where the downloaded file will be saved.</param>
+        /// <param name="progressTrakerFunc">A callback function to report download progress (source file and total bytes downloaded).</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>A task representing the asynchronous download operation.</returns>
+        /// <exception cref="AfcException">
+        /// Thrown when the file info cannot be retrieved or the source path does not point to a regular file.
+        /// </exception>
+        public async Task DownloadFileContentsAsync(string sourceFilePath, string downloadFilePath, Action<string, int> progressTrakerFunc, CancellationToken cancellationToken)
+        {
+            sourceFilePath = await ResolvePath(sourceFilePath, cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
+            DictionaryNode info = (await GetFileInfo(sourceFilePath, cancellationToken).ConfigureAwait(continueOnCapturedContext: false)) ?? new DictionaryNode();
+            if (!info.TryGetValue("st_ifmt", out PropertyNode value)) {
+                throw new AfcException(AfcError.ObjectNotFound, "couldn't find st_ifmt in file info");
+            }
+
+            if (value.AsStringNode().Value != "S_IFREG") {
+                throw new AfcException(AfcError.InvalidArg, sourceFilePath + " isn't a file");
+            }
+
+            ulong handle = await FileOpen(sourceFilePath, cancellationToken, AfcFileOpenMode.ReadOnly).ConfigureAwait(continueOnCapturedContext: false);
+            if (handle == 0L) {
+                return;
+            }
+
+            await DownloadFileAsync(handle, info["st_size"].AsIntegerNode().Value, sourceFilePath, downloadFilePath, progressTrakerFunc, cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
+            await FileClose(handle, cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
+        }
+
+        public async Task<List<string>> GetDirectoryList(string directory, CancellationToken cancellationToken)
+        {
+            AfcFileInfoRequest packet = new AfcFileInfoRequest(directory);
+            return ParseFileInfoResponseForMessage(await RunOperation(AfcOpCode.ReadDir, packet, cancellationToken).ConfigureAwait(continueOnCapturedContext: false));
+
+        }
+
     }
 }
