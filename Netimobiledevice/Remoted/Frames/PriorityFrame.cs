@@ -54,9 +54,6 @@ namespace Netimobiledevice.Remoted.Frames
             _weight = payloadData[4];
         }
 
-        public override string ToString() => string.Format("[Frame: PRIORITY, Id={0}, StreamDependency={1}, Weight={2}]",
-                StreamIdentifier,
-                StreamDependency,
-                Weight);
+        public override string ToString() => $"[Frame: PRIORITY, Id={StreamIdentifier}, StreamDependency={StreamDependency}, Weight={Weight}]";
     }
 }

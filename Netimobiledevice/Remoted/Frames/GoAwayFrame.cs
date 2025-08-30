@@ -53,11 +53,7 @@ namespace Netimobiledevice.Remoted.Frames
                 debug = System.Text.Encoding.ASCII.GetString(AdditionalDebugData);
             }
 
-            return string.Format("[Frame: GOAWAY, Id={0}, ErrorCode={1}, LastStreamId={2}, AdditionalDebugData={3}]",
-                StreamIdentifier,
-                ErrorCode,
-                LastStreamId,
-                debug);
+            return $"[Frame: GOAWAY, Id={StreamIdentifier}, ErrorCode={ErrorCode}, LastStreamId={LastStreamId}, AdditionalDebugData={debug}]";
         }
     }
 }

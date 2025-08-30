@@ -77,11 +77,6 @@ namespace Netimobiledevice.Remoted.Frames
             Array.Copy(payloadData, index, Data, 0, Data.Length);
         }
 
-        public override string ToString() => string.Format("[Frame: DATA, Id={0}, EndStream={1}, Padded={2}, PadLength={3}, PayloadLength={4}]",
-                StreamIdentifier,
-                IsEndStream,
-                Padded,
-                PadLength,
-                PayloadLength);
+        public override string ToString() => $"[Frame: DATA, Id={StreamIdentifier}, EndStream={IsEndStream}, Padded={Padded}, PadLength={PadLength}, PayloadLength={PayloadLength}]";
     }
 }

@@ -74,18 +74,18 @@ public class GetValueTests
             int outputSize)
     {
         // Null check
-        Assert.ThrowsException<ArgumentNullException>(() => machineEndianBitConverterMethod(null!, 0));
-        Assert.ThrowsException<ArgumentNullException>(() => otherEndianBitConverterMethod(null!, 0));
+        Assert.ThrowsExactly<ArgumentNullException>(() => machineEndianBitConverterMethod(null!, 0));
+        Assert.ThrowsExactly<ArgumentNullException>(() => otherEndianBitConverterMethod(null!, 0));
 
         // Negative index
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => machineEndianBitConverterMethod(new byte[8], -1));
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => otherEndianBitConverterMethod(new byte[8], -1));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => machineEndianBitConverterMethod(new byte[8], -1));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => otherEndianBitConverterMethod(new byte[8], -1));
 
         // Index + outputSize longer than byte array
         const int arrayLength = 16;
         int badStartIndex = arrayLength - outputSize + 1;
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => machineEndianBitConverterMethod(new byte[arrayLength], badStartIndex));
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => otherEndianBitConverterMethod(new byte[arrayLength], badStartIndex));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => machineEndianBitConverterMethod(new byte[arrayLength], badStartIndex));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => otherEndianBitConverterMethod(new byte[arrayLength], badStartIndex));
     }
 
     [ClassInitialize()]

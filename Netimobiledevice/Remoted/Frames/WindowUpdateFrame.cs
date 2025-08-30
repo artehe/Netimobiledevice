@@ -26,8 +26,6 @@ namespace Netimobiledevice.Remoted.Frames
             WindowSizeIncrement = ConvertFromUInt31(windowSizeIncrData.EnsureBigEndian());
         }
 
-        public override string ToString() => string.Format("[Frame: WINDOW_UPDATE, Id={0}, WindowSizeIncrement={1}]",
-                StreamIdentifier,
-                WindowSizeIncrement);
+        public override string ToString() => $"[Frame: WINDOW_UPDATE, Id={StreamIdentifier}, WindowSizeIncrement={WindowSizeIncrement}]";
     }
 }
