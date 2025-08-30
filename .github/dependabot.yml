@@ -5,7 +5,11 @@
 
 version: 2
 updates:
-  - package-ecosystem: "dotnet-sdk" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  - package-ecosystem: "dotnet-sdk"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "github-actions"
+    directory: "/"
     schedule:
       interval: "weekly"
