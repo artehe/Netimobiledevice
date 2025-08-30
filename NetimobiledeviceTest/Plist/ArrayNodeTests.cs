@@ -19,7 +19,7 @@ public class ArrayNodeTests
         int indexToTry = property.Count;
 
         PropertyNode node;
-        Assert.ThrowsException<ArgumentOutOfRangeException>(() => node = property[indexToTry]);
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => node = property[indexToTry]);
     }
 
     [TestMethod]

@@ -30,11 +30,7 @@ namespace Netimobiledevice.Remoted.Frames
 
         public override string ToString()
         {
-            return string.Format("[Frame: CONTINUATION, Id={0}, EndStream={1}, EndHeaders={2}, HeaderBlockFragmentLength={3}]",
-                StreamIdentifier,
-                IsEndStream,
-                EndHeaders,
-                HeaderBlockFragment.Length);
+            return $"[Frame: CONTINUATION, Id={StreamIdentifier}, EndStream={IsEndStream}, EndHeaders={EndHeaders}, HeaderBlockFragmentLength={HeaderBlockFragment.Length}]";
         }
 
     }

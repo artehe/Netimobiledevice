@@ -157,6 +157,6 @@ namespace Netimobiledevice.Remoted.Frames
 
         public abstract void ParsePayload(byte[] payloadData, FrameHeader frameHeader);
 
-        public override string ToString() => string.Format("[Frame: {0}, Id={1}, Flags={2}, PayloadLength={3}, IsEndStream={4}]", Type.ToString().ToUpperInvariant(), StreamIdentifier, Flags, PayloadLength, IsEndStream);
+        public override string ToString() => $"[Frame: {Type.ToString().ToUpperInvariant()}, Id={StreamIdentifier}, Flags={Flags}, PayloadLength={PayloadLength}, IsEndStream={IsEndStream}]";
     }
 }

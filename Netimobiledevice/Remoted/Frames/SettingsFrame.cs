@@ -89,15 +89,7 @@ namespace Netimobiledevice.Remoted.Frames
 
         public override string ToString()
         {
-            return string.Format("[Frame: SETTINGS, Id={0}, Ack={1}, HeaderTableSize={2}, EnablePush={3}, MaxConcurrentStreams={4}, InitialWindowSize={5}, MaxFrameSize={6}, MaxHeaderListSize={7}]",
-                StreamIdentifier,
-                Ack,
-                HeaderTableSize,
-                EnablePush,
-                MaxConcurrentStreams,
-                InitialWindowSize,
-                MaxFrameSize,
-                MaxHeaderListSize);
+            return $"[Frame: SETTINGS, Id={StreamIdentifier}, Ack={Ack}, HeaderTableSize={HeaderTableSize}, EnablePush={EnablePush}, MaxConcurrentStreams={MaxConcurrentStreams}, InitialWindowSize={InitialWindowSize}, MaxFrameSize={MaxFrameSize}, MaxHeaderListSize={MaxHeaderListSize}]";
         }
 
     }
