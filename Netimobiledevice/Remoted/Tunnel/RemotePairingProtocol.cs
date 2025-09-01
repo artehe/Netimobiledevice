@@ -26,7 +26,12 @@ namespace Netimobiledevice.Remoted.Tunnel
             return await ReceiveResponse();
         }
 
-        public Task Connect(bool autopair = true) => Task.CompletedTask;
+        public Task Connect(bool autopair = true)
+        {
+            // TODO
+            return Task.CompletedTask;
+            ;
+        }
 
         public string RemoteDeviceModel => HandshakeInfo["peerDeviceInfo"]["model"].ToString();
     }
