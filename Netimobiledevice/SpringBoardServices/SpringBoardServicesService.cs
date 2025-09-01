@@ -60,7 +60,7 @@ public sealed class SpringBoardServicesService(LockdownServiceProvider lockdown,
     /// </summary>
     /// <param name="bundleId">The bundle identifier of the applicaition.</param>
     /// <returns>The byte array containing the PNG icon.</returns>
-    public async Task<DataNode> GetIconPngDataASync(string bundleId, CancellationToken cancellationToken = default)
+    public async Task<DataNode> GetIconPngDataAsync(string bundleId, CancellationToken cancellationToken = default)
     {
         DictionaryNode command = CreateCommand("getIconPNGData");
         command.Add("bundleId", new StringNode(bundleId));
