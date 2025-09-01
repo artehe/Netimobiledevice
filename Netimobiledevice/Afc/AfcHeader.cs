@@ -4,9 +4,7 @@ namespace Netimobiledevice.Afc;
 
 internal class AfcHeader
 {
-    private readonly static byte[] MAGIC_STRING = "CFA6LPAA"u8.ToArray();
-
-    public byte[] Magic => MAGIC_STRING;
+    public static byte[] MAGIC { get; } = "CFA6LPAA"u8.ToArray();
 
     public ulong EntireLength { get; set; }
     public ulong Length { get; set; }
@@ -15,8 +13,8 @@ internal class AfcHeader
 
     public static AfcHeader FromBytes(ReadOnlySpan<byte> bytes)
     {
-        ReadOnlySpan<byte> readMagicBytes = bytes[..MAGIC_STRING.Length];
-        if (!readMagicBytes.SequenceEqual(MAGIC_STRING)) {
+        ReadOnlySpan<byte> readMagicBytes = bytes[..MAGIC.Length];
+        if (!readMagicBytes.SequenceEqual(MAGIC)) {
             throw new AfcException("Missmatch in magic bytes for afc header");
         }
 
@@ -31,12 +29,12 @@ internal class AfcHeader
 
     public byte[] GetBytes() =>
         [
-            .. Magic,
+            .. MAGIC,
             .. BitConverter.GetBytes(EntireLength),
             .. BitConverter.GetBytes(Length),
             .. BitConverter.GetBytes(PacketNumber),
             .. BitConverter.GetBytes((ulong) Operation),
         ];
 
-    public static int GetSize() => MAGIC_STRING.Length + (sizeof(ulong) * 4);
+    public static int GetSize() => MAGIC.Length + (sizeof(ulong) * 4);
 }
