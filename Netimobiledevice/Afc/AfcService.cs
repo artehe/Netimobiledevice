@@ -173,15 +173,14 @@ namespace Netimobiledevice.Afc
         /// </summary>
         /// <param name="handle">The handle of the remote file to read from.</param>
         /// <param name="size">The total size of the file in bytes.</param>
-        /// <param name="sourceFilePath">The remote source file path being downloaded.</param>
         /// <param name="downloadFilePath">The local file path where the file will be saved.</param>
-        /// <param name="progressTrakerFunc">A callback function to report download progress (source file and total bytes downloaded).</param>
+        /// <param name = "progressTracker" >A callback function that reports download progress, providing the total number of bytes downloaded.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests during the download process.</param>
         /// <returns>A task representing the asynchronous file download operation.</returns>
         /// <exception cref="AfcException">
         /// Thrown when an AFC protocol error occurs or if the file read operation fails.
         /// </exception>
-        private async Task DownloadFileAsync(ulong handle, ulong size, string sourceFilePath, string downloadFilePath, Action<string, int> progressTrakerFunc, CancellationToken cancellationToken)
+        private async Task DownloadFileAsync(ulong handle, ulong size, string downloadFilePath, IProgress<long> progressTracker, CancellationToken cancellationToken)
         {
             int totalBytes = 0;
             using FileStream? fileStream = new FileStream(downloadFilePath, FileMode.Create);
@@ -224,9 +223,7 @@ namespace Netimobiledevice.Afc
 
                 totalBytes += bytesRead;
 
-                if (progressTrakerFunc != null) {
-                    Task.Run(() => progressTrakerFunc(sourceFilePath, totalBytes));
-                }
+                progressTracker?.Report(totalBytes);
 
             }
 
@@ -650,13 +647,13 @@ namespace Netimobiledevice.Afc
         /// </summary>
         /// <param name="sourceFilePath">The remote source file path to download from.</param>
         /// <param name="downloadFilePath">The local file path where the downloaded file will be saved.</param>
-        /// <param name="progressTrakerFunc">A callback function to report download progress (source file and total bytes downloaded).</param>
+        /// <param name="progressTracker">A callback function to report download progress (source file and total bytes downloaded).</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A task representing the asynchronous download operation.</returns>
         /// <exception cref="AfcException">
         /// Thrown when the file info cannot be retrieved or the source path does not point to a regular file.
         /// </exception>
-        public async Task DownloadFileContentsAsync(string sourceFilePath, string downloadFilePath, Action<string, int> progressTrakerFunc, CancellationToken cancellationToken)
+        public async Task DownloadFileContentsAsync(string sourceFilePath, string downloadFilePath, IProgress<long> progressTracker, CancellationToken cancellationToken)
         {
             sourceFilePath = await ResolvePath(sourceFilePath, cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
             DictionaryNode info = (await GetFileInfo(sourceFilePath, cancellationToken).ConfigureAwait(continueOnCapturedContext: false)) ?? new DictionaryNode();
@@ -673,7 +670,7 @@ namespace Netimobiledevice.Afc
                 return;
             }
 
-            await DownloadFileAsync(handle, info["st_size"].AsIntegerNode().Value, sourceFilePath, downloadFilePath, progressTrakerFunc, cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
+            await DownloadFileAsync(handle, info["st_size"].AsIntegerNode().Value, downloadFilePath, progressTracker, cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
             await FileClose(handle, cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
         }
 
