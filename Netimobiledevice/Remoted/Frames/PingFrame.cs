@@ -36,9 +36,6 @@ namespace Netimobiledevice.Remoted.Frames
             }
         }
 
-        public override string ToString() => string.Format("[Frame: PING, Id={0}, Ack={1}, OpaqueData={2}]",
-                StreamIdentifier,
-                Ack,
-                OpaqueData.Length);
+        public override string ToString() => $"[Frame: PING, Id={StreamIdentifier}, Ack={Ack}, OpaqueData={OpaqueData.Length}]";
     }
 }

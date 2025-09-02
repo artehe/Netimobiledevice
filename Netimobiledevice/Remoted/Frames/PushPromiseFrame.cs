@@ -99,13 +99,6 @@ namespace Netimobiledevice.Remoted.Frames
             // Don't care about padding
         }
 
-        public override string ToString() => string.Format("[Frame: PUSH_PROMISE, Id={0}, EndStream={1}, EndHeaders={2}, StreamDependency={3}, Padded={4}, PadLength={5}, HeaderBlockFragmentLength={6}]",
-                StreamIdentifier,
-                IsEndStream,
-                EndHeaders,
-                StreamDependency,
-                Padded,
-                PadLength,
-                HeaderBlockFragment.Length);
+        public override string ToString() => $"[Frame: PUSH_PROMISE, Id={StreamIdentifier}, EndStream={IsEndStream}, EndHeaders={EndHeaders}, StreamDependency={StreamDependency}, Padded={Padded}, PadLength={PadLength}, HeaderBlockFragmentLength={HeaderBlockFragment.Length}]";
     }
 }

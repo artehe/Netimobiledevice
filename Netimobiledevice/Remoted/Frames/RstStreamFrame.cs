@@ -37,8 +37,6 @@ namespace Netimobiledevice.Remoted.Frames
             }
         }
 
-        public override string ToString() => string.Format("[Frame: RST_STREAM, Id={0}, ErrorCode={1}]",
-                StreamIdentifier,
-                ErrorCode);
+        public override string ToString() => $"[Frame: RST_STREAM, Id={StreamIdentifier}, ErrorCode={ErrorCode}]";
     }
 }
