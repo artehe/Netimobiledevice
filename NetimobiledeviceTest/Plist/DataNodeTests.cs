@@ -8,7 +8,7 @@ public class DataNodeTests
     [TestMethod]
     public void ByteSequenceIsCorrectUsingShortArray()
     {
-        byte[] initialByteArray = new byte[] { 255 };
+        byte[] initialByteArray = [255];
 
         DataNode node = new DataNode(initialByteArray);
         Assert.AreEqual(1, node.Value.Length);
@@ -20,11 +20,11 @@ public class DataNodeTests
     [TestMethod]
     public void ByteSequenceIsCorrectUsingLongArray()
     {
-        List<byte> longByteArray = new List<byte>();
+        List<byte> longByteArray = [];
         for (int i = 1; i < 256; i++) {
             longByteArray.Add((byte) i);
         }
-        byte[] initialByteArray = longByteArray.ToArray();
+        byte[] initialByteArray = [.. longByteArray];
 
         DataNode node = new DataNode(initialByteArray);
         Assert.AreEqual(255, node.Value.Length);
@@ -36,7 +36,7 @@ public class DataNodeTests
     [TestMethod]
     public void ByteSequenceIsCorrectUsingZeroByteValueAtStart()
     {
-        byte[] initialByteArray = new byte[] { 0, 1, 2, 3, 4, 5, 6, 7 };
+        byte[] initialByteArray = [0, 1, 2, 3, 4, 5, 6, 7];
 
         DataNode node = new DataNode(initialByteArray);
         Assert.AreEqual(8, node.Value.Length);
@@ -48,7 +48,7 @@ public class DataNodeTests
     [TestMethod]
     public void ByteSequenceIsCorrectUsingZeroByteValueInMiddle()
     {
-        byte[] initialByteArray = new byte[] { 1, 2, 3, 4, 0, 3, 2, 1 };
+        byte[] initialByteArray = [1, 2, 3, 4, 0, 3, 2, 1];
 
         DataNode node = new DataNode(initialByteArray);
         Assert.AreEqual(8, node.Value.Length);
@@ -60,7 +60,7 @@ public class DataNodeTests
     [TestMethod]
     public void ByteSequenceIsCorrectUsingZeroByteValueAtEnd()
     {
-        byte[] initialByteArray = new byte[] { 1, 2, 3, 4, 5, 6, 7, 0 };
+        byte[] initialByteArray = [1, 2, 3, 4, 5, 6, 7, 0];
 
         DataNode node = new DataNode(initialByteArray);
         Assert.AreEqual(8, node.Value.Length);
@@ -72,14 +72,14 @@ public class DataNodeTests
     [TestMethod]
     public void ToStringReturnsNodeType()
     {
-        DataNode value = new DataNode(new byte[] { 0, 1, 2, 3, 4, 5, 6, 7 });
+        DataNode value = new DataNode([0, 1, 2, 3, 4, 5, 6, 7]);
         Assert.AreEqual($"<data>: System.Byte[]", value.ToString());
     }
 
     [TestMethod]
     public void PropertyNodeConvertsToByteArray()
     {
-        byte[] initialByteArray = new byte[] { 0, 1, 2, 3, 4, 5, 6, 7 };
+        byte[] initialByteArray = [0, 1, 2, 3, 4, 5, 6, 7];
         PropertyNode property = new DataNode(initialByteArray);
         byte[] returntedByteArray = ((DataNode) property).Value;
         Assert.AreEqual(initialByteArray, returntedByteArray);

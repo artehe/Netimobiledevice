@@ -94,8 +94,8 @@ public class XmlWriterTests
             // check that boolean was written out without a space per spec (see also issue #11)
             using (var reader = new StreamReader(outStream)) {
                 string contents = reader.ReadToEnd();
-                Assert.IsTrue(contents.Contains("<true/>"));
-                Assert.IsTrue(contents.Contains("<false/>"));
+                Assert.Contains("<true/>", contents);
+                Assert.Contains("<false/>", contents);
             }
 
         }
@@ -115,7 +115,7 @@ public class XmlWriterTests
             outStream.Seek(0, SeekOrigin.Begin);
 
             DictionaryNode newNode = PropertyList.LoadFromByteArray(outStream.ToArray()).AsDictionaryNode();
-            Assert.AreEqual(true, newNode["Test"].AsStringNode().IsUtf16);
+            Assert.IsTrue(newNode["Test"].AsStringNode().IsUtf16);
             Assert.AreEqual(utf16value, newNode["Test"].AsStringNode().Value);
 
             outStream.Seek(0, SeekOrigin.Begin);
@@ -123,7 +123,7 @@ public class XmlWriterTests
             // check that boolean was written out without a space per spec
             using (var reader = new StreamReader(outStream)) {
                 string contents = reader.ReadToEnd();
-                Assert.IsTrue(contents.Contains($"<string>{utf16value}</string>"));
+                Assert.Contains($"<string>{utf16value}</string>", contents);
             }
         }
     }
@@ -149,7 +149,7 @@ public class XmlWriterTests
 
             using (var reader = new StreamReader(outStream)) {
                 string contents = reader.ReadToEnd();
-                Assert.IsTrue(contents.Contains($"<integer>{pid}</integer>"));
+                Assert.Contains($"<integer>{pid}</integer>", contents);
             }
         }
 
@@ -163,11 +163,11 @@ public class XmlWriterTests
     [TestMethod]
     public void HandlesUniqueCharacters()
     {
-        ArrayNode array = new() {
+        ArrayNode array = [
             new StringNode("&"),
             new StringNode("<"),
             new StringNode(">")
-        };
+        ];
 
         byte[] plistBytes = PropertyList.SaveAsByteArray(array, PlistFormat.Xml);
         ArrayNode reReadArr = PropertyList.LoadFromByteArray(plistBytes).AsArrayNode();

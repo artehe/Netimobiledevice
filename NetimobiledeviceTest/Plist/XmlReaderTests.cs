@@ -76,7 +76,7 @@ public class XmlReaderTests
                 PropertyNode node = PropertyList.Load(stream);
                 DictionaryNode dictNode = node.AsDictionaryNode();
                 Assert.IsNotNull(dictNode);
-                Assert.AreEqual(32768, dictNode.Keys.Count);
+                Assert.HasCount(32768, dictNode.Keys);
             }
             catch (PlistFormatException ex) {
                 Assert.Fail(ex.Message);
