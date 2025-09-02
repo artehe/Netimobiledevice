@@ -1154,17 +1154,21 @@ public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger
         if (response.ContainsKey("Status") && response["Status"].AsStringNode().Value != "Success") {
             throw new DiagnosticsException("Failed to query MobileGestalt");
         }
-        if (response.ContainsKey("Diagnostics")) {
-            PropertyNode status = response["Diagnostics"].AsDictionaryNode()["MobileGestalt"].AsDictionaryNode()["Status"];
-            if (status.AsStringNode().Value == "MobileGestaltDeprecated") {
-                throw new DeprecatedException("Failed to query MobileGestalt; deprecated as of iOS >= 17.4.");
-            }
-            else if (status.AsStringNode().Value != "Success") {
-                throw new DiagnosticsException("Failed to query MobileGestalt");
+
+        if (response.TryGetValue("Diagnostics", out PropertyNode? diagnosticsNode)) {
+            if (diagnosticsNode.AsDictionaryNode().TryGetValue("MobileGestalt", out PropertyNode? mobileGestaltNode)) {
+                PropertyNode status = mobileGestaltNode.AsDictionaryNode()["Status"];
+                if (status.AsStringNode().Value == "MobileGestaltDeprecated") {
+                    throw new DeprecatedException("Failed to query MobileGestalt; deprecated as of iOS >= 17.4.");
+                }
+                else if (status.AsStringNode().Value != "Success") {
+                    throw new DiagnosticsException("Failed to query MobileGestalt");
+                }
+                return mobileGestaltNode.AsDictionaryNode();
             }
         }
 
-        return response["Diagnostics"].AsDictionaryNode()["MobileGestalt"].AsDictionaryNode();
+        throw new DiagnosticsException("Failed to query MobileGestalt");
     }
 
     public async Task<DictionaryNode> MobileGestaltAsync(string[] keys, CancellationToken cancellationToken)
@@ -1183,7 +1187,6 @@ public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger
         if (dict.TryGetValue("Status", out PropertyNode? statusNode) && statusNode.AsStringNode().Value != "Success") {
             throw new DiagnosticsException("Failed to query MobileGestalt");
         }
-
 
         if (dict.TryGetValue("Diagnostics", out PropertyNode? diagnosticsNode)) {
             if (diagnosticsNode.AsDictionaryNode().TryGetValue("MobileGestalt", out PropertyNode? mobileGestaltNode)) {
