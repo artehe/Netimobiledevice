@@ -180,7 +180,7 @@ namespace Netimobiledevice.Afc
         /// <exception cref="AfcException">
         /// Thrown when an AFC protocol error occurs or if the file read operation fails.
         /// </exception>
-        private async Task DownloadFileAsync(ulong handle, ulong size, string downloadFilePath, IProgress<long> progressTracker, CancellationToken cancellationToken)
+        private async Task DownloadFileAsync(ulong handle, ulong size, string downloadFilePath, IProgress<long>? progressTracker, CancellationToken cancellationToken)
         {
             int totalBytes = 0;
             using FileStream? fileStream = new FileStream(downloadFilePath, FileMode.Create);
@@ -653,7 +653,7 @@ namespace Netimobiledevice.Afc
         /// <exception cref="AfcException">
         /// Thrown when the file info cannot be retrieved or the source path does not point to a regular file.
         /// </exception>
-        public async Task DownloadFileContentsAsync(string sourceFilePath, string downloadFilePath, IProgress<long> progressTracker, CancellationToken cancellationToken)
+        public async Task DownloadFileContentsAsync(string sourceFilePath, string downloadFilePath, IProgress<long>? progressTracker, CancellationToken cancellationToken)
         {
             sourceFilePath = await ResolvePath(sourceFilePath, cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
             DictionaryNode info = (await GetFileInfo(sourceFilePath, cancellationToken).ConfigureAwait(continueOnCapturedContext: false)) ?? new DictionaryNode();
