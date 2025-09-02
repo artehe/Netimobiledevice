@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
 namespace Netimobiledevice.Extentions
@@ -21,11 +22,10 @@ namespace Netimobiledevice.Extentions
             return arr;
         }
 
-        public static T FromBytes<T>(byte[] bytearray) where T : struct
+        public static T FromBytes<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.NonPublicConstructors)] T>(byte[] bytearray) where T : struct
         {
             T obj = new T();
             int size = Marshal.SizeOf(obj);
-
             IntPtr ptr = Marshal.AllocHGlobal(size);
             try {
                 Marshal.Copy(bytearray, 0, ptr, size);
@@ -34,7 +34,6 @@ namespace Netimobiledevice.Extentions
             finally {
                 Marshal.FreeHGlobal(ptr);
             }
-
             return obj;
         }
     }

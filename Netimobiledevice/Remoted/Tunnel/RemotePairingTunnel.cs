@@ -54,7 +54,7 @@ namespace Netimobiledevice.Remoted.Tunnel
 
         public abstract Task SendPacketToDevice(byte[] packet);
 
-        public abstract EstablishTunnelResponse RequestTunnelEstablish();
+        public abstract EstablishTunnelResponse? RequestTunnelEstablish();
 
         public void StopTunnel()
         {

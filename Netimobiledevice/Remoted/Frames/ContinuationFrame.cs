@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Netimobiledevice.Remoted.Frames
@@ -6,7 +7,7 @@ namespace Netimobiledevice.Remoted.Frames
     {
         public bool EndHeaders { get; set; }
         public override byte Flags => EndHeaders ? (byte) 0x4 : (byte) 0x0;
-        public byte[] HeaderBlockFragment { get; set; }
+        public byte[] HeaderBlockFragment { get; set; } = [];
         public override IEnumerable<byte> Payload => HeaderBlockFragment ?? new byte[0];
         // type=0x1
         public override FrameType Type => FrameType.Continuation;

@@ -5,10 +5,10 @@ namespace Netimobiledevice.Remoted.Tunnel
 {
     public class RemotePairingTunnelService : RemotePairingProtocol
     {
-        private ushort _port;
+        private readonly ushort _port;
 
         public string Hostname { get; private set; }
-        public override string RemoteIdentifier { get; }
+        public override string? RemoteIdentifier { get; }
 
         public RemotePairingTunnelService(string remoteIdentifier, string hostname, ushort port) : base()
         {

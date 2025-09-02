@@ -8,7 +8,6 @@ namespace Netimobiledevice.Remoted.Tunnel
         private const string SERVICE_NAME = "com.apple.internal.dt.coredevice.untrusted.tunnelservice";
 
         private readonly RemoteService _remoteService;
-        private int? version;
 
         public CoreDeviceTunnelService(RemoteServiceDiscoveryService rsd) : base()
         {

@@ -42,7 +42,7 @@ namespace Netimobiledevice.Remoted.Tunnel
             return result;
         }
 
-        public static async Task<TunnelResult> StartTunnel(StartTcpTunnel protocolHandler, string[]? secrets = null,
+        public static async Task<TunnelResult> StartTunnel(StartTcpTunnel? protocolHandler, string[]? secrets = null,
             int maxIdleTimeout = RemotePairingQuicTunnel.MAX_IDLE_TIMEOUT, TunnelProtocol protocol = TunnelProtocol.QUIC)
         {
             if (protocolHandler is CoreDeviceTunnelService) {

@@ -13,7 +13,7 @@ namespace Netimobiledevice.Remoted.Frames
 
         public virtual byte Flags { get; protected set; }
         public abstract FrameType Type { get; }
-        public virtual IEnumerable<byte> Payload { get; }
+        public virtual IEnumerable<byte> Payload { get; } = Array.Empty<byte>();
         public virtual uint StreamIdentifier { get; set; }
 
         public bool IsEndStream => (Type == FrameType.Data || Type == FrameType.Headers) && (Flags & 0x1) == 0x1;

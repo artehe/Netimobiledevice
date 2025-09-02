@@ -15,9 +15,9 @@ namespace Netimobiledevice.Remoted.Tunnel
         private readonly Adapter _handle;
         private Session? _session;
 
-        public string Name { get; }
+        public string? Name { get; }
 
-        public void SetAddress(string value)
+        public void SetAddress(string? value)
         {
             // Create the command
             string command = $"netsh interface ipv6 set address interface={InterfaceIndex} address={value}/64";

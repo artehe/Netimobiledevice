@@ -93,11 +93,11 @@ namespace NetimobiledeviceTest.Remoted.Xpc
 
             Assert.AreEqual(expectedXpcWrapper.Magic, xpcWrapper.Magic);
             Assert.AreEqual(expectedXpcWrapper.Flags, xpcWrapper.Flags);
-            Assert.AreEqual(expectedXpcWrapper.Message.MessageId, xpcWrapper.Message.MessageId);
-            Assert.AreEqual(expectedXpcWrapper.Message.Payload.Magic, xpcWrapper.Message.Payload?.Magic);
-            Assert.AreEqual(expectedXpcWrapper.Message.Payload.ProtocolVersion, xpcWrapper.Message.Payload?.ProtocolVersion);
+            Assert.AreEqual(expectedXpcWrapper.Message.MessageId, xpcWrapper?.Message?.MessageId);
+            Assert.AreEqual(expectedXpcWrapper.Message.Payload.Magic, xpcWrapper?.Message?.Payload?.Magic);
+            Assert.AreEqual(expectedXpcWrapper.Message.Payload.ProtocolVersion, xpcWrapper?.Message?.Payload?.ProtocolVersion);
 
-            XpcDictionary obj = (XpcDictionary) xpcWrapper.Message.Payload!.Obj!;
+            XpcDictionary obj = (XpcDictionary) xpcWrapper?.Message?.Payload!.Obj!;
             XpcDictionary expectedObj = (XpcDictionary) expectedXpcWrapper.Message.Payload!.Obj;
             Assert.AreEqual(expectedObj.Count, obj.Count);
             foreach (KeyValuePair<string, XpcObject> expectedEntry in expectedObj) {

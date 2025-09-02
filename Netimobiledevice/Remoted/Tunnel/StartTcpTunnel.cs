@@ -6,7 +6,7 @@ namespace Netimobiledevice.Remoted.Tunnel
     {
         public const int REQUESTED_MTU = 16000;
 
-        public abstract string RemoteIdentifier { get; }
+        public abstract string? RemoteIdentifier { get; }
 
         public abstract void Close();
 

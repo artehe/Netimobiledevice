@@ -7,7 +7,7 @@ namespace Netimobiledevice.Remoted.Frames
     {
         private uint _padLength = 0;
 
-        public byte[] Data { get; set; }
+        public byte[] Data { get; set; } = [];
         public bool EndStream { get; set; }
         public bool Padded { get; set; }
 
@@ -23,7 +23,7 @@ namespace Netimobiledevice.Remoted.Frames
             get => _padLength;
             set {
                 if (value > 255) {
-                    throw new ArgumentOutOfRangeException("value", "Must be less than or equal to 255");
+                    throw new ArgumentOutOfRangeException(nameof(value), "Must be less than or equal to 255");
                 }
                 _padLength = value;
             }
