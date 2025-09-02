@@ -190,7 +190,7 @@ namespace Netimobiledevice.Backup
                                     appDict.Add(bundleId, new DictionaryNode() {
                                         { "ApplicationSINF", applicationSinfNode },
                                         { "iTunesMetadata", itunesMetadataNode },
-                                        { "PlaceholderIcon", springBoardServicesService.GetIconPNGData(bundleId) },
+                                        { "PlaceholderIcon", await springBoardServicesService.GetIconPngDataAsync(bundleId, cancellationToken).ConfigureAwait(false) },
                                     });
                                 }
                             }

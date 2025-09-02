@@ -84,7 +84,7 @@ public class Program
                     await np.ObserveNotificationAsync(ReceivableNotification.TimezoneChanged).ConfigureAwait(false);
                     await np.ObserveNotificationAsync(ReceivableNotification.TrustedHostAttached).ConfigureAwait(false);
 
-                    await Task.Delay(100000).ConfigureAwait(false);
+                    await Task.Delay(100000, tokenSource.Token).ConfigureAwait(false);
                 }
             }
         }
@@ -107,7 +107,7 @@ public class Program
         }
 
         while (true) {
-            await Task.Delay(1000);
+            await Task.Delay(1000, tokenSource.Token);
         }
     }
 
