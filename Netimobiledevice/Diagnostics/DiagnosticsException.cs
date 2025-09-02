@@ -1,9 +1,7 @@
 ﻿using Netimobiledevice.Exceptions;
 
-namespace Netimobiledevice.Diagnostics
+namespace Netimobiledevice.Diagnostics;
+
+public class DiagnosticsException(string message) : NetimobiledeviceException(message)
 {
-    public class DiagnosticsException : NetimobiledeviceException
-    {
-        public DiagnosticsException(string message) : base(message) { }
-    }
 }
