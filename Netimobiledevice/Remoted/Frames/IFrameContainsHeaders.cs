@@ -1,8 +1,7 @@
-namespace Netimobiledevice.Remoted.Frames
+namespace Netimobiledevice.Remoted.Frames;
+
+internal interface IFrameContainsHeaders : IFrame
 {
-    internal interface IFrameContainsHeaders : IFrame
-    {
-        byte[] HeaderBlockFragment { get; set; }
-        bool EndHeaders { get; set; }
-    }
+    byte[] HeaderBlockFragment { get; set; }
+    bool EndHeaders { get; set; }
 }
