@@ -1,6 +1,4 @@
-﻿using Netimobiledevice.Exceptions;
-
-namespace Netimobiledevice.Afc
+﻿namespace Netimobiledevice.Afc
 {
     public class AfcException : NetimobiledeviceException
     {

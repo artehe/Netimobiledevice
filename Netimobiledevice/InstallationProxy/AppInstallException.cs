@@ -1,6 +1,4 @@
-﻿using Netimobiledevice.Exceptions;
-
-namespace Netimobiledevice.InstallationProxy;
+﻿namespace Netimobiledevice.InstallationProxy;
 
 public class AppInstallException : NetimobiledeviceException
 {

@@ -1,6 +1,4 @@
-﻿using Netimobiledevice.Exceptions;
-
-namespace Netimobiledevice.Lockdown;
+﻿namespace Netimobiledevice.Lockdown;
 
 public enum LockdownError
 {

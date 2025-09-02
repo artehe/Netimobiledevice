@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Logging;
-using Netimobiledevice.Exceptions;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
 using System;
