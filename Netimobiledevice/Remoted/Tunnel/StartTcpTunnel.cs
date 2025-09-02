@@ -1,15 +1,14 @@
 ﻿using System.Threading.Tasks;
 
-namespace Netimobiledevice.Remoted.Tunnel
+namespace Netimobiledevice.Remoted.Tunnel;
+
+public abstract class StartTcpTunnel
 {
-    public abstract class StartTcpTunnel
-    {
-        public const int REQUESTED_MTU = 16000;
+    public const int REQUESTED_MTU = 16000;
 
-        public abstract string RemoteIdentifier { get; }
+    public abstract string RemoteIdentifier { get; }
 
-        public abstract void Close();
+    public abstract void Close();
 
-        public abstract Task<TunnelResult> StartTunnel();
-    }
+    public abstract Task<TunnelResult> StartTunnel();
 }

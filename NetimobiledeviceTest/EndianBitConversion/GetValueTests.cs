@@ -16,9 +16,9 @@ public class GetValueTests
         ValidateArgumentsChecks(machineEndianBitConverterMethod, otherEndianBitConverterMethod, 8);
 
         AssertValueResult(bitConverterMethod, machineEndianBitConverterMethod, otherEndianBitConverterMethod,
-            8, new byte[] { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 }, 0);
+            8, [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07], 0);
         AssertValueResult(bitConverterMethod, machineEndianBitConverterMethod, otherEndianBitConverterMethod,
-            8, new byte[] { 0x00, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF }, 1);
+            8, [0x00, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF], 1);
     }
 
     private static void AssertFourByteValueResult<TOutput>(
@@ -29,9 +29,9 @@ public class GetValueTests
         ValidateArgumentsChecks(machineEndianBitConverterMethod, otherEndianBitConverterMethod, 4);
 
         AssertValueResult(bitConverterMethod, machineEndianBitConverterMethod, otherEndianBitConverterMethod,
-            4, new byte[] { 0x00, 0x01, 0x02, 0x03 }, 0);
+            4, [0x00, 0x01, 0x02, 0x03], 0);
         AssertValueResult(bitConverterMethod, machineEndianBitConverterMethod, otherEndianBitConverterMethod,
-            4, new byte[] { 0x67, 0x89, 0xAB, 0xCD, 0xEF }, 1);
+            4, [0x67, 0x89, 0xAB, 0xCD, 0xEF], 1);
     }
 
     private static void AssertTwoByteValueResult<TOutput>(
@@ -42,9 +42,9 @@ public class GetValueTests
         ValidateArgumentsChecks(machineEndianBitConverterMethod, otherEndianBitConverterMethod, 2);
 
         AssertValueResult(bitConverterMethod, machineEndianBitConverterMethod, otherEndianBitConverterMethod,
-            2, new byte[] { 0x00, 0x01 }, 0);
+            2, [0x00, 0x01], 0);
         AssertValueResult(bitConverterMethod, machineEndianBitConverterMethod, otherEndianBitConverterMethod,
-            2, new byte[] { 0x00, 0xAB, 0x00 }, 1);
+            2, [0x00, 0xAB, 0x00], 1);
     }
 
     private static void AssertValueResult<TOutput>(
@@ -62,7 +62,7 @@ public class GetValueTests
 
         // Compare other endianness by reversing the input to System.BitConverter
         TOutput otherEndianBitConverterOutput = otherEndianBitConverterMethod(testValue, testStartIndex);
-        testValue = testValue.Reverse().ToArray();
+        testValue = [.. testValue.Reverse()];
         testStartIndex = testValue.Length - testStartIndex - outputSize;
         expectedOutput = bitConverterMethod(testValue, testStartIndex);
         Assert.AreEqual(expectedOutput, otherEndianBitConverterOutput);
@@ -107,11 +107,11 @@ public class GetValueTests
         ValidateArgumentsChecks(machineEndianBitConverter.ToBoolean, otherEndianBitConverter.ToBoolean, sizeof(bool));
 
         AssertValueResult(BitConverter.ToBoolean, machineEndianBitConverter.ToBoolean, otherEndianBitConverter.ToBoolean,
-            sizeof(bool), new byte[] { 0x00, 0x01, 0x00 }, 0);
+            sizeof(bool), [0x00, 0x01, 0x00], 0);
         AssertValueResult(BitConverter.ToBoolean, machineEndianBitConverter.ToBoolean, otherEndianBitConverter.ToBoolean,
-            sizeof(bool), new byte[] { 0x00, 0x01, 0x00 }, 1);
+            sizeof(bool), [0x00, 0x01, 0x00], 1);
         AssertValueResult(BitConverter.ToBoolean, machineEndianBitConverter.ToBoolean, otherEndianBitConverter.ToBoolean,
-            sizeof(bool), new byte[] { 0x00, 0x00, 0xFE }, 2);
+            sizeof(bool), [0x00, 0x00, 0xFE], 2);
     }
 
     [TestMethod]
