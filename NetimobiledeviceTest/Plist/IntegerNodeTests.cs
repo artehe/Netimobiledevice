@@ -41,7 +41,7 @@ public class IntegerNodeTests
     public void ReadBinaryHandlesNodeLengthNotAsAPower()
     {
         IntegerNode node = new IntegerNode();
-        byte[] longNodeLength = new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xB, 0xB8 };
+        byte[] longNodeLength = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xB, 0xB8];
 
         using (MemoryStream stream = new MemoryStream(longNodeLength)) {
             node.ReadBinary(stream, 4);
@@ -55,7 +55,7 @@ public class IntegerNodeTests
     public void ReadBinaryHandlesNodeLengthAsAPower()
     {
         IntegerNode node = new IntegerNode();
-        byte[] longNodeLength = new byte[] { 0, 0, 0x7, 0xD0 };
+        byte[] longNodeLength = [0, 0, 0x7, 0xD0];
 
         using (MemoryStream stream = new MemoryStream(longNodeLength)) {
             node.ReadBinary(stream, 2);

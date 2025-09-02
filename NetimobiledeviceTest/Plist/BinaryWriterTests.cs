@@ -17,8 +17,8 @@ public class BinaryWriterTests
         byte[] binaryPlist = PropertyList.SaveAsByteArray(node, PlistFormat.Binary);
 
         DictionaryNode reReadNode = PropertyList.LoadFromByteArray(binaryPlist).AsDictionaryNode();
-        Assert.AreEqual(true, reReadNode["Test"].AsBooleanNode().Value);
-        Assert.AreEqual(false, reReadNode["Test2"].AsBooleanNode().Value);
+        Assert.IsTrue(reReadNode["Test"].AsBooleanNode().Value);
+        Assert.IsFalse(reReadNode["Test2"].AsBooleanNode().Value);
     }
 
     [TestMethod]
@@ -31,18 +31,18 @@ public class BinaryWriterTests
         byte[] binaryPlist = PropertyList.SaveAsByteArray(node, PlistFormat.Binary);
 
         DictionaryNode reReadNode = PropertyList.LoadFromByteArray(binaryPlist).AsDictionaryNode();
-        Assert.AreEqual(true, reReadNode["Test"].AsStringNode().IsUtf16);
+        Assert.IsTrue(reReadNode["Test"].AsStringNode().IsUtf16);
         Assert.AreEqual(utf16value, reReadNode["Test"].AsStringNode().Value);
     }
 
     [TestMethod]
     public void ConvertsPlistArrayCorrectly()
     {
-        var arrayNode = new ArrayNode {
+        ArrayNode arrayNode = [
             new StringNode("DLMessageVersionExchange"),
             new StringNode("DLVersionsOk"),
             new IntegerNode(400)
-        };
+        ];
 
         byte[] plistBytes = PropertyList.SaveAsByteArray(arrayNode, PlistFormat.Binary);
 
