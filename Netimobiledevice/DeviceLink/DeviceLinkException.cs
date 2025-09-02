@@ -1,9 +1,7 @@
 ﻿using Netimobiledevice.Exceptions;
 
-namespace Netimobiledevice.DeviceLink
+namespace Netimobiledevice.DeviceLink;
+
+public class DeviceLinkException(string message) : NetimobiledeviceException(message)
 {
-    public class DeviceLinkException : NetimobiledeviceException
-    {
-        public DeviceLinkException(string message) : base(message) { }
-    }
 }

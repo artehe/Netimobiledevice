@@ -1,31 +1,24 @@
 ﻿using System;
 
-namespace Netimobiledevice.Backup
+namespace Netimobiledevice.Backup;
+
+/// <summary>
+/// Generic EventArgs for signaling a status message.
+/// </summary>
+/// <remarks>
+/// Creates an instance of the StatusEventArgs class.
+/// </remarks>
+/// <param name="message">The status message.</param>
+/// <param name="status">The BackupStatus object containing all the details</param>
+public class StatusEventArgs(string message, BackupStatus? status = null) : EventArgs
 {
     /// <summary>
-    /// Generic EventArgs for signaling a status message.
+    /// The status message.
     /// </summary>
-    public class StatusEventArgs : EventArgs
-    {
-        /// <summary>
-        /// The status message.
-        /// </summary>
-        public string Message { get; }
+    public string Message { get; } = message;
 
-        /// <summary>
-        /// The full status details
-        /// </summary>
-        public BackupStatus? Status { get; }
-
-        /// <summary>
-        /// Creates an instance of the StatusEventArgs class.
-        /// </summary>
-        /// <param name="message">The status message.</param>
-        /// <param name="status">The BackupStatus object containing all the details</param>
-        public StatusEventArgs(string message, BackupStatus? status = null)
-        {
-            Message = message;
-            Status = status;
-        }
-    }
+    /// <summary>
+    /// The full status details
+    /// </summary>
+    public BackupStatus? Status { get; } = status;
 }
