@@ -17,17 +17,22 @@ public class RemotePairingTunnelService : RemotePairingProtocol
         _port = port;
     }
 
+    public override void Close()
+    {
+        throw new System.NotImplementedException();
+    }
+
+    public override Task CloseAsync()
+    {
+        throw new System.NotImplementedException();
+    }
+
     public override Task<Dictionary<string, object>> ReceiveResponse()
     {
         throw new System.NotImplementedException();
     }
 
     public override Task SendRequest(Dictionary<string, object> data)
-    {
-        throw new System.NotImplementedException();
-    }
-
-    public override void Close()
     {
         throw new System.NotImplementedException();
     }
