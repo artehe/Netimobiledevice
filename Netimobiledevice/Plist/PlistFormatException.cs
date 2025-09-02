@@ -1,5 +1,4 @@
-﻿using Netimobiledevice.Exceptions;
-using System;
+﻿using System;
 
 namespace Netimobiledevice.Plist
 {

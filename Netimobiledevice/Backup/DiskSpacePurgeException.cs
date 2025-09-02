@@ -1,6 +1,4 @@
-﻿using Netimobiledevice.Exceptions;
-
-namespace Netimobiledevice.Backup
+﻿namespace Netimobiledevice.Backup
 {
     public class DiskSpacePurgeException : NetimobiledeviceException
     {

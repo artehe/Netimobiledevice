@@ -1,6 +1,4 @@
-﻿using Netimobiledevice.Exceptions;
-
-namespace Netimobiledevice.Plist
+﻿namespace Netimobiledevice.Plist
 {
     public class PlistException : NetimobiledeviceException
     {
