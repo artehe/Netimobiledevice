@@ -1,9 +1,8 @@
-﻿namespace Netimobiledevice.Backup
+﻿namespace Netimobiledevice.Backup;
+
+public enum BackupEncryptionFlags
 {
-    public enum BackupEncryptionFlags
-    {
-        Enable,
-        Disable,
-        ChangePassword
-    }
+    Enable,
+    Disable,
+    ChangePassword
 }

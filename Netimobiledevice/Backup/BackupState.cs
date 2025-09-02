@@ -1,11 +1,10 @@
-﻿namespace Netimobiledevice.Backup
+﻿namespace Netimobiledevice.Backup;
+
+/// <summary>
+/// The backup state.
+/// </summary>
+public enum BackupState
 {
-    /// <summary>
-    /// The backup state.
-    /// </summary>
-    public enum BackupState
-    {
-        Empty,
-        New,
-    }
+    Empty,
+    New,
 }
