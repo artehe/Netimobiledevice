@@ -22,12 +22,6 @@ public sealed class UidNode : PropertyNode<ulong>
         }
     }
     internal override PlistType NodeType => PlistType.Uid;
-    /// <summary>
-    /// Gets or sets the value of this element.
-    /// </summary>
-    /// <value>The value of this element.</value>
-    public sealed override ulong Value { get; set; }
-
 
     /// <summary>
     /// Create a new UID node.

@@ -135,12 +135,19 @@ public abstract class PropertyNode
 
 public abstract class PropertyNode<T>(T value) : PropertyNode, IEquatable<PropertyNode>
 {
+    protected T _value = value;
+
     internal override bool IsBinaryUnique => true;
     /// <summary>
     /// Gets the value.
     /// </summary>
     /// <value>The value</value>
-    public virtual T Value { get; set; } = value;
+    public virtual T Value {
+        get => _value;
+        protected set {
+            _value = value;
+        }
+    }
 
     internal abstract void Parse(string data);
 

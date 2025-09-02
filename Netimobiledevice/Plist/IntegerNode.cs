@@ -37,12 +37,6 @@ public sealed class IntegerNode : PropertyNode<ulong>
     }
     internal override PlistType NodeType => PlistType.Integer;
 
-    /// <summary>
-    /// Gets or sets the value of this element.
-    /// </summary>
-    /// <value>The value of this element.</value>
-    public override ulong Value { get; set; }
-
     public bool Unsigned { get; private set; }
 
     public long SignedValue => (long) Value;

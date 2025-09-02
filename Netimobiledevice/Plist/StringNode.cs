@@ -31,8 +31,6 @@ public sealed class StringNode : PropertyNode<string>
     ];
     private static readonly HashSet<char> _utf8Chars = [.. Encoding.UTF8.GetChars(_utf8Bytes)];
 
-    private string _value = string.Empty;
-
     /// <summary>
     /// Gets the length of this PList element.
     /// </summary>
@@ -51,7 +49,7 @@ public sealed class StringNode : PropertyNode<string>
     /// <value>The value of this element.</value>
     public sealed override string Value {
         get => _value;
-        set {
+        protected set {
             _value = value;
             // Detect Encoding
             foreach (char c in value) {
@@ -73,7 +71,10 @@ public sealed class StringNode : PropertyNode<string>
     /// Initializes a new instance of the <see cref="StringNode"/> class.
     /// </summary>
     /// <param name="value">The value</param>
-    public StringNode(string value) : base(value) { }
+    public StringNode(string value) : base(value)
+    {
+        Value = value;
+    }
 
     /// <summary>
     /// Parses the specified value from a given string, read from Xml.
