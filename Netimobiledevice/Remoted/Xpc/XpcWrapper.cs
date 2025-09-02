@@ -8,7 +8,7 @@ namespace Netimobiledevice.Remoted.Xpc
     {
         public uint Magic => 0x29b00b92;
         public XpcFlags Flags { get; set; }
-        public XpcMessage Message { get; set; }
+        public XpcMessage? Message { get; set; }
 
         public static XpcWrapper Create(Dictionary<string, XpcObject> data, ulong messageId = 0, bool wantingReply = false)
         {
@@ -36,7 +36,7 @@ namespace Netimobiledevice.Remoted.Xpc
             return [
                 .. BitConverter.GetBytes(Magic),
                 .. BitConverter.GetBytes((uint) Flags),
-                .. Message.Serialise()
+                .. Message?.Serialise()??[]
             ];
         }
 

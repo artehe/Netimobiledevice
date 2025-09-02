@@ -13,7 +13,7 @@ namespace Netimobiledevice.Remoted.Frames
         public bool EndStream { get; set; }
         public bool EndHeaders { get; set; }
         public bool Priority { get; set; }
-        public byte[] HeaderBlockFragment { get; set; }
+        public byte[] HeaderBlockFragment { get; set; } = [];
 
         public override byte Flags {
             get {

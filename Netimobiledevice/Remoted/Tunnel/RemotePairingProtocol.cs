@@ -7,10 +7,7 @@ namespace Netimobiledevice.Remoted.Tunnel
     {
         private const int WIRE_PROTOCOL_VERSION = 19;
 
-        private int _sequenceNumber;
-        private int _encryptedSequenceNumber;
-
-        public override string RemoteIdentifier => HandshakeInfo["peerDeviceInfo"]["identifier"];
+        public override string? RemoteIdentifier => HandshakeInfo?["peerDeviceInfo"]?["identifier"];
 
         public dynamic? HandshakeInfo { get; set; }
 
@@ -33,6 +30,6 @@ namespace Netimobiledevice.Remoted.Tunnel
             ;
         }
 
-        public string RemoteDeviceModel => HandshakeInfo["peerDeviceInfo"]["model"].ToString();
+        public string? RemoteDeviceModel => HandshakeInfo?["peerDeviceInfo"]?["model"];
     }
 }

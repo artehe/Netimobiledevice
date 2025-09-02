@@ -30,7 +30,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
     /// The internal logger
     /// </summary>
     private readonly ILogger _logger;
-    private readonly ConnectionMedium _medium;
+    private readonly ConnectionMedium _medium = ConnectionMedium.Usbmux;
     private readonly ushort _port;
     private readonly string _sessionId;
     private string _systemBuid;

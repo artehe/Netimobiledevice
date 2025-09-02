@@ -30,9 +30,9 @@ public class RemoteServiceDiscoveryService : LockdownServiceProvider
 
     public string? Name { get; private set; }
 
-    public string Udid { get; private set; } = string.Empty;
+    public new string Udid { get; private set; } = string.Empty;
 
-    public string ProductType { get; private set; } = string.Empty;
+    public new string ProductType { get; private set; } = string.Empty;
 
     public RemoteServiceDiscoveryService(string ip, int port, string? name = null) : base()
     {

@@ -121,7 +121,7 @@ namespace Netimobiledevice.Remoted.Tunnel
             }
         }
 
-        public bool TunnelExistsForUdid(string udid)
+        public bool TunnelExistsForUdid(string? udid)
         {
             foreach (TunnelTask task in _tunnelTasks.Values) {
                 if (task.Udid == udid && task.Tunnel != null) {
@@ -140,22 +140,22 @@ namespace Netimobiledevice.Remoted.Tunnel
 
             TunnelResult? tun = null;
             try {
-                if (TunnelExistsForUdid(protocolHandler.RemoteIdentifier)) {
+                if (TunnelExistsForUdid(protocolHandler?.RemoteIdentifier)) {
                     // Cancel current tunnel creation
                     throw new TaskCanceledException();
                 }
 
                 tun = await TunnelService.StartTunnel(protocolHandler, protocol: (TunnelProtocol) protocol);
-                if (!TunnelExistsForUdid(protocolHandler.RemoteIdentifier)) {
+                if (!TunnelExistsForUdid(protocolHandler?.RemoteIdentifier)) {
                     _tunnelTasks.AddOrUpdate(
                         taskIdentifier,
                         new TunnelTask {
-                            Udid = protocolHandler.RemoteIdentifier,
+                            Udid = protocolHandler?.RemoteIdentifier,
                             Tunnel = tun
                         },
                         (k, v) => {
                             v.Tunnel = tun;
-                            v.Udid = protocolHandler.RemoteIdentifier;
+                            v.Udid = protocolHandler?.RemoteIdentifier;
                             return v;
                         }
                     );
@@ -169,7 +169,7 @@ namespace Netimobiledevice.Remoted.Tunnel
             catch (Exception ex) {
                 Debug.WriteLine(ex);
                 if (_tunnelTasks.TryRemove(taskIdentifier, out TunnelTask? task)) {
-                    if (task.Tunnel.Client != null) {
+                    if (task?.Tunnel?.Client != null) {
                         Debug.WriteLine($"Disconnected from tunnel --rsd {task.Tunnel.Address} {task.Tunnel.Port}");
                         task.Tunnel.Client.StopTunnel();
                     }

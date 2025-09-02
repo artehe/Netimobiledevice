@@ -21,7 +21,6 @@ namespace Netimobiledevice.Afc
         private readonly LockdownServiceProvider _lockdown;
 
         private readonly string _copyMobileServiceName;
-        private readonly string _crashMoverServiceName;
 
         public CrashReportsService(LockdownServiceProvider lockdown)
         {
@@ -29,11 +28,9 @@ namespace Netimobiledevice.Afc
 
             if (lockdown is LockdownClient) {
                 _copyMobileServiceName = LOCKDOWN_COPY_MOBILE_NAME;
-                _crashMoverServiceName = LOCKDOWN_CRASH_MOVER_NAME;
             }
             else {
                 _copyMobileServiceName = RSD_COPY_MOBILE_NAME;
-                _crashMoverServiceName = RSD_CRASH_MOVER_NAME;
             }
 
             _afcService = new AfcService(lockdown, _copyMobileServiceName, lockdown.Logger);

@@ -8,7 +8,7 @@ namespace Netimobiledevice.Remoted.Frames
     {
         public uint LastStreamId { get; set; }
         public uint ErrorCode { get; set; }
-        public byte[] AdditionalDebugData { get; set; }
+        public byte[] AdditionalDebugData { get; set; } = [];
 
         public override FrameType Type => FrameType.GoAway;
 

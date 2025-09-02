@@ -9,7 +9,7 @@ namespace Netimobiledevice.Remoted.Frames
         private ushort _padLength = 0;
 
         public bool EndHeaders { get; set; }
-        public byte[] HeaderBlockFragment { get; set; }
+        public byte[] HeaderBlockFragment { get; set; } = [];
         public bool Padded { get; set; }
 
         public override byte Flags {

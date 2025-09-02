@@ -54,7 +54,7 @@ namespace Netimobiledevice.Remoted.Tunnel
             }
         }
 
-        public override EstablishTunnelResponse RequestTunnelEstablish()
+        public override EstablishTunnelResponse? RequestTunnelEstablish()
         {
             Dictionary<string, object> message = new Dictionary<string, object>() {
                 { "type", "clientHandshakeRequest" },
