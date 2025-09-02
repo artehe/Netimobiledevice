@@ -1,5 +1,4 @@
-﻿using Netimobiledevice.Exceptions;
-using System.IO;
+﻿using System.IO;
 using System.Threading.Tasks;
 using System.Xml;
 
@@ -31,6 +30,11 @@ namespace Netimobiledevice.Plist
             }
         }
 
+        internal override Task ReadBinaryAsync(Stream stream, int nodeLength)
+        {
+            throw new System.NotImplementedException();
+        }
+
         /// <summary>
         /// Generates an object from its XML representation.
         /// </summary>
@@ -50,6 +54,12 @@ namespace Netimobiledevice.Plist
         /// </summary>
         internal override void WriteBinary(Stream stream)
         {
+            return;
+        }
+
+        internal override Task WriteBinaryAsync(Stream stream)
+        {
+            return Task.CompletedTask;
         }
 
         /// <summary>
@@ -60,6 +70,12 @@ namespace Netimobiledevice.Plist
         {
             writer.WriteStartElement(XmlTag);
             writer.WriteEndElement();
+        }
+
+        internal override async Task WriteXmlAsync(XmlWriter writer)
+        {
+            await writer.WriteStartElementAsync(null, XmlTag, null);
+            await writer.WriteEndElementAsync();
         }
 
         /// <summary>

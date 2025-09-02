@@ -1,13 +1,12 @@
 ﻿using Netimobiledevice.Afc;
 using System.Text;
 
-namespace Netimobiledevice.Extentions
+namespace Netimobiledevice.Extentions;
+
+internal static class StringExtentions
 {
-    internal static class StringExtentions
+    public static CString AsCString(this string str, Encoding encoding)
     {
-        public static CString AsCString(this string str, Encoding encoding)
-        {
-            return new CString(str, encoding);
-        }
+        return new CString(str, encoding);
     }
 }

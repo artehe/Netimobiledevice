@@ -26,7 +26,8 @@ public class BinaryWriterTests
     {
         // Create basic Plist
         string utf16value = "😂test";
-        DictionaryNode node = new DictionaryNode { { "Test", new StringNode(utf16value) } };
+        StringNode stringNode = new StringNode(utf16value);
+        DictionaryNode node = new DictionaryNode { { "Test", stringNode } };
 
         byte[] binaryPlist = PropertyList.SaveAsByteArray(node, PlistFormat.Binary);
 
