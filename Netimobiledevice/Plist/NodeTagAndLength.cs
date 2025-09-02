@@ -1,14 +1,7 @@
-﻿namespace Netimobiledevice.Plist
-{
-    internal class NodeTagAndLength
-    {
-        public byte Tag { get; private set; }
-        public int Length { get; private set; }
+﻿namespace Netimobiledevice.Plist;
 
-        public NodeTagAndLength(byte tag, int length)
-        {
-            Tag = tag;
-            Length = length;
-        }
-    }
+internal class NodeTagAndLength(byte tag, int length)
+{
+    public byte Tag { get; private set; } = tag;
+    public int Length { get; private set; } = length;
 }
