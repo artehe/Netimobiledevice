@@ -2,6 +2,7 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Netimobiledevice.Plist;
 
@@ -88,6 +89,19 @@ internal class BinaryFormatReader
         }
     }
 
+    private async Task ReadInArrayAsync(ArrayNode node, int nodeLength, ReaderState readerState)
+    {
+        byte[] buf = new byte[nodeLength * readerState.ObjectRefSize];
+        if (await readerState.Stream.ReadAsync(buf).ConfigureAwait(false) != buf.Length) {
+            throw new PlistFormatException();
+        }
+
+        for (int i = 0; i < nodeLength; i++) {
+            ulong topNode = GetNodeOffset(readerState, buf, i);
+            node.Add(await ReadInternalAsync(readerState, topNode).ConfigureAwait(false));
+        }
+    }
+
     private void ReadInDictionary(DictionaryNode node, int nodeLength, ReaderState readerState)
     {
         byte[] bufKeys = new byte[nodeLength * readerState.ObjectRefSize];
@@ -111,6 +125,34 @@ internal class BinaryFormatReader
 
             topNode = GetNodeOffset(readerState, bufVals, i);
             PropertyNode plVal = ReadInternal(readerState, topNode);
+
+            node.Add(stringKey.Value, plVal);
+        }
+    }
+
+    private async Task ReadInDictionaryAsync(DictionaryNode node, int nodeLength, ReaderState readerState)
+    {
+        byte[] bufKeys = new byte[nodeLength * readerState.ObjectRefSize];
+        byte[] bufVals = new byte[nodeLength * readerState.ObjectRefSize];
+
+        if (await readerState.Stream.ReadAsync(bufKeys).ConfigureAwait(false) != bufKeys.Length) {
+            throw new PlistFormatException();
+        }
+
+        if (await readerState.Stream.ReadAsync(bufVals).ConfigureAwait(false) != bufVals.Length) {
+            throw new PlistFormatException();
+        }
+
+        for (int i = 0; i < nodeLength; i++) {
+            ulong topNode = GetNodeOffset(readerState, bufKeys, i);
+            PropertyNode plKey = await ReadInternalAsync(readerState, topNode).ConfigureAwait(false);
+
+            if (plKey is not StringNode stringKey) {
+                throw new PlistFormatException("Key is not a string");
+            }
+
+            topNode = GetNodeOffset(readerState, bufVals, i);
+            PropertyNode plVal = await ReadInternalAsync(readerState, topNode).ConfigureAwait(false);
 
             node.Add(stringKey.Value, plVal);
         }
@@ -160,6 +202,49 @@ internal class BinaryFormatReader
     }
 
     /// <summary>
+    /// Reads the <see cref="PropertyNode"/> at the specified idx.
+    /// </summary>
+    /// <param name="readerState">Reader state.</param>
+    /// <param name="elemIdx">The elem idx.</param>
+    /// <returns>The <see cref="PropertyNode"/> at the specified idx.</returns>
+    private Task<PropertyNode> ReadInternalAsync(ReaderState readerState, ulong elemIdx)
+    {
+        readerState.Stream.Seek(readerState.NodeOffsets[elemIdx], SeekOrigin.Begin);
+        return ReadInternalAsync(readerState);
+    }
+
+    /// <summary>
+    /// Reads the <see cref="PropertyNode"/> at the current stream position.
+    /// </summary>
+    /// <param name="readerState">Reader state.</param>
+    /// <returns>The <see cref="PropertyNode"/> at the current stream position.</returns>
+    private async Task<PropertyNode> ReadInternalAsync(ReaderState readerState)
+    {
+        NodeTagAndLength tagAndLength = GetObjectLengthAndTag(readerState.Stream);
+
+        byte tag = tagAndLength.Tag;
+        int objectLength = tagAndLength.Length;
+
+        PropertyNode node = NodeFactory.Create(tag, objectLength);
+
+        // array and dictionary are special-cased here
+        // while primitives handle their own loading
+        if (node is ArrayNode arrayNode) {
+            await ReadInArrayAsync(arrayNode, objectLength, readerState).ConfigureAwait(false);
+            return node;
+        }
+
+        if (node is DictionaryNode dictionaryNode) {
+            await ReadInDictionaryAsync(dictionaryNode, objectLength, readerState).ConfigureAwait(false);
+            return node;
+        }
+
+        await node.ReadBinaryAsync(readerState.Stream, objectLength).ConfigureAwait(false);
+
+        return node;
+    }
+
+    /// <summary>
     ///	Read in offsets. Converting to Int32 because .NET Stream.Read method takes Int32s.
     /// </summary>
     /// <param name="stream"></param>
@@ -185,6 +270,41 @@ internal class BinaryFormatReader
 
         for (ulong i = 0; i < trailer.NumObjects; i++) {
             if (stream.Read(buffer, 0, buffer.Length) != buffer.Length) {
+                throw new PlistFormatException($"Invalid plist file: unable to read value {i} in the offset table.");
+            }
+
+            nodeOffsets[i] = ReadNumber(buffer, converter);
+        }
+
+        return nodeOffsets;
+    }
+
+    /// <summary>
+    ///	Read in offsets. Converting to Int32 because .NET Stream.Read method takes Int32s.
+    /// </summary>
+    /// <param name="stream"></param>
+    /// <param name="trailer"></param>
+    /// <returns></returns>
+    private static async Task<int[]> ReadNodeOffsetsAsync(Stream stream, PlistTrailer trailer)
+    {
+        // The bitconverter library we use only knows how to deal with integer offsets
+        if (trailer.NumObjects > int.MaxValue) {
+            throw new PlistFormatException($"Offset table contains too many entries: {trailer.NumObjects}.");
+        }
+
+        EndianBitConverter converter = EndianBitConverter.BigEndian;
+
+        // Position the stream at the start of the offset table
+        if (stream.Seek((long) trailer.OffsetTableOffset, SeekOrigin.Begin) != (long) trailer.OffsetTableOffset) {
+            throw new PlistFormatException("Invalid plist file: unable to seek to start of the offset table.");
+        }
+
+        byte offsetSize = trailer.OffsetIntSize;
+        byte[] buffer = new byte[offsetSize];
+        int[] nodeOffsets = new int[trailer.NumObjects];
+
+        for (ulong i = 0; i < trailer.NumObjects; i++) {
+            if (await stream.ReadAsync(buffer).ConfigureAwait(false) != buffer.Length) {
                 throw new PlistFormatException($"Invalid plist file: unable to read value {i} in the offset table.");
             }
 
@@ -239,12 +359,52 @@ internal class BinaryFormatReader
         return trailer;
     }
 
+    private static async Task<PlistTrailer> ReadTrailerAsync(Stream stream)
+    {
+        // Trailer is 32 bytes long, at the end of the file
+        byte[] buffer = new byte[32];
+        stream.Seek(-32, SeekOrigin.End);
+        if (await stream.ReadAsync(buffer).ConfigureAwait(false) != buffer.Length) {
+            throw new PlistFormatException("Invalid plist file: unable to read trailer.");
+        }
+
+        // all data in a binary plist file is big-endian
+        EndianBitConverter converter = EndianBitConverter.BigEndian;
+        var trailer = new PlistTrailer {
+            Unused = new byte[5],
+            SortVersionl = buffer[5],
+            OffsetIntSize = buffer[6],
+            ObjectRefSize = buffer[7],
+            NumObjects = converter.ToUInt64(buffer, 8),
+            TopObject = converter.ToUInt64(buffer, 16),
+            OffsetTableOffset = converter.ToUInt64(buffer, 24)
+        };
+
+        return trailer;
+    }
+
     private static void ValidatePlistFileHeader(Stream stream)
     {
         stream.Seek(0, SeekOrigin.Begin);
 
         byte[] buffer = new byte[8];
         if (stream.Read(buffer, 0, buffer.Length) != buffer.Length) {
+            throw new PlistFormatException("Invalid plist file: must start with 8-byte header.");
+        }
+
+        // Get first 6 bytes and match to expected text, "bplist"
+        string text = Encoding.UTF8.GetString(buffer, 0, 6);
+        if (text != "bplist") {
+            throw new PlistFormatException("Invalid plist file: must start with string \"bplist\".");
+        }
+    }
+
+    private static async Task ValidatePlistFileHeaderAsync(Stream stream)
+    {
+        stream.Seek(0, SeekOrigin.Begin);
+
+        byte[] buffer = new byte[8];
+        if (await stream.ReadAsync(buffer).ConfigureAwait(false) != buffer.Length) {
             throw new PlistFormatException("Invalid plist file: must start with 8-byte header.");
         }
 
@@ -275,5 +435,27 @@ internal class BinaryFormatReader
         var readerState = new ReaderState(stream, nodeOffsets, trailer.OffsetIntSize, trailer.ObjectRefSize);
 
         return ReadInternal(readerState, trailer.TopObject);
+    }
+
+    /// <summary>
+    /// Reads a binary formated <see cref="PropertyNode"/> from the specified stream.
+    /// </summary>
+    /// <param name="stream">The stream.</param>
+    /// <returns>The <see cref="PropertyNode"/>, read from the specified stream</returns>
+    public async Task<PropertyNode> ReadAsync(Stream stream)
+    {
+        // reference material: https://medium.com/@karaiskc/understanding-apples-binary-property-list-format-281e6da00dbd
+
+        // Read in file header and verify expected bits are found
+        await ValidatePlistFileHeaderAsync(stream).ConfigureAwait(false);
+
+        // Read in file trailer
+        PlistTrailer trailer = await ReadTrailerAsync(stream).ConfigureAwait(false);
+
+        // Read in node offsets
+        int[] nodeOffsets = await ReadNodeOffsetsAsync(stream, trailer).ConfigureAwait(false);
+        var readerState = new ReaderState(stream, nodeOffsets, trailer.OffsetIntSize, trailer.ObjectRefSize);
+
+        return await ReadInternalAsync(readerState, trailer.TopObject).ConfigureAwait(false);
     }
 }

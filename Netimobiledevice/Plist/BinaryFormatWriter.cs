@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace Netimobiledevice.Plist;
 
@@ -174,6 +175,102 @@ internal class BinaryFormatWriter
     }
 
     /// <summary>
+    /// Writers a <see cref="PropertyNode"/> to the current stream position
+    /// </summary>
+    /// <param name="stream">The stream.</param>
+    /// <param name="nodeIndexSize">The node index size.</param>
+    /// <param name="offsets">Node offsets.</param>
+    /// <param name="node">The plist node.</param>
+    /// <returns>The Idx of the written node</returns>
+    internal async Task<int> WriteInternalAsync(Stream stream, byte nodeIndexSize, List<int> offsets, PropertyNode node)
+    {
+        int elementIdx = offsets.Count;
+        if (node.IsBinaryUnique && node is IEquatable<PropertyNode>) {
+            if (!_uniqueElements.TryGetValue(node.BinaryTag, out Dictionary<PropertyNode, int>? value)) {
+                value = [];
+                _uniqueElements.Add(node.BinaryTag, value);
+            }
+            if (!value.TryGetValue(node, out int retValue)) {
+                value[node] = elementIdx;
+            }
+            else {
+                if (node is BooleanNode) {
+                    elementIdx = retValue;
+                }
+                else {
+                    return retValue;
+                }
+            }
+        }
+
+        int offset = (int) stream.Position;
+        offsets.Add(offset);
+        int len = node.BinaryLength;
+        byte typeCode = (byte) ((node.BinaryTag & 0xF0) | (len < 0x0F ? len : 0x0F));
+        stream.WriteByte(typeCode);
+        if (len >= 0x0F) {
+            PropertyNode extLen = NodeFactory.CreateLengthElement(len);
+            byte binaryTag = (byte) ((extLen.BinaryTag & 0xF0) | extLen.BinaryLength);
+            stream.WriteByte(binaryTag);
+            await extLen.WriteBinaryAsync(stream).ConfigureAwait(false);
+        }
+
+        if (node is ArrayNode arrayNode) {
+            await WriteInternalAsync(stream, nodeIndexSize, offsets, arrayNode).ConfigureAwait(false);
+            return elementIdx;
+        }
+
+        if (node is DictionaryNode dictionaryNode) {
+            await WriteInternalAsync(stream, nodeIndexSize, offsets, dictionaryNode).ConfigureAwait(false);
+            return elementIdx;
+        }
+
+        await node.WriteBinaryAsync(stream).ConfigureAwait(false);
+        return elementIdx;
+    }
+
+    private async Task WriteInternalAsync(Stream stream, byte nodeIndexSize, List<int> offsets, ArrayNode array)
+    {
+        byte[] nodes = new byte[nodeIndexSize * array.Count];
+        long streamPos = stream.Position;
+
+        await stream.WriteAsync(nodes).ConfigureAwait(false);
+        for (int i = 0; i < array.Count; i++) {
+            int elementIdx = await WriteInternalAsync(stream, nodeIndexSize, offsets, array[i]).ConfigureAwait(false);
+            FormatIdx(elementIdx, nodeIndexSize).CopyTo(nodes, nodeIndexSize * i);
+        }
+
+        stream.Seek(streamPos, SeekOrigin.Begin);
+        await stream.WriteAsync(nodes).ConfigureAwait(false);
+        stream.Seek(0, SeekOrigin.End);
+    }
+
+    private async Task WriteInternalAsync(Stream stream, byte nodeIndexSize, List<int> offsets, DictionaryNode dictionary)
+    {
+        byte[] keys = new byte[nodeIndexSize * dictionary.Count];
+        byte[] values = new byte[nodeIndexSize * dictionary.Count];
+        long streamPos = stream.Position;
+        await stream.WriteAsync(keys).ConfigureAwait(false);
+        await stream.WriteAsync(values).ConfigureAwait(false);
+
+        KeyValuePair<string, PropertyNode>[] elems = [.. dictionary];
+
+        for (int i = 0; i < dictionary.Count; i++) {
+            int elementIdx = await WriteInternalAsync(stream, nodeIndexSize, offsets, NodeFactory.CreateKeyElement(elems[i].Key)).ConfigureAwait(false);
+            FormatIdx(elementIdx, nodeIndexSize).CopyTo(keys, nodeIndexSize * i);
+        }
+        for (int i = 0; i < dictionary.Count; i++) {
+            int elementIdx = await WriteInternalAsync(stream, nodeIndexSize, offsets, elems[i].Value).ConfigureAwait(false);
+            FormatIdx(elementIdx, nodeIndexSize).CopyTo(values, nodeIndexSize * i);
+        }
+
+        stream.Seek(streamPos, SeekOrigin.Begin);
+        await stream.WriteAsync(keys).ConfigureAwait(false);
+        await stream.WriteAsync(values).ConfigureAwait(false);
+        stream.Seek(0, SeekOrigin.End);
+    }
+
+    /// <summary>
     /// Writers a <see cref="PropertyNode"/> to the specified stream.
     /// </summary>
     /// <param name="stream">The stream.</param>
@@ -242,5 +339,76 @@ internal class BinaryFormatWriter
         EndianBitConverter.BigEndian.GetBytes(offsetTableOffset).CopyTo(header, 28);
 
         stream.Write(header, 0, header.Length);
+    }
+
+    /// <summary>
+    /// Writers a <see cref="PropertyNode"/> to the specified stream.
+    /// </summary>
+    /// <param name="stream">The stream.</param>
+    /// <param name="node">The plist node.</param>
+    public async Task WriteAsync(Stream stream, PropertyNode node)
+    {
+        await stream.WriteAsync(_header).ConfigureAwait(false);
+
+        var offsets = new List<int>();
+        int nodeCount = GetNodeCount(node);
+
+        byte nodeIndexSize;
+        if (nodeCount <= byte.MaxValue) {
+            nodeIndexSize = sizeof(byte);
+        }
+        else if (nodeCount <= short.MaxValue) {
+            nodeIndexSize = sizeof(short);
+        }
+        else {
+            nodeIndexSize = sizeof(int);
+        }
+
+        int topOffestIdx = await WriteInternalAsync(stream, nodeIndexSize, offsets, node).ConfigureAwait(false);
+        nodeCount = offsets.Count;
+
+        int offsetTableOffset = (int) stream.Position;
+
+        byte offsetSize;
+        if (offsetTableOffset <= byte.MaxValue) {
+            offsetSize = sizeof(byte);
+        }
+        else if (offsetTableOffset <= short.MaxValue) {
+            offsetSize = sizeof(short);
+        }
+        else {
+            offsetSize = sizeof(int);
+        }
+
+        for (int i = 0; i < offsets.Count; i++) {
+            byte[]? buf = null;
+            switch (offsetSize) {
+                case 1: {
+                    buf = [(byte) offsets[i]];
+                    break;
+                }
+                case 2: {
+                    buf = EndianBitConverter.BigEndian.GetBytes((short) offsets[i]);
+                    break;
+                }
+                case 4: {
+                    buf = EndianBitConverter.BigEndian.GetBytes(offsets[i]);
+                    break;
+                }
+            }
+            if (buf != null) {
+                await stream.WriteAsync(buf).ConfigureAwait(false);
+            }
+        }
+
+        byte[] header = new byte[32];
+        header[6] = offsetSize;
+        header[7] = nodeIndexSize;
+
+        EndianBitConverter.BigEndian.GetBytes(nodeCount).CopyTo(header, 12);
+        EndianBitConverter.BigEndian.GetBytes(topOffestIdx).CopyTo(header, 20);
+        EndianBitConverter.BigEndian.GetBytes(offsetTableOffset).CopyTo(header, 28);
+
+        await stream.WriteAsync(header).ConfigureAwait(false);
     }
 }

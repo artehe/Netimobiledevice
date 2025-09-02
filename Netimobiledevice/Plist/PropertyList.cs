@@ -39,8 +39,8 @@ public static class PropertyList
 
     private static async Task<PropertyNode> LoadAsBinaryAsync(Stream stream)
     {
-        // TODO
-        throw new NotImplementedException("This isn't done yet");
+        BinaryFormatReader reader = new BinaryFormatReader();
+        return await reader.ReadAsync(stream).ConfigureAwait(false);
     }
 
     private static PropertyNode LoadAsXml(Stream stream)
@@ -209,8 +209,8 @@ public static class PropertyList
             }
         }
         else {
-            // TODO
-            throw new NotImplementedException("This isn't done yet");
+            BinaryFormatWriter writer = new BinaryFormatWriter();
+            await writer.WriteAsync(stream, rootNode).ConfigureAwait(false);
         }
     }
 
