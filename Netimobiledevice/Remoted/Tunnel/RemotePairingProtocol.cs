@@ -26,11 +26,15 @@ public abstract class RemotePairingProtocol : StartTcpTunnel
         return await ReceiveResponse();
     }
 
-    public Task Connect(bool autopair = true)
+    public void Connect(bool autopair = true)
+    {
+        // TODO
+    }
+
+    public async Task ConnectAsync(bool autopair = true)
     {
         // TODO
         return Task.CompletedTask;
-        ;
     }
 
     public string RemoteDeviceModel => HandshakeInfo["peerDeviceInfo"]["model"].ToString();

@@ -132,4 +132,15 @@ internal static class PairRecords
     {
         return $"remote_{identifier}";
     }
+
+    /// <summary>
+    /// Iterate over the identifiers of the remote paired devices.
+    /// </summary>
+    /// <returns> A enumerator yielding the identifiers of the remote paired devices.</returns>
+    public static IEnumerable<string> IterateRemotePairedIdentifiers()
+    {
+        foreach (var file in IterateRemotePairRecords()) {
+            // yield file.parts[-1].split('remote_', 1)[1].split('.', 1)[0]
+        }
+    }
 }
