@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Logging;
-using Netimobiledevice.Extentions;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd.Responses;
 using System;
@@ -65,7 +64,7 @@ internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion pr
             return recievedLength;
         }
 
-        header = StructExtentions.FromBytes<UsbmuxdHeader>(headerBuffer);
+        header = UsbmuxdHeader.FromBytes(headerBuffer);
         byte[] payloadLoc = [];
 
         int payloadSize = header.Length - Marshal.SizeOf(header);
@@ -115,7 +114,7 @@ internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion pr
             throw new UsbmuxException($"Received packet is too small, got {recievedLength} bytes instead of {headerSize}!");
         }
 
-        header = StructExtentions.FromBytes<UsbmuxdHeader>(headerBuffer);
+        header = UsbmuxdHeader.FromBytes(headerBuffer);
 
         int payloadSize = header.Length - headerSize;
         byte[] payload = new byte[payloadSize];

@@ -1,7 +1,15 @@
-﻿namespace Netimobiledevice.Afc
+﻿using Netimobiledevice.EndianBitConversion;
+
+namespace Netimobiledevice.Afc;
+
+internal class AfcFileOpenResponse
 {
-    internal struct AfcFileOpenResponse
+    public ulong Handle { get; set; }
+
+    public static AfcFileOpenResponse FromBytes(byte[] bytes)
     {
-        public ulong Handle;
+        return new AfcFileOpenResponse() {
+            Handle = EndianBitConverter.LittleEndian.ToUInt64(bytes, 0)
+        };
     }
 }

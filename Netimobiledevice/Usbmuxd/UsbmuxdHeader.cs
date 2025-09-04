@@ -1,8 +1,7 @@
-﻿using System.Runtime.InteropServices;
+﻿using Netimobiledevice.EndianBitConversion;
 
 namespace Netimobiledevice.Usbmuxd;
 
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
 internal struct UsbmuxdHeader
 {
     /// <summary>
@@ -21,4 +20,24 @@ internal struct UsbmuxdHeader
     /// Responses to this query will echo back this tag
     /// </summary>
     public int Tag;
+
+    public readonly byte[] GetBytes()
+    {
+        return [
+            .. EndianBitConverter.LittleEndian.GetBytes(Length),
+            .. EndianBitConverter.LittleEndian.GetBytes((uint) Version),
+            .. EndianBitConverter.LittleEndian.GetBytes((uint) Message),
+            .. EndianBitConverter.LittleEndian.GetBytes(Tag),
+        ];
+    }
+
+    public static UsbmuxdHeader FromBytes(byte[] bytes)
+    {
+        return new UsbmuxdHeader() {
+            Length = EndianBitConverter.LittleEndian.ToInt32(bytes, 0),
+            Version = (UsbmuxdVersion) EndianBitConverter.LittleEndian.ToUInt32(bytes, 4),
+            Message = (UsbmuxdMessageType) EndianBitConverter.LittleEndian.ToUInt32(bytes, 8),
+            Tag = EndianBitConverter.LittleEndian.ToInt32(bytes, 12),
+        };
+    }
 }
