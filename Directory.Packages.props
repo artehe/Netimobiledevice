@@ -10,7 +10,7 @@
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="MSTest.TestAdapter" Version="3.10.4" />
     <PackageVersion Include="MSTest.TestFramework" Version="3.10.4" />
-    <PackageVersion Include="NetWintun" Version="1.0.1" />
+    <PackageVersion Include="NetWintun" Version="1.0.2" />
     <PackageVersion Include="Zeroconf" Version="3.7.16" />
   </ItemGroup>
 </Project>
