@@ -51,6 +51,7 @@
 	
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+		<PackageReference Include="Microsoft.NET.ILLink.Tasks" />
 		<PackageReference Include="NetWintun" />
 		<PackageReference Include="Zeroconf" />
 	</ItemGroup>
