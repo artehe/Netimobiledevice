@@ -1,11 +1,10 @@
 ﻿using System.Threading.Tasks;
 
-namespace Netimobiledevice.Remoted.Tunnel
+namespace Netimobiledevice.Remoted.Tunnel;
+
+public class TunnelTask
 {
-    public class TunnelTask
-    {
-        public Task Task { get; set; }
-        public string Udid { get; set; }
-        public TunnelResult Tunnel { get; set; }
-    }
+    public Task Task { get; set; }
+    public string Udid { get; set; }
+    public TunnelResult Tunnel { get; set; }
 }

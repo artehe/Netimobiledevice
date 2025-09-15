@@ -30,7 +30,7 @@ public class GetBytesTests
         AssertArraysEqual(expectedOutput, machineEndianBitConverterOutput);
 
         // compare other endianness by reversing the expected output of System.BitConverter
-        expectedOutput = expectedOutput.Reverse().ToArray();
+        expectedOutput = [.. expectedOutput.Reverse()];
         byte[] otherEndianBitConverterOutput = otherEndianBitConverterMethod(testValue);
         AssertArraysEqual(expectedOutput, otherEndianBitConverterOutput);
     }
@@ -52,8 +52,8 @@ public class GetBytesTests
     public void GetBytesFromBool()
     {
         // Don't use System.BitConverter as an oracle for boolean true, as it can theoretically map to any non-zero byte
-        AssertArraysEqual(new byte[] { 0x01 }, EndianBitConverter.BigEndian.GetBytes(true));
-        AssertArraysEqual(new byte[] { 0x01 }, EndianBitConverter.LittleEndian.GetBytes(true));
+        AssertArraysEqual([0x01], EndianBitConverter.BigEndian.GetBytes(true));
+        AssertArraysEqual([0x01], EndianBitConverter.LittleEndian.GetBytes(true));
 
         // Compare to System.BitConverter
         AssertGetBytesResult(BitConverter.GetBytes, machineEndianBitConverter.GetBytes, otherEndianBitConverter.GetBytes, false);

@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Logging;
-using Netimobiledevice.Extentions;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd.Responses;
 using System;
@@ -65,7 +64,7 @@ internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion pr
             return recievedLength;
         }
 
-        header = StructExtentions.FromBytes<UsbmuxdHeader>(headerBuffer);
+        header = UsbmuxdHeader.FromBytes(headerBuffer);
         byte[] payloadLoc = [];
 
         int payloadSize = header.Length - Marshal.SizeOf(header);
@@ -115,7 +114,7 @@ internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion pr
             throw new UsbmuxException($"Received packet is too small, got {recievedLength} bytes instead of {headerSize}!");
         }
 
-        header = StructExtentions.FromBytes<UsbmuxdHeader>(headerBuffer);
+        header = UsbmuxdHeader.FromBytes(headerBuffer);
 
         int payloadSize = header.Length - headerSize;
         byte[] payload = new byte[payloadSize];
@@ -162,7 +161,12 @@ internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion pr
     /// <summary>
     /// Initiate a "Connect" request to target port
     /// </summary>
-    protected abstract Task RequestConnect(long deviceId, ushort port, CancellationToken cancellationToken = default);
+    protected abstract void RequestConnect(long deviceId, ushort port, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Initiate a "Connect" request to target port
+    /// </summary>
+    protected abstract Task RequestConnectAsync(long deviceId, ushort port, CancellationToken cancellationToken = default);
 
     protected int SendPacket(UsbmuxdMessageType message, int tag, byte[] payload)
     {
@@ -258,9 +262,22 @@ internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion pr
     /// <param name="device">The usbmux device to connect to</param>
     /// <param name="port">The port to connect to the device on</param>
     /// <returns></returns>
+    public Socket Connect(UsbmuxdDevice device, ushort port)
+    {
+        RequestConnect(device.DeviceId, port);
+        _connected = true;
+        return Sock.GetInternalSocket();
+    }
+
+    /// <summary>
+    /// Connect to a relay port on target machine and get a raw python socket object for the connection
+    /// </summary>
+    /// <param name="device">The usbmux device to connect to</param>
+    /// <param name="port">The port to connect to the device on</param>
+    /// <returns></returns>
     public async Task<Socket> ConnectAsync(UsbmuxdDevice device, ushort port)
     {
-        await RequestConnect(device.DeviceId, port).ConfigureAwait(false);
+        await RequestConnectAsync(device.DeviceId, port).ConfigureAwait(false);
         _connected = true;
         return Sock.GetInternalSocket();
     }
@@ -328,4 +345,10 @@ internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion pr
     /// <param name="timeout">Timeout for the connection in ms</param>
     /// <returns></returns>
     public abstract void UpdateDeviceList(int timeout = 5000);
+
+    /// <summary>
+    /// Request an update to the current device list from Usbmux.
+    /// </summary>
+    /// <returns></returns>
+    public abstract Task UpdateDeviceListAsync(int timeout = 5000, CancellationToken cancellationToken = default);
 }

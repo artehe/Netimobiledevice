@@ -1,26 +1,25 @@
 ﻿using Netimobiledevice.Plist;
 
-namespace Netimobiledevice.Lockdown
-{
-    internal static class LockdownDeviceClass
-    {
-        public const string IPHONE = "iPhone";
-        public const string IPAD = "iPad";
-        public const string IPOD = "iPod";
-        public const string WATCH = "Watch";
-        public const string APPLE_TV = "AppleTV";
-        public const string UNKNOWN = "Unknown";
+namespace Netimobiledevice.Lockdown;
 
-        public static string GetDeviceClass(PropertyNode property)
-        {
-            return property.AsStringNode().Value switch {
-                IPHONE => IPHONE,
-                IPAD => IPAD,
-                IPOD => IPOD,
-                WATCH => WATCH,
-                APPLE_TV => APPLE_TV,
-                _ => UNKNOWN,
-            };
-        }
+internal static class LockdownDeviceClass
+{
+    public const string IPhone = "iPhone";
+    public const string IPad = "iPad";
+    public const string IPod = "iPod";
+    public const string Watch = "Watch";
+    public const string AppleTv = "AppleTV";
+    public const string Unknown = "Unknown";
+
+    public static string GetDeviceClass(PropertyNode property)
+    {
+        return property.AsStringNode().Value switch {
+            IPhone => IPhone,
+            IPad => IPad,
+            IPod => IPod,
+            Watch => Watch,
+            AppleTv => AppleTv,
+            _ => Unknown,
+        };
     }
 }

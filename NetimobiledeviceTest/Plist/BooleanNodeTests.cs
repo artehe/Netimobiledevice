@@ -10,7 +10,7 @@ public class BooleanNodeTests
     {
         BooleanNode node = new BooleanNode(true);
         bool returnedValue = node.Value;
-        Assert.AreEqual(true, returnedValue);
+        Assert.IsTrue(returnedValue);
     }
 
     [TestMethod]
@@ -18,7 +18,7 @@ public class BooleanNodeTests
     {
         BooleanNode node = new BooleanNode(false);
         bool returnedValue = node.Value;
-        Assert.AreEqual(false, returnedValue);
+        Assert.IsFalse(returnedValue);
     }
 
     [TestMethod]

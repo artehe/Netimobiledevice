@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice.Afc.Packets;
 using Netimobiledevice.EndianBitConversion;
-using Netimobiledevice.Extentions;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Utils;
@@ -239,7 +238,7 @@ namespace Netimobiledevice.Afc
         {
             AfcFileOpenRequest openRequest = new AfcFileOpenRequest(mode, filename);
             byte[] data = await RunOperation(AfcOpCode.FileOpen, openRequest, cancellationToken).ConfigureAwait(false);
-            return StructExtentions.FromBytes<AfcFileOpenResponse>(data).Handle;
+            return AfcFileOpenResponse.FromBytes(data).Handle;
         }
 
         public async Task<byte[]> FileRead(ulong handle, ulong size, CancellationToken cancellationToken = default)
