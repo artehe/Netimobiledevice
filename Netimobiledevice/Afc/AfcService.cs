@@ -656,7 +656,7 @@ namespace Netimobiledevice.Afc
         {
             sourceFilePath = await ResolvePath(sourceFilePath, cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
             DictionaryNode info = (await GetFileInfo(sourceFilePath, cancellationToken).ConfigureAwait(continueOnCapturedContext: false)) ?? new DictionaryNode();
-            if (!info.TryGetValue("st_ifmt", out PropertyNode value)) {
+            if (!info.TryGetValue("st_ifmt", out PropertyNode? value)) {
                 throw new AfcException(AfcError.ObjectNotFound, "couldn't find st_ifmt in file info");
             }
 
