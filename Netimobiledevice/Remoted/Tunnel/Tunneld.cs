@@ -9,8 +9,17 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Remoted.Tunnel;
 
+/// <summary>
+/// Start the Tunneld service for remote tunneling and monitoring of connections
+/// </summary>
+/// <param name="protocol">The protocol to use </param>
+/// <param name="usbMonitor">Enable usb monitoring</param>
+/// <param name="wifiMonitor">Enable wifi monitoring</param>
+/// <param name="usbmuxMonitor">Enable usbmux monitoring</param>
+/// <param name="mobdev2Monitor">Enable mobdev2 monitoring</param>
+/// <remarks>sudo/admin privilleges are required for one or more monitoring tasks to run.</remarks>
 public class Tunneld(
-    TunnelProtocol protocol = TunnelProtocol.QUIC,
+    TunnelProtocol protocol = TunnelProtocol.Tcp,
     bool wifiMonitor = true,
     bool usbMonitor = true,
     bool usbmuxMonitor = true,
@@ -36,13 +45,25 @@ public class Tunneld(
     private readonly bool _usbmuxMonitor = usbmuxMonitor;
     private readonly bool _wifiMonitor = wifiMonitor;
 
+    private Dictionary<string, TunnelDefinition> ListTunnels() {
+        Dictionary<string, TunnelDefinition> tunnels = [];
+        foreach (KeyValuePair<string, TunnelTask> item in _tunnelTasks) {
+            TunnelTask task = item.Value;
+            if (string.IsNullOrEmpty(task.Udid) || task.Tunnel == null) {
+                continue;
+            }
+            if (!tunnels.ContainsKey(task.Udid)) {
+                tunnels.Add(task.Udid, new TunnelDefinition(task.Tunnel.Address, task.Tunnel.Port, item.Key));
+            }
+        }
+        return tunnels;
+    }
+
     private async Task MonitorMobdev2Task(CancellationToken cancellationToken) {
         // TODO
     }
 
     private async Task MonitorTask() {
-        _cts = new CancellationTokenSource();
-
         _tasks.Add(TunnelMonitorTask(_cts.Token));
         if (_mobdev2Monitor) {
             _tasks.Add(MonitorMobdev2Task(_cts.Token));
@@ -88,7 +109,7 @@ public class Tunneld(
 
                         _tunnelTasks.TryAdd(taskIdentifier, new TunnelTask {
                             Udid = muxDevice.Serial,
-                            Task = StartTunnelTask(taskIdentifier, service, TunnelProtocol.TCP)
+                            Task = StartTunnelTask(taskIdentifier, service, TunnelProtocol.Tcp)
                         });
                     }
                 }
@@ -109,35 +130,14 @@ public class Tunneld(
         // TODO
     }
 
-    public void Start() {
-        if (_monitoringTask == null) {
-            _cts = new CancellationTokenSource();
-            _monitoringTask = Task.Run(MonitorTask, _cts.Token);
-        }
-    }
-
-    public void Stop() {
-        _cts.Cancel();
-        _monitoringTask = null;
-    }
-
-    public bool TunnelExistsForUdid(string udid) {
-        foreach (TunnelTask task in _tunnelTasks.Values) {
-            if (task.Udid == udid && task.Tunnel != null) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public async Task StartTunnelTask(
+    private async Task StartTunnelTask(
         string taskIdentifier,
         StartTcpTunnel protocolHandler,
         TunnelProtocol? protocol = null
     ) {
         protocol ??= this._protocol;
         if (protocolHandler is CoreDeviceTunnelProxy) {
-            protocol = TunnelProtocol.TCP;
+            protocol = TunnelProtocol.Tcp;
         }
 
         TunnelResult? tun = null;
@@ -186,21 +186,7 @@ public class Tunneld(
         }
     }
 
-    private Dictionary<string, TunnelDefinition> ListTunnels() {
-        Dictionary<string, TunnelDefinition> tunnels = [];
-        foreach (KeyValuePair<string, TunnelTask> item in _tunnelTasks) {
-            TunnelTask task = item.Value;
-            if (string.IsNullOrEmpty(task.Udid) || task.Tunnel == null) {
-                continue;
-            }
-            if (!tunnels.ContainsKey(task.Udid)) {
-                tunnels.Add(task.Udid, new TunnelDefinition(task.Tunnel.Address, task.Tunnel.Port, item.Key));
-            }
-        }
-        return tunnels;
-    }
-
-    public async Task TunnelMonitorTask(CancellationToken cancellationToken) {
+    private async Task TunnelMonitorTask(CancellationToken cancellationToken) {
         while (!cancellationToken.IsCancellationRequested) {
             List<KeyValuePair<string, TunnelTask>> toRemove = [];
             foreach (KeyValuePair<string, TunnelTask> entry in _tunnelTasks) {
@@ -218,20 +204,25 @@ public class Tunneld(
         }
     }
 
-    public async Task<List<RemoteServiceDiscoveryService>> GetTunneldDevices() {
-        List<RemoteServiceDiscoveryService> rsds = [];
-        Dictionary<string, TunnelDefinition> tunnels = ListTunnels();
-        foreach (KeyValuePair<string, TunnelDefinition> tunnel in tunnels) {
-            RemoteServiceDiscoveryService rsd = new RemoteServiceDiscoveryService(tunnel.Value.TunnelAddres, tunnel.Value.TunnelPort, tunnel.Value.InterfaceId);
-            try {
-                await rsd.Connect();
-                rsds.Add(rsd);
-            }
-            catch (Exception ex) {
-                Debug.WriteLine(ex.ToString());
+    public void Start() {
+        if (_monitoringTask == null) {
+            _cts = new CancellationTokenSource();
+            _monitoringTask = Task.Run(MonitorTask, _cts.Token);
+        }
+    }
+
+    public void Stop() {
+        _cts.Cancel();
+        _monitoringTask = null;
+    }
+
+    public bool TunnelExistsForUdid(string udid) {
+        foreach (TunnelTask task in _tunnelTasks.Values) {
+            if (task.Udid == udid && task.Tunnel != null) {
+                return true;
             }
         }
-        return rsds;
+        return false;
     }
 
     public async Task<RemoteServiceDiscoveryService?> GetDevice(string? udid = null) {
@@ -256,5 +247,21 @@ public class Tunneld(
         }
 
         return result;
+    }
+
+    public async Task<List<RemoteServiceDiscoveryService>> GetTunneldDevices() {
+        List<RemoteServiceDiscoveryService> rsds = [];
+        Dictionary<string, TunnelDefinition> tunnels = ListTunnels();
+        foreach (KeyValuePair<string, TunnelDefinition> tunnel in tunnels) {
+            RemoteServiceDiscoveryService rsd = new RemoteServiceDiscoveryService(tunnel.Value.TunnelAddres, tunnel.Value.TunnelPort, tunnel.Value.InterfaceId);
+            try {
+                await rsd.Connect();
+                rsds.Add(rsd);
+            }
+            catch (Exception ex) {
+                Debug.WriteLine(ex.ToString());
+            }
+        }
+        return rsds;
     }
 }

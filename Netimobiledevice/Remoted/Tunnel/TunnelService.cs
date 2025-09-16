@@ -5,17 +5,14 @@ using Zeroconf;
 
 namespace Netimobiledevice.Remoted.Tunnel;
 
-public static class TunnelService
-{
-    public static async Task<CoreDeviceTunnelService> CreateCoreDeviceTunnelServiceUsingRsd(RemoteServiceDiscoveryService rsd, bool autoPair = true)
-    {
+public static class TunnelService {
+    public static async Task<CoreDeviceTunnelService> CreateCoreDeviceTunnelServiceUsingRsd(RemoteServiceDiscoveryService rsd, bool autoPair = true) {
         CoreDeviceTunnelService service = new CoreDeviceTunnelService(rsd);
         await service.Connect(autoPair).ConfigureAwait(false);
         return service;
     }
 
-    public static async Task<List<RemotePairingTunnelService>> GetRemotePairingTunnelServices(int bonjourTimeout = BonjourService.DEFAULT_BONJOUR_TIMEOUT, string? udid = null)
-    {
+    public static async Task<List<RemotePairingTunnelService>> GetRemotePairingTunnelServices(int bonjourTimeout = BonjourService.DEFAULT_BONJOUR_TIMEOUT, string? udid = null) {
         List<RemotePairingTunnelService> result = [];
         foreach (IZeroconfHost answer in await BonjourService.BrowseRemotePairing(bonjourTimeout).ConfigureAwait(false)) {
             foreach (string ip in answer.IPAddresses) {
@@ -42,8 +39,7 @@ public static class TunnelService
     }
 
     public static async Task<TunnelResult> StartTunnel(StartTcpTunnel protocolHandler, string[]? secrets = null,
-        int maxIdleTimeout = RemotePairingQuicTunnel.MAX_IDLE_TIMEOUT, TunnelProtocol protocol = TunnelProtocol.QUIC)
-    {
+        int maxIdleTimeout = RemotePairingQuicTunnel.MAX_IDLE_TIMEOUT, TunnelProtocol protocol = TunnelProtocol.Quic) {
         if (protocolHandler is CoreDeviceTunnelService) {
             /* TODO
         async with start_tunnel_over_core_device(
@@ -60,7 +56,7 @@ public static class TunnelService
                 */
         }
         else if (protocolHandler is CoreDeviceTunnelProxy cdtp) {
-            if (protocol != TunnelProtocol.TCP) {
+            if (protocol != TunnelProtocol.Tcp) {
                 throw new NetimobiledeviceException("CoreDeviceTunnelProxy protocol can only be TCP");
             }
             return await cdtp.StartTunnel();
