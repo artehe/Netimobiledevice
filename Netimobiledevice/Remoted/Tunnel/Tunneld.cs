@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
@@ -10,8 +9,13 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Remoted.Tunnel;
 
-public class Tunneld
-{
+public class Tunneld(
+    TunnelProtocol protocol = TunnelProtocol.QUIC,
+    bool wifiMonitor = true,
+    bool usbMonitor = true,
+    bool usbmuxMonitor = true,
+    bool mobdev2Monitor = true
+) {
     private const int REATTEMPT_COUNT = 5;
     private const int REATTEMPT_INTERVAL = 5000;
 
@@ -19,70 +23,50 @@ public class Tunneld
     private const int REMOTEPAIRING_INTERVAL = 5000;
     private const int USBMUX_INTERVAL = 2000;
 
-    public const string TUNNELD_DEFAULT_HOST = "127.0.0.1";
-    public const ushort TUNNELD_DEFAULT_PORT = 49151;
-
-    private CancellationTokenSource _cts = new CancellationTokenSource();
-    private readonly BackgroundWorker bw = new BackgroundWorker {
-        WorkerSupportsCancellation = true
-    };
-
     private readonly List<Task> _tasks = [];
     private readonly ConcurrentDictionary<string, TunnelTask> _tunnelTasks = [];
-    private readonly TunnelProtocol _protocol;
-    private readonly bool _usbmuxMonitor;
+    private readonly TunnelProtocol _protocol = protocol;
 
-    // TODO implement these monitoring methods
-    private readonly bool _usbMonitor;
-    private readonly bool _wifiMonitor;
-    private readonly bool _mobdev2Monitor;
+    private CancellationTokenSource _cts = new CancellationTokenSource();
+    private Task? _monitoringTask;
 
-    public Tunneld(TunnelProtocol protocol = TunnelProtocol.QUIC,
-        bool wifiMonitor = true,
-        bool usbMonitor = true,
-        bool usbmuxMonitor = true,
-        bool mobdev2Monitor = true)
-    {
-        _protocol = protocol;
-        _mobdev2Monitor = mobdev2Monitor;
-        _usbmuxMonitor = usbmuxMonitor;
-        _usbMonitor = usbMonitor;
-        _wifiMonitor = wifiMonitor;
+    // Different monitoring methods for remoted that are available to use
+    private readonly bool _mobdev2Monitor = mobdev2Monitor;
+    private readonly bool _usbMonitor = usbMonitor;
+    private readonly bool _usbmuxMonitor = usbmuxMonitor;
+    private readonly bool _wifiMonitor = wifiMonitor;
 
-        bw = new BackgroundWorker {
-            WorkerSupportsCancellation = true
-        };
-        bw.DoWork += BackgroundWorker_DoWork;
+    private async Task MonitorMobdev2Task(CancellationToken cancellationToken) {
+        // TODO
     }
 
-    private void BackgroundWorker_DoWork(object? sender, DoWorkEventArgs e)
-    {
+    private async Task MonitorTask() {
         _cts = new CancellationTokenSource();
 
         _tasks.Add(TunnelMonitorTask(_cts.Token));
+        if (_mobdev2Monitor) {
+            _tasks.Add(MonitorMobdev2Task(_cts.Token));
+        }
+        if (_usbMonitor) {
+            _tasks.Add(MonitorUsbTask(_cts.Token));
+        }
         if (_usbmuxMonitor) {
             _tasks.Add(MonitorUsbmuxTask(_cts.Token));
         }
+        if (_wifiMonitor) {
+            _tasks.Add(MonitorWifiTask(_cts.Token));
+        }
 
-        while (!bw.CancellationPending) {
-            Task.WaitAll([.. _tasks]);
+        while (!_cts.IsCancellationRequested) {
+            await Task.WhenAll([.. _tasks]).ConfigureAwait(false);
         }
     }
 
-    public void Start()
-    {
-        _cts.Cancel();
-        bw.RunWorkerAsync();
+    private async Task MonitorUsbTask(CancellationToken cancellationToken) {
+        // TODO
     }
 
-    public void Stop()
-    {
-        _cts.Cancel();
-        bw.CancelAsync();
-    }
-
-    public async Task MonitorUsbmuxTask(CancellationToken cancellationToken)
-    {
+    private async Task MonitorUsbmuxTask(CancellationToken cancellationToken) {
         Debug.WriteLine("Starting MonitorUsbmuxTask");
         try {
             while (!cancellationToken.IsCancellationRequested) {
@@ -121,8 +105,23 @@ public class Tunneld
         }
     }
 
-    public bool TunnelExistsForUdid(string udid)
-    {
+    private async Task MonitorWifiTask(CancellationToken cancellationToken) {
+        // TODO
+    }
+
+    public void Start() {
+        if (_monitoringTask == null) {
+            _cts = new CancellationTokenSource();
+            _monitoringTask = Task.Run(MonitorTask, _cts.Token);
+        }
+    }
+
+    public void Stop() {
+        _cts.Cancel();
+        _monitoringTask = null;
+    }
+
+    public bool TunnelExistsForUdid(string udid) {
         foreach (TunnelTask task in _tunnelTasks.Values) {
             if (task.Udid == udid && task.Tunnel != null) {
                 return true;
@@ -131,8 +130,11 @@ public class Tunneld
         return false;
     }
 
-    public async Task StartTunnelTask(string taskIdentifier, StartTcpTunnel protocolHandler, TunnelProtocol? protocol = null)
-    {
+    public async Task StartTunnelTask(
+        string taskIdentifier,
+        StartTcpTunnel protocolHandler,
+        TunnelProtocol? protocol = null
+    ) {
         protocol ??= this._protocol;
         if (protocolHandler is CoreDeviceTunnelProxy) {
             protocol = TunnelProtocol.TCP;
@@ -184,8 +186,7 @@ public class Tunneld
         }
     }
 
-    private Dictionary<string, TunnelDefinition> ListTunnels()
-    {
+    private Dictionary<string, TunnelDefinition> ListTunnels() {
         Dictionary<string, TunnelDefinition> tunnels = [];
         foreach (KeyValuePair<string, TunnelTask> item in _tunnelTasks) {
             TunnelTask task = item.Value;
@@ -199,8 +200,7 @@ public class Tunneld
         return tunnels;
     }
 
-    public async Task TunnelMonitorTask(CancellationToken cancellationToken)
-    {
+    public async Task TunnelMonitorTask(CancellationToken cancellationToken) {
         while (!cancellationToken.IsCancellationRequested) {
             List<KeyValuePair<string, TunnelTask>> toRemove = [];
             foreach (KeyValuePair<string, TunnelTask> entry in _tunnelTasks) {
@@ -218,8 +218,7 @@ public class Tunneld
         }
     }
 
-    public async Task<List<RemoteServiceDiscoveryService>> GetTunneldDevices(string host, ushort port)
-    {
+    public async Task<List<RemoteServiceDiscoveryService>> GetTunneldDevices() {
         List<RemoteServiceDiscoveryService> rsds = [];
         Dictionary<string, TunnelDefinition> tunnels = ListTunnels();
         foreach (KeyValuePair<string, TunnelDefinition> tunnel in tunnels) {
@@ -235,9 +234,8 @@ public class Tunneld
         return rsds;
     }
 
-    public async Task<RemoteServiceDiscoveryService?> GetDevice(string? udid = null)
-    {
-        List<RemoteServiceDiscoveryService> rsds = await GetTunneldDevices(TUNNELD_DEFAULT_HOST, TUNNELD_DEFAULT_PORT);
+    public async Task<RemoteServiceDiscoveryService?> GetDevice(string? udid = null) {
+        List<RemoteServiceDiscoveryService> rsds = await GetTunneldDevices();
         if (rsds.Count == 0) {
             return null;
         }

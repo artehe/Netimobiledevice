@@ -5,17 +5,17 @@ using Netimobiledevice.Heartbeat;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Pairing;
 using Netimobiledevice.NotificationProxy;
+using Netimobiledevice.Remoted;
+using Netimobiledevice.Remoted.Tunnel;
 using Netimobiledevice.Usbmuxd;
 using System.ComponentModel;
 
 namespace NetimobiledeviceDemo;
 
-public class Program
-{
+public class Program {
     private static readonly CancellationTokenSource tokenSource = new CancellationTokenSource();
 
-    internal static async Task Main()
-    {
+    internal static async Task Main() {
         using ILoggerFactory factory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Debug).AddConsole());
         ILogger logger = factory.CreateLogger("NetimobiledeviceDemo");
         logger.LogInformation("Hello World! Logging is {Description}.", "fun");
@@ -52,6 +52,8 @@ public class Program
                 await lockdown.PairAsync(progress);
             }
         }
+
+        await Remoted(logger);
 
         using (LockdownClient lockdown = await MobileDevice.CreateUsingUsbmuxAsync(logger: logger)) {
             using (HeartbeatService hb = new HeartbeatService(lockdown, logger)) {
@@ -111,76 +113,85 @@ public class Program
         }
     }
 
-    private static void NotificationProxy_ReceivedNotification(object? sender, ReceivedNotificationEventArgs e)
-    {
+    private static void NotificationProxy_ReceivedNotification(object? sender, ReceivedNotificationEventArgs e) {
         Console.WriteLine(e.Event);
     }
 
-    private static void BackupJob_Started(object? sender, EventArgs e)
-    {
+    private static void BackupJob_Started(object? sender, EventArgs e) {
         Console.WriteLine($"BackupJob_Started");
     }
 
-    private static void BackupJob_Status(object? sender, StatusEventArgs e)
-    {
+    private static void BackupJob_Status(object? sender, StatusEventArgs e) {
         Console.WriteLine($"BackupJob_Status");
     }
 
-    private static void BackupJob_Progress(object? sender, ProgressChangedEventArgs e)
-    {
+    private static void BackupJob_Progress(object? sender, ProgressChangedEventArgs e) {
         Console.WriteLine($"BackupJob_Progress");
     }
 
-    private static void BackupJob_PasscodeRequiredForBackup(object? sender, EventArgs e)
-    {
+    private static void BackupJob_PasscodeRequiredForBackup(object? sender, EventArgs e) {
         Console.WriteLine($"BackupJob_PasscodeRequiredForBackup");
     }
 
-    private static void BackupJob_FileTransferError(object? sender, BackupFileErrorEventArgs e)
-    {
+    private static void BackupJob_FileTransferError(object? sender, BackupFileErrorEventArgs e) {
         Console.WriteLine($"BackupJob_FileTransferError");
     }
 
-    private static void BackupJob_FileReceiving(object? sender, BackupFileEventArgs e)
-    {
+    private static void BackupJob_FileReceiving(object? sender, BackupFileEventArgs e) {
         Console.WriteLine($"BackupJob_FileReceiving");
     }
 
-    private static void BackupJob_Completed(object? sender, BackupResultEventArgs e)
-    {
+    private static void BackupJob_Completed(object? sender, BackupResultEventArgs e) {
         Console.WriteLine($"BackupJob_Completed");
     }
 
-    private static void BackupJob_Error(object? sender, ErrorEventArgs e)
-    {
+    private static void BackupJob_Error(object? sender, ErrorEventArgs e) {
         Console.WriteLine($"BackupJob_Error");
     }
 
-    private static void BackupJob_FileReceived(object? sender, BackupFileEventArgs e)
-    {
+    private static void BackupJob_FileReceived(object? sender, BackupFileEventArgs e) {
         Console.WriteLine($"BackupJob_FileReceived");
     }
 
-    private static void BackupJob_BeforeReceivingFile(object? sender, BackupFileEventArgs e)
-    {
+    private static void BackupJob_BeforeReceivingFile(object? sender, BackupFileEventArgs e) {
         Console.WriteLine($"BackupJob_BeforeReceivingFile");
     }
 
-    private static void Progress_ProgressChanged(object? sender, PairingState e)
-    {
+    private static void Progress_ProgressChanged(object? sender, PairingState e) {
         Console.WriteLine($"Pair Progress Changed: {e}");
     }
 
-    private static void SubscriptionCallback(UsbmuxdDevice device, UsbmuxdConnectionEventType connectionEvent)
-    {
+    private static void SubscriptionCallback(UsbmuxdDevice device, UsbmuxdConnectionEventType connectionEvent) {
         Console.WriteLine("NewCallbackExecuted");
         Console.WriteLine($"Connection event: {connectionEvent}");
         Console.WriteLine($"Device: {device.DeviceId} - {device.Serial}");
     }
 
-    private static void SubscriptionErrorCallback(Exception ex)
-    {
+    private static void SubscriptionErrorCallback(Exception ex) {
         Console.WriteLine("NewErrorCallbackExecuted");
         Console.WriteLine(ex.Message);
+    }
+
+    private static async Task Remoted(ILogger logger) {
+        Tunneld tunneld = Remote.StartTunneld();
+        await Task.Delay(5 * 1000);
+        RemoteServiceDiscoveryService rsd = await tunneld.GetDevice() ?? throw new LockdownException("No device found");
+        using (Mobilebackup2Service mb2 = new Mobilebackup2Service(rsd, logger: logger)) {
+            mb2.BeforeReceivingFile += BackupJob_BeforeReceivingFile;
+            mb2.Completed += BackupJob_Completed;
+            mb2.Error += BackupJob_Error;
+            mb2.FileReceived += BackupJob_FileReceived;
+            mb2.FileReceiving += BackupJob_FileReceiving;
+            mb2.FileTransferError += BackupJob_FileTransferError;
+            mb2.PasscodeRequiredForBackup += BackupJob_PasscodeRequiredForBackup;
+            mb2.Progress += BackupJob_Progress;
+            mb2.Status += BackupJob_Status;
+            mb2.Started += BackupJob_Started;
+
+            await mb2.Backup(false, false, true, "backups", tokenSource.Token);
+        }
+
+        await Task.Delay(5 * 1000);
+        tunneld.Stop();
     }
 }
