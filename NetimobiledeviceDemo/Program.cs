@@ -173,7 +173,7 @@ public class Program {
     }
 
     private static async Task Remoted(ILogger logger) {
-        Tunneld tunneld = new Tunneld();
+        Tunneld tunneld = new Tunneld(TunnelProtocol.Tcp, false, false, true, false, logger: logger);
         tunneld.Start();
         await Task.Delay(5 * 1000);
         RemoteServiceDiscoveryService rsd = await tunneld.GetDevice() ?? throw new LockdownException("No device found");

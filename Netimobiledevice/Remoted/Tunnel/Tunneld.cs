@@ -1,8 +1,9 @@
-﻿using Netimobiledevice.Usbmuxd;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Netimobiledevice.Usbmuxd;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,7 +24,8 @@ public class Tunneld(
     bool wifiMonitor = true,
     bool usbMonitor = true,
     bool usbmuxMonitor = true,
-    bool mobdev2Monitor = true
+    bool mobdev2Monitor = true,
+    ILogger? logger = null
 ) {
     private const int REATTEMPT_COUNT = 5;
     private const int REATTEMPT_INTERVAL = 5000;
@@ -44,6 +46,11 @@ public class Tunneld(
     private readonly bool _usbMonitor = usbMonitor;
     private readonly bool _usbmuxMonitor = usbmuxMonitor;
     private readonly bool _wifiMonitor = wifiMonitor;
+
+    /// <summary>
+    /// The internal logger
+    /// </summary>
+    private ILogger Logger { get; } = logger ?? NullLogger.Instance;
 
     private Dictionary<string, TunnelDefinition> ListTunnels() {
         Dictionary<string, TunnelDefinition> tunnels = [];
@@ -88,12 +95,12 @@ public class Tunneld(
     }
 
     private async Task MonitorUsbmuxTask(CancellationToken cancellationToken) {
-        Debug.WriteLine("Starting MonitorUsbmuxTask");
+        Logger.LogInformation("Starting MonitorUsbmuxTask");
         try {
             while (!cancellationToken.IsCancellationRequested) {
                 try {
-                    List<UsbmuxdDevice> devices = Usbmux.GetDeviceList();
-                    Debug.WriteLine($"Found {devices.Count} devices for for usbmux monitoring task");
+                    List<UsbmuxdDevice> devices = await Usbmux.GetDeviceListAsync("", logger, cancellationToken).ConfigureAwait(false);
+                    Logger.LogInformation("Found {deviceCount} devices for for usbmux monitoring task", devices.Count);
                     foreach (UsbmuxdDevice muxDevice in devices) {
                         string taskIdentifier = $"usbmux-{muxDevice.Serial}-{muxDevice.ConnectionType}";
                         if (TunnelExistsForUdid(muxDevice.Serial)) {
@@ -113,8 +120,8 @@ public class Tunneld(
                         });
                     }
                 }
-                catch (Exception) {
-                    Debug.WriteLine("Failed to connect to usbmux. waiting for it to restart");
+                catch (Exception ex) {
+                    Logger.LogWarning(ex, "Failed to connect to usbmux. waiting for it to restart");
                 }
                 finally {
                     await Task.Delay(USBMUX_INTERVAL, cancellationToken);
@@ -135,9 +142,9 @@ public class Tunneld(
         StartTcpTunnel protocolHandler,
         TunnelProtocol? protocol = null
     ) {
-        protocol ??= this._protocol;
+        TunnelProtocol usedProtocol = protocol ?? this._protocol;
         if (protocolHandler is CoreDeviceTunnelProxy) {
-            protocol = TunnelProtocol.Tcp;
+            usedProtocol = TunnelProtocol.Tcp;
         }
 
         TunnelResult? tun = null;
@@ -147,7 +154,7 @@ public class Tunneld(
                 throw new TaskCanceledException();
             }
 
-            tun = await TunnelService.StartTunnel(protocolHandler, protocol: (TunnelProtocol) protocol);
+            tun = await TunnelService.StartTunnel(protocolHandler, protocol: usedProtocol).ConfigureAwait(false);
             if (!TunnelExistsForUdid(protocolHandler.RemoteIdentifier)) {
                 _tunnelTasks.AddOrUpdate(
                     taskIdentifier,
@@ -162,17 +169,17 @@ public class Tunneld(
                     }
                 );
 
-                Debug.WriteLine($"Created tunnel --rsd {tun.Address} {tun.Port}");
+                Logger.LogInformation("Created tunnel to {address}:{port}", tun.Address, tun.Port);
             }
             else {
-                Debug.WriteLine("Not establishing tunnel since there is already an active one for same udid");
+                Logger.LogInformation("Not establishing tunnel since there is already an active one for same udid");
             }
         }
         catch (Exception ex) {
-            Debug.WriteLine(ex);
+            Logger.LogDebug(ex, "Exception in StartTunnelTask");
             if (_tunnelTasks.TryRemove(taskIdentifier, out TunnelTask? task)) {
                 if (task.Tunnel.Client != null) {
-                    Debug.WriteLine($"Disconnected from tunnel --rsd {task.Tunnel.Address} {task.Tunnel.Port}");
+                    Logger.LogInformation("Disconnected from tunnel {address}:{port}", task.Tunnel.Address, task.Tunnel.Port);
                     task.Tunnel.Client.StopTunnel();
                 }
 
@@ -259,7 +266,7 @@ public class Tunneld(
                 rsds.Add(rsd);
             }
             catch (Exception ex) {
-                Debug.WriteLine(ex.ToString());
+                Logger.LogWarning(ex, "Failed to connect to rsd service for {device}", tunnel.Key);
             }
         }
         return rsds;
