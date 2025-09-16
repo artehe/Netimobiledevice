@@ -5,6 +5,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.NetworkInformation;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -67,7 +68,29 @@ public class Tunneld(
     }
 
     private async Task MonitorMobdev2Task(CancellationToken cancellationToken) {
-        // TODO
+        /* TODO
+        try:
+            while True:
+                async for ip, lockdown in get_mobdev2_lockdowns(only_paired=True):
+                    if self.tunnel_exists_for_udid(lockdown.udid):
+                        # skip tunnel if already exists for this udid
+                        continue
+                    task_identifier = f'mobdev2-{lockdown.udid}-{ip}'
+                    try:
+                        tunnel_service = CoreDeviceTunnelProxy(lockdown)
+                    except InvalidServiceError:
+                        logger.warning(f'[{task_identifier}] failed to start CoreDeviceTunnelProxy - skipping')
+                        lockdown.close()
+                        continue
+                    self.tunnel_tasks[task_identifier] = TunnelTask(
+                        task=asyncio.create_task(self.start_tunnel_task(task_identifier, tunnel_service),
+                                                 name=f'start-tunnel-task-{task_identifier}'),
+                        udid=lockdown.udid
+                    )
+                await asyncio.sleep(MOVDEV2_INTERVAL)
+        except asyncio.CancelledError:
+            pass
+        */
     }
 
     private async Task MonitorTask() {
@@ -85,13 +108,42 @@ public class Tunneld(
             _tasks.Add(MonitorWifiTask(_cts.Token));
         }
 
-        while (!_cts.IsCancellationRequested) {
-            await Task.WhenAll([.. _tasks]).ConfigureAwait(false);
-        }
+        await Task.WhenAll(_tasks).ConfigureAwait(false);
     }
 
     private async Task MonitorUsbTask(CancellationToken cancellationToken) {
-        // TODO
+        List<NetworkInterface> previousIps = [];
+        while (!cancellationToken.IsCancellationRequested) {
+            List<NetworkInterface> currentIps = Utils.GetIPv6Interfaces();
+
+            IEnumerable<NetworkInterface> added = currentIps.Where(x => !previousIps.Contains(x));
+            IEnumerable<NetworkInterface> removed = previousIps.Where(x => !currentIps.Contains(x));
+
+            previousIps = currentIps;
+
+            Logger.LogDebug("Added Interfaces: {added}", added);
+            Logger.LogDebug("Removed Interfaces: {removed}", removed);
+
+            foreach (NetworkInterface ip in removed) {
+                /* TODO
+                if ip in self.tunnel_tasks:
+                    self.tunnel_tasks[ip].task.cancel()
+                    await self.tunnel_tasks[ip].task
+                */
+            }
+
+            foreach (NetworkInterface ip in added) {
+                /* TODO
+                    self.tunnel_tasks[ip] = TunnelTask(
+                        task=asyncio.create_task(self.handle_new_potential_usb_cdc_ncm_interface_task(ip),
+                                                 name=f'handle-new-potential-usb-cdc-ncm-interface-task-{ip}'))
+
+                 */
+            }
+
+            // Wait before re-iterating
+            await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private async Task MonitorUsbmuxTask(CancellationToken cancellationToken) {
@@ -134,7 +186,30 @@ public class Tunneld(
     }
 
     private async Task MonitorWifiTask(CancellationToken cancellationToken) {
-        // TODO
+        try {
+            while (!cancellationToken.IsCancellationRequested) {
+                /* TODO
+                        for service in await get_remote_pairing_tunnel_services():
+                            if service.hostname in self.tunnel_tasks:
+                                # skip tunnel if already exists for this ip
+                                await service.close()
+                                continue
+                            if self.tunnel_exists_for_udid(service.remote_identifier):
+                                # skip tunnel if already exists for this udid
+                                await service.close()
+                                continue
+                            self.tunnel_tasks[service.hostname] = TunnelTask(
+                                task=asyncio.create_task(self.start_tunnel_task(service.hostname, service),
+                                                         name=f'start-tunnel-task-wifi-{service.hostname}'),
+                                udid=service.remote_identifier
+                            )
+                        await asyncio.sleep(REMOTEPAIRING_INTERVAL)
+                 */
+            }
+        }
+        catch (TaskCanceledException) {
+            return;
+        }
     }
 
     private async Task StartTunnelTask(
@@ -187,7 +262,9 @@ public class Tunneld(
                     try {
                         protocolHandler.Close();
                     }
-                    catch (Exception) { }
+                    catch (Exception e) {
+                        Logger.LogDebug(e, "Exception while trying to close protocol handler");
+                    }
                 }
             }
         }
