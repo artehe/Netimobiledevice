@@ -68,29 +68,33 @@ public class Tunneld(
     }
 
     private async Task MonitorMobdev2Task(CancellationToken cancellationToken) {
-        /* TODO
-        try:
-            while True:
-                async for ip, lockdown in get_mobdev2_lockdowns(only_paired=True):
-                    if self.tunnel_exists_for_udid(lockdown.udid):
-                        # skip tunnel if already exists for this udid
-                        continue
-                    task_identifier = f'mobdev2-{lockdown.udid}-{ip}'
-                    try:
-                        tunnel_service = CoreDeviceTunnelProxy(lockdown)
-                    except InvalidServiceError:
-                        logger.warning(f'[{task_identifier}] failed to start CoreDeviceTunnelProxy - skipping')
-                        lockdown.close()
-                        continue
-                    self.tunnel_tasks[task_identifier] = TunnelTask(
-                        task=asyncio.create_task(self.start_tunnel_task(task_identifier, tunnel_service),
-                                                 name=f'start-tunnel-task-{task_identifier}'),
-                        udid=lockdown.udid
-                    )
-                await asyncio.sleep(MOVDEV2_INTERVAL)
-        except asyncio.CancelledError:
-            pass
-        */
+        Logger.LogInformation("Starting MonitorMobdev2Task");
+        try {
+            while (!cancellationToken.IsCancellationRequested) {
+                /* TODO
+                        async for ip, lockdown in get_mobdev2_lockdowns(only_paired=True):
+                            if self.tunnel_exists_for_udid(lockdown.udid):
+                                # skip tunnel if already exists for this udid
+                                continue
+                            task_identifier = f'mobdev2-{lockdown.udid}-{ip}'
+                            try:
+                                tunnel_service = CoreDeviceTunnelProxy(lockdown)
+                            except InvalidServiceError:
+                                logger.warning(f'[{task_identifier}] failed to start CoreDeviceTunnelProxy - skipping')
+                                lockdown.close()
+                                continue
+                            self.tunnel_tasks[task_identifier] = TunnelTask(
+                                task=asyncio.create_task(self.start_tunnel_task(task_identifier, tunnel_service),
+                                                         name=f'start-tunnel-task-{task_identifier}'),
+                                udid=lockdown.udid
+                            )
+                */
+                await Task.Delay(MOBDEV2_INTERVAL, cancellationToken);
+            }
+        }
+        catch (TaskCanceledException) {
+            return;
+        }
     }
 
     private async Task MonitorTask() {
@@ -188,23 +192,24 @@ public class Tunneld(
     private async Task MonitorWifiTask(CancellationToken cancellationToken) {
         try {
             while (!cancellationToken.IsCancellationRequested) {
-                /* TODO
-                        for service in await get_remote_pairing_tunnel_services():
-                            if service.hostname in self.tunnel_tasks:
-                                # skip tunnel if already exists for this ip
-                                await service.close()
-                                continue
-                            if self.tunnel_exists_for_udid(service.remote_identifier):
-                                # skip tunnel if already exists for this udid
-                                await service.close()
-                                continue
-                            self.tunnel_tasks[service.hostname] = TunnelTask(
-                                task=asyncio.create_task(self.start_tunnel_task(service.hostname, service),
-                                                         name=f'start-tunnel-task-wifi-{service.hostname}'),
-                                udid=service.remote_identifier
-                            )
-                        await asyncio.sleep(REMOTEPAIRING_INTERVAL)
-                 */
+                foreach (RemotePairingTunnelService service in await TunnelService.GetRemotePairingTunnelServices()) {
+                    if (_tunnelTasks.ContainsKey(service.Hostname)) {
+                        // Skip tunnel if already exists for this ip
+                        await service.CloseAsync();
+                        continue;
+                    }
+                    if (TunnelExistsForUdid(service.RemoteIdentifier)) {
+                        // Skip tunnel if already exists for this udid
+                        await service.CloseAsync();
+                        continue;
+                    }
+
+                    _tunnelTasks.TryAdd(service.Hostname, new TunnelTask() {
+                        Task = StartTunnelTask(service.Hostname, service),
+                        Udid = service.RemoteIdentifier,
+                    });
+                }
+                await Task.Delay(REMOTEPAIRING_INTERVAL, cancellationToken);
             }
         }
         catch (TaskCanceledException) {
