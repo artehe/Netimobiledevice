@@ -1,6 +1,4 @@
-﻿using Netimobiledevice.Exceptions;
-
-namespace Netimobiledevice.SpringBoardServices;
+﻿namespace Netimobiledevice.SpringBoardServices;
 
 public sealed class SpringBoardServicessException : NetimobiledeviceException
 {

@@ -1,6 +1,4 @@
-﻿using Netimobiledevice.Exceptions;
-
-namespace Netimobiledevice.NotificationProxy;
+﻿namespace Netimobiledevice.NotificationProxy;
 
 public sealed class NotificationProxyException : NetimobiledeviceException
 {

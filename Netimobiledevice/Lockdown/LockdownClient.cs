@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Netimobiledevice.Exceptions;
 using Netimobiledevice.Lockdown.Pairing;
 using Netimobiledevice.NotificationProxy;
 using Netimobiledevice.Plist;

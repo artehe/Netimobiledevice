@@ -2,7 +2,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Netimobiledevice.Backup;
 using Netimobiledevice.EndianBitConversion;
-using Netimobiledevice.Exceptions;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
 using System;

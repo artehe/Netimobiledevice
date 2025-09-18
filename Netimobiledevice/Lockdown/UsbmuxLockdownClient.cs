@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Netimobiledevice.Lockdown.Pairing;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd;
