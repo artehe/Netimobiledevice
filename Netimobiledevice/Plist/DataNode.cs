@@ -1,68 +1,80 @@
-﻿using Netimobiledevice.Exceptions;
-using System;
+﻿using System;
 using System.IO;
+using System.Threading.Tasks;
 
-namespace Netimobiledevice.Plist
+namespace Netimobiledevice.Plist;
+
+/// <summary>
+/// Represents a byte[] value from a Plist
+/// </summary>
+public sealed class DataNode : PropertyNode<byte[]>
 {
     /// <summary>
-    /// Represents a byte[] value from a Plist
+    /// Gets the length of this PList element.
     /// </summary>
-    public sealed class DataNode : PropertyNode<byte[]>
+    internal override int BinaryLength => Value.Length;
+    internal override PlistType NodeType => PlistType.Data;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DataNode"/> class.
+    /// </summary>
+    public DataNode() : base([]) { }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DataNode"/> class.
+    /// </summary>
+    /// <param name="value">The value of this element.</param>
+    public DataNode(byte[] value) : base(value) { }
+
+    /// <summary>
+    /// Parses the specified value from a given string (encoded as Base64), read from Xml.
+    /// </summary>
+    /// <param name="data">The string whis is parsed.</param>
+    internal override void Parse(string data)
     {
-        /// <summary>
-        /// Gets the length of this PList element.
-        /// </summary>
-        internal override int BinaryLength => Value.Length;
-        internal override PlistType NodeType => PlistType.Data;
+        Value = Convert.FromBase64String(data);
+    }
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="DataNode"/> class.
-        /// </summary>
-        public DataNode() : base(Array.Empty<byte>()) { }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="DataNode"/> class.
-        /// </summary>
-        /// <param name="value">The value of this element.</param>
-        public DataNode(byte[] value) : base(value) { }
-
-        /// <summary>
-        /// Parses the specified value from a given string (encoded as Base64), read from Xml.
-        /// </summary>
-        /// <param name="data">The string whis is parsed.</param>
-        internal override void Parse(string data)
-        {
-            Value = Convert.FromBase64String(data);
+    /// <summary>
+    /// Reads this element binary from the reader.
+    /// </summary>
+    internal override void ReadBinary(Stream stream, int nodeLength)
+    {
+        Value = new byte[nodeLength];
+        if (stream.Read(Value, 0, Value.Length) != Value.Length) {
+            throw new PlistFormatException();
         }
+    }
 
-        /// <summary>
-        /// Reads this element binary from the reader.
-        /// </summary>
-        internal override void ReadBinary(Stream stream, int nodeLength)
-        {
-            Value = new byte[nodeLength];
-            if (stream.Read(Value, 0, Value.Length) != Value.Length) {
-                throw new PlistFormatException();
-            }
+    internal override async Task ReadBinaryAsync(Stream stream, int nodeLength)
+    {
+        Value = new byte[nodeLength];
+        if (await stream.ReadAsync(Value).ConfigureAwait(false) != Value.Length) {
+            throw new PlistFormatException();
         }
+    }
 
-        /// <summary>
-        /// Gets the XML string representation of the Value.
-        /// </summary>
-        /// <returns>
-        /// The XML string representation of the Value (encoded as Base64).
-        /// </returns>
-        internal override string ToXmlString()
-        {
-            return Convert.ToBase64String(Value);
-        }
+    /// <summary>
+    /// Gets the XML string representation of the Value.
+    /// </summary>
+    /// <returns>
+    /// The XML string representation of the Value (encoded as Base64).
+    /// </returns>
+    internal override string ToXmlString()
+    {
+        return Convert.ToBase64String(Value);
+    }
 
-        /// <summary>
-        /// Writes this element binary to the writer.
-        /// </summary>
-        internal override void WriteBinary(Stream stream)
-        {
-            stream.Write(Value, 0, Value.Length);
-        }
+    /// <summary>
+    /// Writes this element binary to the writer.
+    /// </summary>
+    internal override void WriteBinary(Stream stream)
+    {
+        stream.Write(Value, 0, Value.Length);
+    }
+
+    internal override async Task WriteBinaryAsync(Stream stream)
+    {
+        await stream.WriteAsync(Value).ConfigureAwait(false);
     }
 }

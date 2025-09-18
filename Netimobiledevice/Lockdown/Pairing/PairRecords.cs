@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Netimobiledevice.Exceptions;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd;
 using System;

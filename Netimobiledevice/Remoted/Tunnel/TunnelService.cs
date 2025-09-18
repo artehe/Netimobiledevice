@@ -1,5 +1,4 @@
-﻿using Netimobiledevice.Exceptions;
-using Netimobiledevice.Remoted.Bonjour;
+﻿using Netimobiledevice.Remoted.Bonjour;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Zeroconf;

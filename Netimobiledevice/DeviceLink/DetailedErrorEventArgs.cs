@@ -1,16 +1,10 @@
 ﻿using System;
 using System.IO;
 
-namespace Netimobiledevice.DeviceLink
+namespace Netimobiledevice.DeviceLink;
+
+
+public class DetailedErrorEventArgs(Exception exception, string details) : ErrorEventArgs(exception)
 {
-
-    public class DetailedErrorEventArgs : ErrorEventArgs
-    {
-        public string Details { get; set; }
-        
-        public DetailedErrorEventArgs(Exception exception, string details) : base(exception) {
-            Details = details;
-        }
-    }
-
+    public string Details { get; set; } = details;
 }

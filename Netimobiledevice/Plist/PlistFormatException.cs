@@ -1,35 +1,33 @@
-﻿using Netimobiledevice.Exceptions;
-using System;
+﻿using System;
 
-namespace Netimobiledevice.Plist
+namespace Netimobiledevice.Plist;
+
+/// <summary>
+/// Property list format exception.
+/// </summary>
+public class PlistFormatException : NetimobiledeviceException
 {
     /// <summary>
-    /// Property list format exception.
+    /// Initializes a new instance of the <see cref="PlistFormatException"/> class.
     /// </summary>
-    public class PlistFormatException : NetimobiledeviceException
+    public PlistFormatException()
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="PlistFormatException"/> class.
-        /// </summary>
-        public PlistFormatException()
-        {
-        }
+    }
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="PlistFormatException"/> class.
-        /// </summary>
-        /// <param name="message">Message.</param>
-        public PlistFormatException(string message) : base(message)
-        {
-        }
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PlistFormatException"/> class.
+    /// </summary>
+    /// <param name="message">Message.</param>
+    public PlistFormatException(string message) : base(message)
+    {
+    }
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="PlistFormatException"/> class.
-        /// </summary>
-        /// <param name="message">Message.</param>
-        /// <param name="inner">Inner.</param>
-        public PlistFormatException(string message, Exception inner) : base(message, inner)
-        {
-        }
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PlistFormatException"/> class.
+    /// </summary>
+    /// <param name="message">Message.</param>
+    /// <param name="inner">Inner.</param>
+    public PlistFormatException(string message, Exception inner) : base(message, inner)
+    {
     }
 }

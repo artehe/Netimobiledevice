@@ -1,4 +1,3 @@
-using Netimobiledevice.Exceptions;
 using Netimobiledevice.Remoted.Frames;
 using System;
 using System.Collections.Generic;

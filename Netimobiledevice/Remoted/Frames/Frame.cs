@@ -1,4 +1,3 @@
-using Netimobiledevice.Exceptions;
 using Netimobiledevice.Extentions;
 using System;
 using System.Collections.Generic;

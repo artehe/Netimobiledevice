@@ -9,7 +9,7 @@ public class DictionaryNodeTests
     [TestMethod]
     public void DictionaryNodeReturnsCorrectCount()
     {
-        DictionaryNode dict = new DictionaryNode();
+        DictionaryNode dict = [];
         Assert.AreEqual(0, dict.Count);
 
         dict.Add("Zero", new IntegerNode(0));
@@ -28,10 +28,10 @@ public class DictionaryNodeTests
             { "Two", new IntegerNode(2) }
         };
 
-        List<string> keys = dict.Keys.ToList();
-        Assert.AreEqual(keys[0], "Zero");
-        Assert.AreEqual(keys[1], "One");
-        Assert.AreEqual(keys[2], "Two");
+        List<string> keys = [.. dict.Keys];
+        Assert.AreEqual("Zero", keys[0]);
+        Assert.AreEqual("One", keys[1]);
+        Assert.AreEqual("Two", keys[2]);
     }
 
     [TestMethod]
