@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.VisualStudio.Threading;
+using Netimobiledevice.Remoted.Bonjour;
 using Netimobiledevice.Usbmuxd;
 using System;
 using System.Collections.Concurrent;
@@ -8,6 +10,7 @@ using System.Linq;
 using System.Net.NetworkInformation;
 using System.Threading;
 using System.Threading.Tasks;
+using Zeroconf;
 
 namespace Netimobiledevice.Remoted.Tunnel;
 
@@ -52,6 +55,65 @@ public class Tunneld(
     /// The internal logger
     /// </summary>
     private ILogger Logger { get; } = logger ?? NullLogger.Instance;
+
+    private async Task HandleNewPotentialUsbCdcNcmInterfaceTask(NetworkInterface ip, CancellationToken cancellationToken) {
+        RemoteServiceDiscoveryService? rsd = null;
+        string tunnelTaskId = $"start-tunnel-task-usb-{ip.Name}";
+        try {
+            List<IZeroconfHost> answers = [];
+            for (int i = 0; i < REATTEMPT_COUNT; i++) {
+                answers = await BonjourService.Browse(BonjourService.RemotedServiceNames, [ip]).ConfigureAwait(false);
+                if (answers.Count > 0) {
+                    break;
+                }
+                Logger.LogDebug("No addresses found for: {ip}", ip);
+                await Task.Delay(REATTEMPT_INTERVAL, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (answers == null) {
+                throw new TaskCanceledException();
+            }
+
+            string peerAddress = answers[0].IPAddress;
+
+            // Establish an untrusted RSD handshake
+            rsd = new RemoteServiceDiscoveryService(peerAddress, RemoteServiceDiscoveryService.RSD_PORT);
+
+            using (RemotedProcessStopper stopper = new RemotedProcessStopper()) {
+                try {
+                    await rsd.ConnectAsync().ConfigureAwait(false);
+                }
+                catch (Exception) {
+                    throw new TaskCanceledException();
+                }
+            }
+
+            if (_protocol == TunnelProtocol.Quic && rsd.OsVersion < new Version(17, 0)) {
+                rsd.Close();
+                throw new TaskCanceledException();
+            }
+
+            await StartTunnelTask(
+                tunnelTaskId,
+                await TunnelService.CreateCoreDeviceTunnelServiceUsingRsd(rsd).ConfigureAwait(false)
+            ).ConfigureAwait(false);
+        }
+        catch (TaskCanceledException) {
+            return;
+        }
+        catch (Exception ex) {
+            Logger.LogDebug(ex, "Got exception when running HandleNewPotentialUsbCdcNcmInterfaceTask");
+        }
+        finally {
+            if (rsd != null) {
+                try {
+                    rsd.Close();
+                }
+                catch { }
+            }
+            _tunnelTasks.TryRemove(tunnelTaskId, out TunnelTask? _);
+        }
+    }
 
     private Dictionary<string, TunnelDefinition> ListTunnels() {
         Dictionary<string, TunnelDefinition> tunnels = [];
@@ -129,20 +191,20 @@ public class Tunneld(
             Logger.LogDebug("Removed Interfaces: {removed}", removed);
 
             foreach (NetworkInterface ip in removed) {
-                /* TODO
-                if ip in self.tunnel_tasks:
-                    self.tunnel_tasks[ip].task.cancel()
-                    await self.tunnel_tasks[ip].task
-                */
+                string tunnelTaskId = $"start-tunnel-task-usb-{ip.Name}";
+                if (_tunnelTasks.ContainsKey(tunnelTaskId)) {
+                    var localCancellationTokenSource = new CancellationTokenSource();
+                    localCancellationTokenSource.Cancel();
+
+                    _tunnelTasks.TryRemove(tunnelTaskId, out TunnelTask? value);
+                    if (value != null) {
+                        await value.Task.WithCancellation(localCancellationTokenSource.Token);
+                    }
+                }
             }
 
             foreach (NetworkInterface ip in added) {
-                /* TODO
-                    self.tunnel_tasks[ip] = TunnelTask(
-                        task=asyncio.create_task(self.handle_new_potential_usb_cdc_ncm_interface_task(ip),
-                                                 name=f'handle-new-potential-usb-cdc-ncm-interface-task-{ip}'))
-
-                 */
+                await HandleNewPotentialUsbCdcNcmInterfaceTask(ip, cancellationToken).ConfigureAwait(false);
             }
 
             // Wait before re-iterating
