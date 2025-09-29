@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.Threading;
+using Netimobiledevice.Lockdown;
 using Netimobiledevice.Remoted.Bonjour;
 using Netimobiledevice.Usbmuxd;
 using System;
@@ -133,24 +134,28 @@ public class Tunneld(
         Logger.LogInformation("Starting MonitorMobdev2Task");
         try {
             while (!cancellationToken.IsCancellationRequested) {
-                /* TODO
-                        async for ip, lockdown in get_mobdev2_lockdowns(only_paired=True):
-                            if self.tunnel_exists_for_udid(lockdown.udid):
-                                # skip tunnel if already exists for this udid
-                                continue
-                            task_identifier = f'mobdev2-{lockdown.udid}-{ip}'
-                            try:
-                                tunnel_service = CoreDeviceTunnelProxy(lockdown)
-                            except InvalidServiceError:
-                                logger.warning(f'[{task_identifier}] failed to start CoreDeviceTunnelProxy - skipping')
-                                lockdown.close()
-                                continue
-                            self.tunnel_tasks[task_identifier] = TunnelTask(
-                                task=asyncio.create_task(self.start_tunnel_task(task_identifier, tunnel_service),
-                                                         name=f'start-tunnel-task-{task_identifier}'),
-                                udid=lockdown.udid
-                            )
-                */
+                await foreach ((string? ip, TcpLockdownClient? lockdown) in LockdownService.GetMobdev2Lockdowns(onlyPaired: true)) {
+                    if (TunnelExistsForUdid(lockdown.Udid)) {
+                        // Skip tunnel if already exists for this udid
+                        continue;
+                    }
+                    string taskIdentifier = $"mobdev2-{lockdown.Udid}-{ip}";
+
+                    CoreDeviceTunnelProxy tunnelService;
+                    try {
+                        tunnelService = new CoreDeviceTunnelProxy(lockdown);
+                    }
+                    catch (Exception ex) {
+                        Logger.LogWarning(ex, "{taskIdentifier} failed to start CoreDeviceTunnelProxy so skipping", taskIdentifier);
+                        lockdown.Close();
+                        continue;
+                    }
+
+                    _tunnelTasks.TryAdd(taskIdentifier, new TunnelTask {
+                        Udid = lockdown.Udid,
+                        Task = StartTunnelTask(taskIdentifier, tunnelService)
+                    });
+                }
                 await Task.Delay(MOBDEV2_INTERVAL, cancellationToken);
             }
         }

@@ -45,7 +45,7 @@ public class Program {
             Console.WriteLine($"Device found: {device.DeviceId} - {device.Serial}");
         }
 
-        using (LockdownClient lockdown = await MobileDevice.CreateUsingUsbmuxAsync(logger: logger)) {
+        using (LockdownClient lockdown = await MobileDevice.CreateUsingUsbmuxAsync(autopair: false, logger: logger)) {
             Progress<PairingState> progress = new();
             progress.ProgressChanged += Progress_ProgressChanged;
             if (!lockdown.IsPaired) {
