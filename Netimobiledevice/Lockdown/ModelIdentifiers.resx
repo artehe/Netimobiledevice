@@ -645,4 +645,16 @@
   <data name="iPhone17,5" xml:space="preserve">
     <value>iPhone 16e</value>
   </data>
+  <data name="iPhone18,1" xml:space="preserve">
+    <value>iPhone 17 Pro</value>
+  </data>
+  <data name="iPhone18,2" xml:space="preserve">
+    <value>iPhone 17 Pro Max</value>
+  </data>
+  <data name="iPhone18,3" xml:space="preserve">
+    <value>iPhone 17</value>
+  </data>
+  <data name="iPhone18,4" xml:space="preserve">
+    <value>iPhone Air</value>
+  </data>
 </root>
