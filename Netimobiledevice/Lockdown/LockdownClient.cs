@@ -63,8 +63,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
 
     public string ProductFriendlyName {
         get {
-            string sanitizedProducType = ProductType.Replace(",", "_");
-            return ModelIdentifiers.ResourceManager.GetString(sanitizedProducType, null) ?? ProductType;
+            return ModelIdentifiers.ResourceManager.GetString(ProductType, null) ?? ProductType;
         }
     }
 
