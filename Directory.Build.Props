@@ -1,6 +1,6 @@
 <Project>
     <PropertyGroup Condition="'$(Configuration)' == 'Release'">
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-        <WarningsNotAsErrors>CS0067;CS8602;CS0649;CS0108;CS8603;CS0169;CS0414;CS8618;IL2026</WarningsNotAsErrors>
+        <WarningsNotAsErrors>CS0067;CS8602;CS0649;CS0108;CS8603;CS0169;CS0414;CS8618</WarningsNotAsErrors>
     </PropertyGroup>
 </Project>
