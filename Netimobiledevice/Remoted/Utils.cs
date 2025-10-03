@@ -4,10 +4,8 @@ using System.Net.NetworkInformation;
 
 namespace Netimobiledevice.Remoted;
 
-internal static class Utils
-{
-    public static List<NetworkInterface> GetIPv4Interfaces()
-    {
+internal static class Utils {
+    public static List<NetworkInterface> GetIPv4Interfaces() {
         List<NetworkInterface> ipv4Interfaces = [];
         foreach (NetworkInterface adapter in NetworkInterface.GetAllNetworkInterfaces()) {
             // Check if the adapter is up
@@ -32,8 +30,7 @@ internal static class Utils
         return ipv4Interfaces;
     }
 
-    public static List<NetworkInterface> GetIPv6Interfaces()
-    {
+    public static List<NetworkInterface> GetIPv6Interfaces() {
         List<NetworkInterface> ipv6Interfaces = [];
         foreach (NetworkInterface adapter in NetworkInterface.GetAllNetworkInterfaces()) {
             // Check if the adapter is up
