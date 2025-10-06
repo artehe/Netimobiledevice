@@ -1,7 +1,3 @@
-﻿using Netimobiledevice.Exceptions;
+﻿namespace Netimobiledevice.Remoted;
 
-namespace Netimobiledevice.Remoted;
-
-public sealed class RemotePairingCompletedException : NetimobiledeviceException
-{
-}
+public sealed class RemotePairingCompletedException : NetimobiledeviceException { }
