@@ -9,8 +9,7 @@ using Zeroconf;
 
 namespace Netimobiledevice.Remoted.Tunnel;
 
-public static class TunnelService
-{
+public static class TunnelService {
     public static async Task<RemotePairingTunnelService> CreateCoreDeviceTunnelServiceUsingRemotePairing(string remoteIdentifier, string hostname, ushort port, bool autoPair = true) {
         var service = new RemotePairingTunnelService(remoteIdentifier, hostname, port);
         await service.ConnectAsync(autoPair).ConfigureAwait(false);
@@ -52,7 +51,7 @@ public static class TunnelService
         StartTcpTunnel protocolHandler,
         string[]? secrets = null,
         int maxIdleTimeout = RemotePairingQuicTunnel.MAX_IDLE_TIMEOUT,
-        TunnelProtocol protocol = TunnelProtocol.QUIC
+        TunnelProtocol protocol = TunnelProtocol.Quic
     ) {
         if (protocolHandler is CoreDeviceTunnelService) {
             /* TODO
@@ -66,7 +65,7 @@ public static class TunnelService
             return await StartTunnelOverRemotePairing(rpts, secrets, maxIdleTimeout, protocol).ConfigureAwait(false);
         }
         else if (protocolHandler is CoreDeviceTunnelProxy cdtp) {
-            if (protocol != TunnelProtocol.TCP) {
+            if (protocol != TunnelProtocol.Tcp) {
                 throw new NetimobiledeviceException("CoreDeviceTunnelProxy protocol can only be TCP");
             }
             return await cdtp.StartTunnel().ConfigureAwait(false);

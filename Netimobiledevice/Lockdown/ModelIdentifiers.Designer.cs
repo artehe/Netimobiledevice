@@ -1375,6 +1375,42 @@ namespace Netimobiledevice.Lockdown {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to iPhone 17 Pro.
+        /// </summary>
+        internal static string iPhone18_1 {
+            get {
+                return ResourceManager.GetString("iPhone18,1", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to iPhone 17 Pro Max.
+        /// </summary>
+        internal static string iPhone18_2 {
+            get {
+                return ResourceManager.GetString("iPhone18,2", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to iPhone 17.
+        /// </summary>
+        internal static string iPhone18_3 {
+            get {
+                return ResourceManager.GetString("iPhone18,3", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to iPhone Air.
+        /// </summary>
+        internal static string iPhone18_4 {
+            get {
+                return ResourceManager.GetString("iPhone18,4", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to iPhone 3GS.
         /// </summary>
         internal static string iPhone2_1 {
