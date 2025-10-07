@@ -8,10 +8,8 @@ using System.Net;
 
 namespace Netimobiledevice.Lockdown.Pairing;
 
-internal static class PairRecords
-{
-    private static DictionaryNode? GetItunesPairingRecord(string identifier, ILogger logger)
-    {
+internal static class PairRecords {
+    private static DictionaryNode? GetItunesPairingRecord(string identifier, ILogger logger) {
         string filePath = $"{identifier}.plist";
         if (OperatingSystem.IsMacOS()) {
             filePath = Path.Combine("/var/db/lockdown/", filePath);
@@ -39,16 +37,14 @@ internal static class PairRecords
         return null;
     }
 
-    public static DirectoryInfo? GetPairingRecordsCacheFolder(string pairingRecordsCacheFolder = "")
-    {
+    public static DirectoryInfo? GetPairingRecordsCacheFolder(string pairingRecordsCacheFolder = "") {
         if (string.IsNullOrEmpty(pairingRecordsCacheFolder)) {
             return null;
         }
         return new DirectoryInfo(pairingRecordsCacheFolder);
     }
 
-    public static string GenerateHostId(string hostname = "")
-    {
+    public static string GenerateHostId(string hostname = "") {
         if (string.IsNullOrEmpty(hostname)) {
             hostname = Dns.GetHostName();
         }
@@ -60,8 +56,7 @@ internal static class PairRecords
         return Guid.NewGuid().ToString().ToUpperInvariant();
     }
 
-    public static DictionaryNode? GetLocalPairingRecord(string identifier, DirectoryInfo? pairingRecordsCacheDirectory, ILogger logger)
-    {
+    public static DictionaryNode? GetLocalPairingRecord(string identifier, DirectoryInfo? pairingRecordsCacheDirectory, ILogger logger) {
         logger.LogDebug("Looking for Netimobiledevice pairing record");
         string filePath = $"{identifier}.plist";
         if (pairingRecordsCacheDirectory != null) {
@@ -85,8 +80,7 @@ internal static class PairRecords
     ///  - iTunes
     ///  - Local Storage
     /// </summary>
-    public static DictionaryNode GetPreferredPairRecord(string identifier, DirectoryInfo? pairingRecordsCacheDirectory, string usbmuxAddress = "", ILogger? logger = null)
-    {
+    public static DictionaryNode GetPreferredPairRecord(string identifier, DirectoryInfo? pairingRecordsCacheDirectory, string usbmuxAddress = "", ILogger? logger = null) {
         logger ??= NullLogger.Instance;
         DictionaryNode? pairRecord = null;
 
@@ -127,8 +121,7 @@ internal static class PairRecords
         throw new NotPairedException();
     }
 
-    public static string GetRemotePairingRecordFilename(string identifier)
-    {
+    public static string GetRemotePairingRecordFilename(string identifier) {
         return $"remote_{identifier}";
     }
 
@@ -136,10 +129,9 @@ internal static class PairRecords
     /// Iterate over the identifiers of the remote paired devices.
     /// </summary>
     /// <returns> A enumerator yielding the identifiers of the remote paired devices.</returns>
-    public static IEnumerable<string> IterateRemotePairedIdentifiers()
-    {
+    public static IEnumerable<string> IterateRemotePairedIdentifiers() {
         foreach (var file in IterateRemotePairRecords()) {
-            // yield file.parts[-1].split('remote_', 1)[1].split('.', 1)[0]
+            // TODO yield file.parts[-1].split('remote_', 1)[1].split('.', 1)[0]
         }
     }
 }

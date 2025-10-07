@@ -3,8 +3,7 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Remoted.Tunnel;
 
-public abstract class RemotePairingProtocol : StartTcpTunnel
-{
+public abstract class RemotePairingProtocol : StartTcpTunnel {
     private const int WIRE_PROTOCOL_VERSION = 19;
 
     private int _sequenceNumber;
@@ -20,19 +19,16 @@ public abstract class RemotePairingProtocol : StartTcpTunnel
 
     public abstract Task SendRequest(Dictionary<string, object> data);
 
-    public async Task<Dictionary<string, object>> SendReceiveRequest(Dictionary<string, object> data)
-    {
+    public async Task<Dictionary<string, object>> SendReceiveRequest(Dictionary<string, object> data) {
         await SendRequest(data);
         return await ReceiveResponse();
     }
 
-    public void Connect(bool autopair = true)
-    {
+    public virtual void Connect(bool autopair = true) {
         // TODO
     }
 
-    public async Task ConnectAsync(bool autopair = true)
-    {
+    public virtual Task ConnectAsync(bool autopair = true) {
         // TODO
         return Task.CompletedTask;
     }
