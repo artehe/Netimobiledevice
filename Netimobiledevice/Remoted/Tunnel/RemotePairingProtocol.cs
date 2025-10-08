@@ -16,8 +16,7 @@ public abstract class RemotePairingProtocol : StartTcpTunnel {
 
     public RemotePairingProtocol() : base() { }
 
-    private async Task AttemptPairVerify()
-    {
+    private async Task AttemptPairVerify() {
         /* TODO
         self.handshake_info = await self._send_receive_handshake({
             'hostOptions': {'attemptPairVerify': True},
@@ -25,8 +24,7 @@ public abstract class RemotePairingProtocol : StartTcpTunnel {
         */
     }
 
-    private void InitClientServerMainEncryptionKeys()
-    {
+    private void InitClientServerMainEncryptionKeys() {
         /* TODO
     def _init_client_server_main_encryption_keys(self) -> None:
         client_key = HKDF(
@@ -47,8 +45,7 @@ public abstract class RemotePairingProtocol : StartTcpTunnel {
         */
     }
 
-    private async Task Pair()
-    {
+    private async Task Pair() {
         /* TODO
         PairConsentResult pairingConsentResult = await RequestPairConsent().ConfigureAwait(false);
         InitSrpContext(pairingConsentResult);
@@ -60,19 +57,19 @@ public abstract class RemotePairingProtocol : StartTcpTunnel {
         */
     }
 
-    private async Task<Dictionary<string, object>> ReceivePlainResponse()
-    {
+    private async Task<Dictionary<string, object>> ReceivePlainResponse() {
         Dictionary<string, object> response = await ReceiveResponse().ConfigureAwait(false);
-        // TODO return response["message"]["plain"]["_0"];
-        return response;
+        Dictionary<string, object> message = (Dictionary<string, object>) response["message"];
+        Dictionary<string, object> plain = (Dictionary<string, object>) message["plain"];
+        Dictionary<string, object> result = (Dictionary<string, object>) plain["_0"];
+        return result;
     }
 
     /// <summary>
     /// Displays a Trust / Don't Trust dialog
     /// </summary>
     /// <returns></returns>
-    private async Task<PairConsentResult> RequestPairConsent()
-    {
+    private async Task<PairConsentResult> RequestPairConsent() {
         throw new NotImplementedException();
         /* TODO
      async def _request_pair_consent(self) -> PairConsentResult:
@@ -109,8 +106,7 @@ public abstract class RemotePairingProtocol : StartTcpTunnel {
         */
     }
 
-    private async Task SendReceiveHandshake()
-    {
+    private async Task SendReceiveHandshake() {
         /* TODO
 
     async def _send_receive_handshake(self, handshake_data: dict) -> dict:
@@ -119,8 +115,7 @@ public abstract class RemotePairingProtocol : StartTcpTunnel {
         */
     }
 
-    private async Task SendReceivePlainRequest()
-    {
+    private async Task SendReceivePlainRequest() {
         /* TODO
     async def _send_receive_plain_request(self, plain_request: dict):
         await self._send_plain_request(plain_request)
@@ -128,8 +123,7 @@ public abstract class RemotePairingProtocol : StartTcpTunnel {
         */
     }
 
-    private async Task<bool> ValidatePairing()
-    {
+    private async Task<bool> ValidatePairing() {
         /* TODO
     async def _validate_pairing(self) -> bool:
         pairing_data = PairingDataComponentTLVBuf.build([
@@ -199,8 +193,25 @@ public abstract class RemotePairingProtocol : StartTcpTunnel {
 
     public abstract Task CloseAsync();
 
-    public async Task Connect(bool autopair = true)
-    {
+    public async Task Connect(bool autopair = true) {
+        await AttemptPairVerify().ConfigureAwait(false);
+
+        if (await ValidatePairing().ConfigureAwait(false)) {
+            // Pairing record validation succeeded, so we can initiate the relevant session keys
+            InitClientServerMainEncryptionKeys();
+            return;
+        }
+
+        if (autopair) {
+            await Pair().ConfigureAwait(false);
+            await CloseAsync().ConfigureAwait(false);
+
+            // Once pairing is completed, the remote endpoint closes the connection, so it must be re-established
+            throw new RemotePairingCompletedException();
+        }
+    }
+
+    public async Task ConnectAsync(bool autopair = true) {
         await AttemptPairVerify().ConfigureAwait(false);
 
         if (await ValidatePairing().ConfigureAwait(false)) {
@@ -308,6 +319,5 @@ public abstract class RemotePairingProtocol : StartTcpTunnel {
                 TunnelProtocol.TCP, tunnel)
         finally:
             await tunnel.stop_tunnel()
-
      */
 }

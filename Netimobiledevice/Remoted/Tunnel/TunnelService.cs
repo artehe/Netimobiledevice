@@ -1,5 +1,4 @@
-﻿using Netimobiledevice.Exceptions;
-using Netimobiledevice.Lockdown.Pairing;
+﻿using Netimobiledevice.Lockdown.Pairing;
 using Netimobiledevice.Remoted.Bonjour;
 using System;
 using System.Collections.Generic;
@@ -32,8 +31,8 @@ public static class TunnelService {
                     }
                     RemotePairingTunnelService? conn = null;
                     try {
-                        conn = await CreateCoreDeviceTunnelServiceUsingRemotePairing(identifier, ip, answer.port);
-                        result.Append(conn);
+                        conn = await CreateCoreDeviceTunnelServiceUsingRemotePairing(identifier, ip, (ushort) answer.Services.First().Value.Port);
+                        result.Add(conn);
                         break;
                     }
                     catch (Exception) {
@@ -77,12 +76,12 @@ public static class TunnelService {
         RemotePairingTunnelService remotePairing,
         string[]? secrets = null,
         int maxIdleTimeout = RemotePairingQuicTunnel.MAX_IDLE_TIMEOUT,
-        TunnelProtocol protocol = TunnelProtocol.QUIC
+        TunnelProtocol protocol = TunnelProtocol.Quic
     ) {
-        if (protocol == TunnelProtocol.QUIC) {
+        if (protocol == TunnelProtocol.Quic) {
             return await remotePairing.StartQuicTunnel(secrets_log_file: secrets, max_idle_timeout: maxIdleTimeout).ConfigureAwait(false);
         }
-        else if (protocol == TunnelProtocol.TCP) {
+        else if (protocol == TunnelProtocol.Tcp) {
             return await remotePairing.StartTcpTunnel().ConfigureAwait(false);
         }
         throw new NotImplementedException($"Not implemented tunnel start for protocol {protocol}");

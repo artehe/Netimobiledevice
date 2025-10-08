@@ -3,18 +3,11 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Remoted.Tunnel;
 
-public class RemotePairingTunnelService : RemotePairingProtocol {
+public class RemotePairingTunnelService(string remoteIdentifier, string hostname, ushort port) : RemotePairingProtocol() {
+    private ushort _port = port;
 
-    private ushort _port;
-
-    public string Hostname { get; private set; }
-    public override string RemoteIdentifier { get; }
-
-    public RemotePairingTunnelService(string remoteIdentifier, string hostname, ushort port) : base() {
-        RemoteIdentifier = remoteIdentifier;
-        Hostname = hostname;
-        _port = port;
-    }
+    public string Hostname { get; private set; } = hostname;
+    public override string RemoteIdentifier { get; } = remoteIdentifier;
 
     public override void Close() {
         /* TODO
@@ -43,6 +36,10 @@ public class RemotePairingTunnelService : RemotePairingProtocol {
         self._writer = None
         self._reader = None
          */
+    }
+
+    public override Task CloseAsync() {
+        throw new System.NotImplementedException();
     }
 
     public override async Task Connect(bool autopair = true) {

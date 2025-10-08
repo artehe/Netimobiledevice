@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 
