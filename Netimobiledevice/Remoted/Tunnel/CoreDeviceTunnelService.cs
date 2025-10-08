@@ -20,6 +20,11 @@ public class CoreDeviceTunnelService : RemotePairingProtocol
         throw new System.NotImplementedException();
     }
 
+    public override Task CloseAsync()
+    {
+        throw new System.NotImplementedException();
+    }
+
     public override Task<Dictionary<string, object>> ReceiveResponse()
     {
         throw new System.NotImplementedException();
