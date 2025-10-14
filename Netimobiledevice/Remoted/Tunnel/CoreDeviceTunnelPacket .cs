@@ -5,7 +5,7 @@ using System.Text;
 
 namespace Netimobiledevice.Remoted.Tunnel;
 
-internal class CDTunnelPacket
+internal class CoreDeviceTunnelPacket
 {
     private byte[] EncodedBody => Encoding.UTF8.GetBytes(JsonBody);
 
@@ -13,7 +13,7 @@ internal class CDTunnelPacket
     public ushort Length => (ushort) EncodedBody.Length;
     public string JsonBody { get; }
 
-    public CDTunnelPacket(string jsonString)
+    public CoreDeviceTunnelPacket(string jsonString)
     {
         JsonBody = jsonString;
     }
@@ -24,7 +24,7 @@ internal class CDTunnelPacket
         return [.. Magic, .. BitConverter.GetBytes(bodyLength).EnsureBigEndian(), .. EncodedBody];
     }
 
-    public static CDTunnelPacket Parse(byte[] data)
+    public static CoreDeviceTunnelPacket Parse(byte[] data)
     {
         for (int i = 0; i < Magic.Length; i++) {
             if (Magic[i] != data[i]) {
@@ -33,6 +33,6 @@ internal class CDTunnelPacket
         }
         ushort length = EndianBitConverter.BigEndian.ToUInt16(data, Magic.Length);
         string json = Encoding.UTF8.GetString(data, Magic.Length + sizeof(ushort), length);
-        return new CDTunnelPacket(json);
+        return new CoreDeviceTunnelPacket(json);
     }
 }
