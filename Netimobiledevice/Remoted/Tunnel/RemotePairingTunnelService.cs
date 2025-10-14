@@ -24,7 +24,7 @@ public class RemotePairingTunnelService(string remoteIdentifier, string hostname
          */
     }
 
-    public Task CloseAsync() {
+    public override Task CloseAsync() {
         /* TODO
         if self._writer is None:
             return
@@ -36,10 +36,6 @@ public class RemotePairingTunnelService(string remoteIdentifier, string hostname
         self._writer = None
         self._reader = None
          */
-    }
-
-    public override Task CloseAsync() {
-        throw new System.NotImplementedException();
     }
 
     public override async Task Connect(bool autopair = true) {

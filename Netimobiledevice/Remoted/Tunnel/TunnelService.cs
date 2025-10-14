@@ -9,6 +9,23 @@ using Zeroconf;
 namespace Netimobiledevice.Remoted.Tunnel;
 
 public static class TunnelService {
+    private static async Task<TunnelResult> StartTunnelOverCoreDevice(
+        CoreDeviceTunnelService serviceProvider,
+        string[]? secrets = null,
+        float maxIdleTimeout = RemotePairingQuicTunnel.MAX_IDLE_TIMEOUT,
+        TunnelProtocol protocol = TunnelProtocol.Quic
+    ) {
+        using (RemotedProcessStopper processStopper = new()) {
+            if (protocol == TunnelProtocol.Quic) {
+                return await serviceProvider.StartQuicTunnel(secrets_log_file: secrets, max_idle_timeout: maxIdleTimeout).ConfigureAwait(false);
+            }
+            else if (protocol == TunnelProtocol.Tcp) {
+                return await serviceProvider.StartTcpTunnel().ConfigureAwait(false);
+            }
+        }
+        throw new NotImplementedException($"Not implemented tunnel start for protocol {protocol}");
+    }
+
     public static async Task<RemotePairingTunnelService> CreateCoreDeviceTunnelServiceUsingRemotePairing(string remoteIdentifier, string hostname, ushort port, bool autoPair = true) {
         var service = new RemotePairingTunnelService(remoteIdentifier, hostname, port);
         await service.ConnectAsync(autoPair).ConfigureAwait(false);
@@ -52,13 +69,8 @@ public static class TunnelService {
         int maxIdleTimeout = RemotePairingQuicTunnel.MAX_IDLE_TIMEOUT,
         TunnelProtocol protocol = TunnelProtocol.Quic
     ) {
-        if (protocolHandler is CoreDeviceTunnelService) {
-            /* TODO
-        async with start_tunnel_over_core_device(
-                protocol_handler, secrets=secrets, max_idle_timeout=max_idle_timeout, protocol=protocol) as service:
-            yield service
-            */
-
+        if (protocolHandler is CoreDeviceTunnelService cd) {
+            return await StartTunnelOverCoreDevice(cd, secrets, maxIdleTimeout, protocol);
         }
         else if (protocolHandler is RemotePairingTunnelService rpts) {
             return await StartTunnelOverRemotePairing(rpts, secrets, maxIdleTimeout, protocol).ConfigureAwait(false);

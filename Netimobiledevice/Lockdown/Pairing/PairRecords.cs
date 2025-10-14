@@ -131,8 +131,11 @@ internal static class PairRecords {
     /// </summary>
     /// <returns> A enumerator yielding the identifiers of the remote paired devices.</returns>
     public static IEnumerable<string> IterateRemotePairedIdentifiers() {
-        foreach (var file in IterateRemotePairRecords()) {
-            // TODO yield file.parts[-1].split('remote_', 1)[1].split('.', 1)[0]
+        IEnumerable<FileInfo> files = new DirectoryInfo(".").EnumerateFiles("remote_*");
+        foreach (FileInfo file in files) {
+            yield return Path.GetFileName(file.Name)
+                .Split(["remote_"], 2, StringSplitOptions.None)[1]
+                .Split(['.'], 2)[0];
         }
     }
 }
