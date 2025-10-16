@@ -1,14 +1,40 @@
-﻿using Netimobiledevice.Remoted.Bonjour;
+﻿using Netimobiledevice.Lockdown.Pairing;
+using Netimobiledevice.Remoted.Bonjour;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Zeroconf;
 
 namespace Netimobiledevice.Remoted.Tunnel;
 
 public static class TunnelService {
+    private static async Task<TunnelResult> StartTunnelOverCoreDevice(
+        CoreDeviceTunnelService serviceProvider,
+        string[]? secrets = null,
+        float maxIdleTimeout = RemotePairingQuicTunnel.MAX_IDLE_TIMEOUT,
+        TunnelProtocol protocol = TunnelProtocol.Quic
+    ) {
+        using (RemotedProcessStopper processStopper = new()) {
+            if (protocol == TunnelProtocol.Quic) {
+                return await serviceProvider.StartQuicTunnel(secrets_log_file: secrets, max_idle_timeout: maxIdleTimeout).ConfigureAwait(false);
+            }
+            else if (protocol == TunnelProtocol.Tcp) {
+                return await serviceProvider.StartTcpTunnel().ConfigureAwait(false);
+            }
+        }
+        throw new NotImplementedException($"Not implemented tunnel start for protocol {protocol}");
+    }
+
+    public static async Task<RemotePairingTunnelService> CreateCoreDeviceTunnelServiceUsingRemotePairing(string remoteIdentifier, string hostname, ushort port, bool autoPair = true) {
+        var service = new RemotePairingTunnelService(remoteIdentifier, hostname, port);
+        await service.ConnectAsync(autoPair).ConfigureAwait(false);
+        return service;
+    }
+
     public static async Task<CoreDeviceTunnelService> CreateCoreDeviceTunnelServiceUsingRsd(RemoteServiceDiscoveryService rsd, bool autoPair = true) {
         CoreDeviceTunnelService service = new CoreDeviceTunnelService(rsd);
-        await service.Connect(autoPair).ConfigureAwait(false);
+        await service.ConnectAsync(autoPair).ConfigureAwait(false);
         return service;
     }
 
@@ -16,51 +42,60 @@ public static class TunnelService {
         List<RemotePairingTunnelService> result = [];
         foreach (IZeroconfHost answer in await BonjourService.BrowseRemotePairing(bonjourTimeout).ConfigureAwait(false)) {
             foreach (string ip in answer.IPAddresses) {
-                /* TODO
-                for identifier in iter_remote_paired_identifiers():
-                    if udid is not None and identifier != udid:
-                        continue
-                    conn = None
-                    try:
-                        conn = await create_core_device_tunnel_service_using_remotepairing(identifier, ip, answer.port)
-                        result.append(conn)
-                        break
-                    except ConnectionAbortedError:
-                        if conn is not None:
-                            await conn.close()
-                    except OSError:
-                        if conn is not None:
-                            await conn.close()
-                        continue
-                */
+                foreach (string identifier in PairRecords.IterateRemotePairedIdentifiers()) {
+                    if (udid is not null && identifier != udid) {
+                        continue;
+                    }
+                    RemotePairingTunnelService? conn = null;
+                    try {
+                        conn = await CreateCoreDeviceTunnelServiceUsingRemotePairing(identifier, ip, (ushort) answer.Services.First().Value.Port);
+                        result.Add(conn);
+                        break;
+                    }
+                    catch (Exception) {
+                        if (conn != null) {
+                            await conn.CloseAsync().ConfigureAwait(false);
+                        }
+                    }
+                }
             }
         }
         return result;
     }
 
-    public static async Task<TunnelResult> StartTunnel(StartTcpTunnel protocolHandler, string[]? secrets = null,
-        int maxIdleTimeout = RemotePairingQuicTunnel.MAX_IDLE_TIMEOUT, TunnelProtocol protocol = TunnelProtocol.Quic) {
-        if (protocolHandler is CoreDeviceTunnelService) {
-            /* TODO
-        async with start_tunnel_over_core_device(
-                protocol_handler, secrets=secrets, max_idle_timeout=max_idle_timeout, protocol=protocol) as service:
-            yield service
-            */
-
+    public static async Task<TunnelResult> StartTunnel(
+        StartTcpTunnel protocolHandler,
+        string[]? secrets = null,
+        int maxIdleTimeout = RemotePairingQuicTunnel.MAX_IDLE_TIMEOUT,
+        TunnelProtocol protocol = TunnelProtocol.Quic
+    ) {
+        if (protocolHandler is CoreDeviceTunnelService cd) {
+            return await StartTunnelOverCoreDevice(cd, secrets, maxIdleTimeout, protocol);
         }
-        else if (protocolHandler is RemotePairingTunnelService) {
-            /* TODO
-            async with start_tunnel_over_remotepairing(
-                    protocol_handler, secrets=secrets, max_idle_timeout=max_idle_timeout, protocol=protocol) as service:
-                yield service
-                */
+        else if (protocolHandler is RemotePairingTunnelService rpts) {
+            return await StartTunnelOverRemotePairing(rpts, secrets, maxIdleTimeout, protocol).ConfigureAwait(false);
         }
         else if (protocolHandler is CoreDeviceTunnelProxy cdtp) {
             if (protocol != TunnelProtocol.Tcp) {
                 throw new NetimobiledeviceException("CoreDeviceTunnelProxy protocol can only be TCP");
             }
-            return await cdtp.StartTunnel();
+            return await cdtp.StartTunnel().ConfigureAwait(false);
         }
         throw new NetimobiledeviceException("Bad value for protocol handler");
+    }
+
+    public static async Task<TunnelResult> StartTunnelOverRemotePairing(
+        RemotePairingTunnelService remotePairing,
+        string[]? secrets = null,
+        int maxIdleTimeout = RemotePairingQuicTunnel.MAX_IDLE_TIMEOUT,
+        TunnelProtocol protocol = TunnelProtocol.Quic
+    ) {
+        if (protocol == TunnelProtocol.Quic) {
+            return await remotePairing.StartQuicTunnel(secrets_log_file: secrets, max_idle_timeout: maxIdleTimeout).ConfigureAwait(false);
+        }
+        else if (protocol == TunnelProtocol.Tcp) {
+            return await remotePairing.StartTcpTunnel().ConfigureAwait(false);
+        }
+        throw new NotImplementedException($"Not implemented tunnel start for protocol {protocol}");
     }
 }
