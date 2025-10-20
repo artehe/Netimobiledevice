@@ -17,7 +17,7 @@ public static class TunnelService {
     ) {
         using (RemotedProcessStopper processStopper = new()) {
             if (protocol == TunnelProtocol.Quic) {
-                return await serviceProvider.StartQuicTunnel(secrets_log_file: secrets, max_idle_timeout: maxIdleTimeout).ConfigureAwait(false);
+                return await serviceProvider.StartQuicTunnel(secrets, maxIdleTimeout).ConfigureAwait(false);
             }
             else if (protocol == TunnelProtocol.Tcp) {
                 return await serviceProvider.StartTcpTunnel().ConfigureAwait(false);
@@ -91,7 +91,7 @@ public static class TunnelService {
         TunnelProtocol protocol = TunnelProtocol.Quic
     ) {
         if (protocol == TunnelProtocol.Quic) {
-            return await remotePairing.StartQuicTunnel(secrets_log_file: secrets, max_idle_timeout: maxIdleTimeout).ConfigureAwait(false);
+            return await remotePairing.StartQuicTunnel(secrets, maxIdleTimeout).ConfigureAwait(false);
         }
         else if (protocol == TunnelProtocol.Tcp) {
             return await remotePairing.StartTcpTunnel().ConfigureAwait(false);

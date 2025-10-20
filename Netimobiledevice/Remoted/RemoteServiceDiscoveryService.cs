@@ -10,7 +10,11 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Remoted;
 
-public class RemoteServiceDiscoveryService : LockdownServiceProvider {
+public class RemoteServiceDiscoveryService(
+    string ip,
+    int port,
+    string? name = null
+) : LockdownServiceProvider() {
     private const string TRUSTED_SERVICE_NAME = "com.apple.mobile.lockdown.remote.trusted";
     private const string UNTRUSTED_SERVICE_NAME = "com.apple.mobile.lockdown.remote.untrusted";
 
@@ -24,18 +28,9 @@ public class RemoteServiceDiscoveryService : LockdownServiceProvider {
 
     public RemoteLockdownClient? Lockdown { get; private set; }
 
-    public RemoteXPCConnection Service { get; private set; }
+    public RemoteXPCConnection Service { get; private set; } = new RemoteXPCConnection(ip, port);
 
-    public string? Name { get; private set; }
-
-    public string Udid { get; private set; } = string.Empty;
-
-    public string ProductType { get; private set; } = string.Empty;
-
-    public RemoteServiceDiscoveryService(string ip, int port, string? name = null) : base() {
-        Service = new RemoteXPCConnection(ip, port);
-        Name = name;
-    }
+    public string? Name { get; private set; } = name;
 
     public void Close() {
         Lockdown?.Close();

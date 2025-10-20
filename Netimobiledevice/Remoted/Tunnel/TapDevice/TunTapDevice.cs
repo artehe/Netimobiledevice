@@ -8,8 +8,7 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Remoted.Tunnel;
 
-public class TunTapDevice : IDisposable
-{
+public class TunTapDevice : IDisposable {
     private const string DEFAULT_ADAPTER_NAME = "netwintun";
 
     private readonly Adapter _handle;
@@ -17,8 +16,7 @@ public class TunTapDevice : IDisposable
 
     public string Name { get; }
 
-    public void SetAddress(string value)
-    {
+    public void SetAddress(string value) {
         // Create the command
         string command = $"netsh interface ipv6 set address interface={InterfaceIndex} address={value}/64";
 
@@ -33,13 +31,12 @@ public class TunTapDevice : IDisposable
 
         // Start the process and wait for it to exit
         process.Start();
-        string output = process.StandardOutput.ReadToEnd();
         string error = process.StandardError.ReadToEnd();
         process.WaitForExit();
 
         // Combine output and error messages for simplicity
         if (!string.IsNullOrEmpty(error)) {
-            throw new Exception($"Failed to set IPv6 address. Error: {error}");
+            throw new NetimobiledeviceException($"Failed to set IPv6 address. Error: {error}");
         }
     }
 
@@ -51,22 +48,21 @@ public class TunTapDevice : IDisposable
 
     public MIB_IPINTERFACE_ROW IpInterfaceEntry {
         get {
-            MIB_IPINTERFACE_ROW row = new MIB_IPINTERFACE_ROW();
-            Iphlpapi.InitializeIpInterfaceEntry(out row);
+            Iphlpapi.InitializeIpInterfaceEntry(out MIB_IPINTERFACE_ROW row);
 
             row.InterfaceLuid = _handle.GetLuid();
             row.Family = (ushort) AddressFamily.InterNetworkV6;
 
             nint result = Iphlpapi.GetIpInterfaceEntry(ref row);
             if (result != 0) {
-                throw new Exception($"Failed to get IP interface entry, error code: {result}");
+                throw new NetimobiledeviceException($"Failed to get IP interface entry, error code: {result}");
             }
             return row;
         }
         set {
             nint result = Iphlpapi.SetIpInterfaceEntry(ref value);
             if (result != 0) {
-                throw new Exception($"Failed to set adapter MTU, error code: {result}");
+                throw new NetimobiledeviceException($"Failed to set adapter MTU, error code: {result}");
             }
         }
     }
@@ -74,8 +70,7 @@ public class TunTapDevice : IDisposable
     public ulong Luid {
         get {
             ulong luid = _handle.GetLuid();
-            MIB_IPINTERFACE_ROW row = new MIB_IPINTERFACE_ROW();
-            Iphlpapi.InitializeIpInterfaceEntry(out row);
+            Iphlpapi.InitializeIpInterfaceEntry(out MIB_IPINTERFACE_ROW _);
             return luid;
         }
     }
@@ -91,8 +86,7 @@ public class TunTapDevice : IDisposable
         }
     }
 
-    public TunTapDevice(string name = DEFAULT_ADAPTER_NAME)
-    {
+    public TunTapDevice(string name = DEFAULT_ADAPTER_NAME) {
         Name = name;
 
         // Create an adapter
@@ -101,31 +95,26 @@ public class TunTapDevice : IDisposable
         _handle = Adapter.Create(Name, tunnelType, requestedGuid);
     }
 
-    ~TunTapDevice()
-    {
+    ~TunTapDevice() {
         Dispose();
     }
 
-    public void Dispose()
-    {
+    public void Dispose() {
         Close();
         GC.SuppressFinalize(this);
     }
 
-    public void Close()
-    {
+    public void Close() {
         Down();
         _handle.Dispose();
     }
 
-    public void Down()
-    {
+    public void Down() {
         _session?.Dispose();
         _session = null;
     }
 
-    public async Task<byte[]> ReadAsync(CancellationToken cancellationToken = default)
-    {
+    public async Task<byte[]> ReadAsync(CancellationToken cancellationToken = default) {
         if (_session == null) {
             return [];
         }
@@ -137,13 +126,11 @@ public class TunTapDevice : IDisposable
             : packetData;
     }
 
-    public void Up(uint capacity = Wintun.Constants.MaxRingCapacity)
-    {
+    public void Up(uint capacity = Wintun.Constants.MaxRingCapacity) {
         _session = _handle.StartSession(capacity);
     }
 
-    public void Write(ReadOnlySpan<byte> data)
-    {
+    public void Write(ReadOnlySpan<byte> data) {
         if (data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x86 && data[3] == 0xDD) {
             data = data[4..];
         }

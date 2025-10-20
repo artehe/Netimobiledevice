@@ -5,8 +5,7 @@ namespace Netimobiledevice.NotificationProxy;
 /// <summary>
 /// Device-To-Host (Receivable) notifications.
 /// </summary>
-public static class ReceivableNotification
-{
+public static class ReceivableNotification {
     public static string ActivationState => "com.apple.mobile.lockdown.activation_state";
     public static string AddressBookPreferenceChanged => "com.apple.AddressBook.PreferenceChanged";
     public static string AppInstalled => "com.apple.mobile.application_installed";
@@ -256,19 +255,19 @@ public static class ReceivableNotification
     [Experimental("NETIMOBILE001")]
     public static string profileListChanged => "com.apple.ManagedConfiguration.profileListChanged";
     [Experimental("NETIMOBILE001")]
-    public static string webContentFilterChanged => "com.apple.ManagedConfiguration.webContentFilterChanged";
+    public static string WebContentFilterChanged => "com.apple.ManagedConfiguration.webContentFilterChanged";
     [Experimental("NETIMOBILE001")]
-    public static string webContentFilterTypeChanged => "com.apple.ManagedConfiguration.webContentFilterTypeChanged";
+    public static string WebContentFilterTypeChanged => "com.apple.ManagedConfiguration.webContentFilterTypeChanged";
     [Experimental("NETIMOBILE001")]
-    public static string lockScreenControlsDidChange => "com.apple.MediaRemote.lockScreenControlsDidChange";
+    public static string LockScreenControlsDidChange => "com.apple.MediaRemote.lockScreenControlsDidChange";
     [Experimental("NETIMOBILE001")]
-    public static string nowPlayingActivePlayersIsPlayingDidChange => "com.apple.MediaRemote.nowPlayingActivePlayersIsPlayingDidChange";
+    public static string NowPlayingActivePlayersIsPlayingDidChange => "com.apple.MediaRemote.nowPlayingActivePlayersIsPlayingDidChange";
     [Experimental("NETIMOBILE001")]
-    public static string nowPlayingApplicationIsPlayingDidChange => "com.apple.MediaRemote.nowPlayingApplicationIsPlayingDidChange";
+    public static string NowPlayingApplicationIsPlayingDidChange => "com.apple.MediaRemote.nowPlayingApplicationIsPlayingDidChange";
     [Experimental("NETIMOBILE001")]
-    public static string nowPlayingInfoDidChange => "com.apple.MediaRemote.nowPlayingInfoDidChange";
+    public static string NowPlayingInfoDidChange => "com.apple.MediaRemote.nowPlayingInfoDidChange";
     [Experimental("NETIMOBILE001")]
-    public static string new_asset_installed => "com.apple.MobileAsset.AppleKeyServicesCRL.new-asset-installed";
+    public static string NewAssetInstalled => "com.apple.MobileAsset.AppleKeyServicesCRL.new-asset-installed";
     [Experimental("NETIMOBILE001")]
     public static string ATOMIC_INSTANCE_DOWNLOADED => "com.apple.MobileAsset.AutoAssetAtomicNotification^ATOMIC_INSTANCE_DOWNLOADED";
     [Experimental("NETIMOBILE001")]
@@ -1430,9 +1429,9 @@ public static class ReceivableNotification
     [Experimental("NETIMOBILE001")]
     public static string wirelessinsightsd_anonymity => "com.apple.wirelessinsightsd.anonymity";
     [Experimental("NETIMOBILE001")]
-    public static string wirelessproximity_launch => "com.apple.wirelessproximity.launch";
+    public static string WirelessProximityLaunch => "com.apple.wirelessproximity.launch";
     [Experimental("NETIMOBILE001")]
-    public static string app => "dmf.policy.monitor.app";
+    public static string App => "dmf.policy.monitor.app";
     [Experimental("NETIMOBILE001")]
     public static string kAFPreferencesDidChangeDarwinNotification => "kAFPreferencesDidChangeDarwinNotification";
     [Experimental("NETIMOBILE001")]
@@ -1452,6 +1451,6 @@ public static class ReceivableNotification
     [Experimental("NETIMOBILE001")]
     public static string kVMVoicemailTranscriptionTaskTranscribeAllVoicemails => "kVMVoicemailTranscriptionTaskTranscribeAllVoicemails";
     [Experimental("NETIMOBILE001")]
-    public static string developer_mode_status_changed => "security.mac.amfi.developer_mode_status.changed";
+    public static string DeveloperModeStatusChanged => "security.mac.amfi.developer_mode_status.changed";
     #endregion
 }

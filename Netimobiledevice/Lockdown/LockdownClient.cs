@@ -12,8 +12,7 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown;
 
-public abstract class LockdownClient : LockdownServiceProvider, IDisposable
-{
+public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
     public const string DEFAULT_CLIENT_NAME = "Netimobiledevice";
     public const ushort SERVICE_PORT = 62078;
     public const string SYSTEM_BUID = "30142955-444094379208051516";
@@ -61,11 +60,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
 
     public override ILogger Logger => _logger;
 
-    public string ProductFriendlyName {
-        get {
-            return ModelIdentifiers.ResourceManager.GetString(ProductType, null) ?? ProductType;
-        }
-    }
+    public string ProductFriendlyName => ModelIdentifiers.ResourceManager.GetString(ProductType, null) ?? ProductType;
 
     public string SerialNumber { get; private set; } = string.Empty;
 
@@ -86,8 +81,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
     /// <param name="port">lockdownd service port</param>
     /// <param name="logger"></param>
     protected LockdownClient(ServiceConnection service, string hostId, string identifier = "", string label = DEFAULT_CLIENT_NAME, string systemBuid = SYSTEM_BUID,
-        DictionaryNode? pairRecord = null, DirectoryInfo? pairingRecordsCacheDirectory = null, ushort port = SERVICE_PORT, ILogger? logger = null) : base()
-    {
+        DictionaryNode? pairRecord = null, DirectoryInfo? pairingRecordsCacheDirectory = null, ushort port = SERVICE_PORT, ILogger? logger = null) : base() {
         _logger = logger ?? NullLogger.Instance;
         _service = service;
         Identifier = identifier;
@@ -119,8 +113,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
         }
     }
 
-    private DictionaryNode GetServiceConnectionAttributes(string name, bool useEscrowBag, bool useTrustedConnection)
-    {
+    private DictionaryNode GetServiceConnectionAttributes(string name, bool useEscrowBag, bool useTrustedConnection) {
         if (!IsPaired && useTrustedConnection) {
             throw new NotPairedException();
         }
@@ -145,8 +138,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
         return response;
     }
 
-    private DictionaryNode Request(string request, DictionaryNode? options = null, bool verifyRequest = true)
-    {
+    private DictionaryNode Request(string request, DictionaryNode? options = null, bool verifyRequest = true) {
         DictionaryNode message = new DictionaryNode {
             { "Label", new StringNode(_label) },
             { "Request", new StringNode(request) }
@@ -186,8 +178,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
         return response;
     }
 
-    private async Task<DictionaryNode> RequestAsync(string request, DictionaryNode? options = null, bool verifyRequest = true, CancellationToken cancellationToken = default)
-    {
+    private async Task<DictionaryNode> RequestAsync(string request, DictionaryNode? options = null, bool verifyRequest = true, CancellationToken cancellationToken = default) {
         DictionaryNode message = new DictionaryNode {
             { "Label", new StringNode(_label) },
             { "Request", new StringNode(request) }
@@ -230,8 +221,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
         return [];
     }
 
-    private DictionaryNode RequestPair(DictionaryNode pairOptions)
-    {
+    private DictionaryNode RequestPair(DictionaryNode pairOptions) {
         try {
             return Request("Pair", pairOptions).AsDictionaryNode();
         }
@@ -243,8 +233,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
         }
     }
 
-    private LockdownError Pair()
-    {
+    private LockdownError Pair() {
         _devicePublicKey = GetValue(null, "DevicePublicKey")?.AsDataNode().Value ?? [];
         if (_devicePublicKey == null || _devicePublicKey.Length == 0) {
             _logger.LogDebug("Unable to retrieve DevicePublicKey");
@@ -306,13 +295,11 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
         return LockdownError.Success;
     }
 
-    private string QueryType()
-    {
+    private string QueryType() {
         return Request("QueryType").AsDictionaryNode()["Type"].AsStringNode().Value;
     }
 
-    private bool ValidatePairing()
-    {
+    private bool ValidatePairing() {
         if (_pairRecord == null && !string.IsNullOrEmpty(Identifier)) {
             try {
                 FetchPairRecord();
@@ -373,8 +360,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
         return IsPaired;
     }
 
-    private void WriteStorageFile(string filename, byte[] data)
-    {
+    private void WriteStorageFile(string filename, byte[] data) {
         if (_pairingRecordsCacheDirectory != null) {
             if (!_pairingRecordsCacheDirectory.Exists) {
                 _pairingRecordsCacheDirectory.Create();
@@ -384,8 +370,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
         }
     }
 
-    protected virtual void HandleAutoPair(bool autoPair, float timeout)
-    {
+    protected virtual void HandleAutoPair(bool autoPair, float timeout) {
         if (ValidatePairing()) {
             return;
         }
@@ -403,24 +388,20 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
         }
     }
 
-    protected virtual void FetchPairRecord()
-    {
+    protected virtual void FetchPairRecord() {
         _pairRecord = PairRecords.GetPreferredPairRecord(Identifier, _pairingRecordsCacheDirectory, logger: Logger);
     }
 
-    public void Close()
-    {
+    public void Close() {
         Dispose();
     }
 
-    public void Dispose()
-    {
+    public void Dispose() {
         _service?.Dispose();
         GC.SuppressFinalize(this);
     }
 
-    public override PropertyNode? GetValue(string? domain, string? key)
-    {
+    public override PropertyNode? GetValue(string? domain, string? key) {
         DictionaryNode options = [];
         if (!string.IsNullOrEmpty(domain)) {
             options.Add("Domain", new StringNode(domain));
@@ -444,8 +425,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
         }
     }
 
-    public override async Task<PropertyNode?> GetValueAsync(string? domain, string? key)
-    {
+    public override async Task<PropertyNode?> GetValueAsync(string? domain, string? key) {
         DictionaryNode options = [];
         if (!string.IsNullOrEmpty(domain)) {
             options.Add("Domain", new StringNode(domain));
@@ -473,8 +453,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
     /// Start a pairing operation.
     /// </summary>
     /// <returns>Return <see langword="true"/> if the user accept pairng else <see langword="false"/>.</returns>
-    public virtual Task<bool> PairAsync()
-    {
+    public virtual Task<bool> PairAsync() {
         return PairAsync(new Progress<PairingState>(), CancellationToken.None);
     }
 
@@ -483,8 +462,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
     /// </summary>
     /// <param name="cancellationToken">A cancelation token used to cancel stop the operation</param>
     /// <returns>Return <see langword="true"/> if the user accept pairng else <see langword="false"/>.</returns>
-    public virtual Task<bool> PairAsync(CancellationToken cancellationToken)
-    {
+    public virtual Task<bool> PairAsync(CancellationToken cancellationToken) {
         return PairAsync(new Progress<PairingState>(), cancellationToken);
     }
 
@@ -493,8 +471,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
     /// </summary>
     /// <param name="progress">Used to report the progress</param>
     /// <returns>Return <see langword="true"/> if the user accept pairng else <see langword="false"/>.</returns>
-    public virtual Task<bool> PairAsync(IProgress<PairingState> progress)
-    {
+    public virtual Task<bool> PairAsync(IProgress<PairingState> progress) {
         return PairAsync(progress, CancellationToken.None);
     }
 
@@ -504,8 +481,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
     /// <param name="progress">Used to report the progress</param>
     /// <param name="cancellationToken">A cancelation token used to cancel stop the operation</param>
     /// <returns>Return <see langword="true"/> if the user accept pairng else <see langword="false"/>.</returns>
-    public virtual async Task<bool> PairAsync(IProgress<PairingState> progress, CancellationToken cancellationToken)
-    {
+    public virtual async Task<bool> PairAsync(IProgress<PairingState> progress, CancellationToken cancellationToken) {
         using (NotificationProxyService np = new NotificationProxyService(this, true)) {
             await np.ObserveNotificationAsync(ReceivableNotification.RequestPair).ConfigureAwait(false);
 
@@ -558,8 +534,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
     /// <param name="timeout">How long to wait when pairing the iOS device</param>
     /// <returns>If the device is currently paired or if the pairing was successful or not</returns>
     /// <exception cref="FatalPairingException">Exception thrown when pairing should have succeeded but failed for some reason.</exception>
-    public virtual bool PairDevice()
-    {
+    public virtual bool PairDevice() {
         bool currentlyPaired = ValidatePairing();
         if (currentlyPaired) {
             return true;
@@ -579,8 +554,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
         return IsPaired;
     }
 
-    public virtual void SavePairRecord()
-    {
+    public virtual void SavePairRecord() {
         if (_pairingRecordsCacheDirectory != null) {
             string pairRecordFilePath = Path.Combine(_pairingRecordsCacheDirectory.FullName, $"{Identifier}.plist");
             if (_pairRecord != null) {
@@ -589,8 +563,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
         }
     }
 
-    public PropertyNode SetValue(string? domain, string? key, PropertyNode value)
-    {
+    public PropertyNode SetValue(string? domain, string? key, PropertyNode value) {
         DictionaryNode options = [];
         if (!string.IsNullOrWhiteSpace(domain)) {
             options.Add("Domain", new StringNode(domain));
@@ -602,8 +575,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
         return Request("SetValue", options);
     }
 
-    public async Task<PropertyNode> SetValueAsync(string? domain, string? key, PropertyNode value)
-    {
+    public async Task<PropertyNode> SetValueAsync(string? domain, string? key, PropertyNode value) {
         DictionaryNode options = [];
         if (!string.IsNullOrWhiteSpace(domain)) {
             options.Add("Domain", new StringNode(domain));
@@ -620,8 +592,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
     /// </summary>
     /// <param name="port"></param>
     /// <returns></returns>
-    public virtual ServiceConnection CreateServiceConnection(ushort port)
-    {
+    public virtual ServiceConnection CreateServiceConnection(ushort port) {
         throw new NotImplementedException();
     }
 
@@ -630,13 +601,11 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
     /// </summary>
     /// <param name="port"></param>
     /// <returns></returns>
-    public virtual Task<ServiceConnection> CreateServiceConnectionAsync(ushort port)
-    {
+    public virtual Task<ServiceConnection> CreateServiceConnectionAsync(ushort port) {
         throw new NotImplementedException();
     }
 
-    public override ServiceConnection StartLockdownService(string name, bool useEscrowBag = false, bool useTrustedConnection = true)
-    {
+    public override ServiceConnection StartLockdownService(string name, bool useEscrowBag = false, bool useTrustedConnection = true) {
         DictionaryNode attr = GetServiceConnectionAttributes(name, useEscrowBag, useTrustedConnection).AsDictionaryNode();
         ServiceConnection serviceConnection = CreateServiceConnection((ushort) attr["Port"].AsIntegerNode().Value);
 
@@ -649,8 +618,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
         return serviceConnection;
     }
 
-    public override async Task<ServiceConnection> StartLockdownServiceAsync(string name, bool useEscrowBag = false, bool useTrustedConnection = true)
-    {
+    public override async Task<ServiceConnection> StartLockdownServiceAsync(string name, bool useEscrowBag = false, bool useTrustedConnection = true) {
         DictionaryNode attr = GetServiceConnectionAttributes(name, useEscrowBag, useTrustedConnection).AsDictionaryNode();
         ServiceConnection serviceConnection = await CreateServiceConnectionAsync((ushort) attr["Port"].AsIntegerNode().Value).ConfigureAwait(false);
 
@@ -666,8 +634,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
     /// <summary>
     /// Try to unpair the device.
     /// </summary>
-    public virtual void Unpair()
-    {
+    public virtual void Unpair() {
         if (_pairRecord != null) {
             DictionaryNode options = new DictionaryNode() {
                 { "PairRecord", _pairRecord },
@@ -682,8 +649,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable
     /// <summary>
     /// Try to unpair the device.
     /// </summary>
-    public virtual async Task UnpairAsync()
-    {
+    public virtual async Task UnpairAsync() {
         if (_pairRecord != null) {
             DictionaryNode options = new DictionaryNode() {
                 { "PairRecord", _pairRecord },

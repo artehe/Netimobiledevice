@@ -4,13 +4,12 @@ using System.Collections.Generic;
 
 namespace Netimobiledevice.Remoted.Frames;
 
-internal class PushPromiseFrame : Frame, IFrameContainsHeaders
-{
-    private ushort _padLength = 0;
+internal class PushPromiseFrame : Frame, IFrameContainsHeaders {
+    private ushort _padLength;
 
     public bool EndHeaders { get; set; }
-    public byte[] HeaderBlockFragment { get; set; }
     public bool Padded { get; set; }
+    public uint StreamDependency { get; set; }
 
     public override byte Flags {
         get {
@@ -19,6 +18,7 @@ internal class PushPromiseFrame : Frame, IFrameContainsHeaders
             return (byte) (padded | endHeaders);
         }
     }
+    public byte[] HeaderBlockFragment { get; set; } = [];
     public ushort PadLength {
         get => _padLength;
         set {
@@ -30,7 +30,7 @@ internal class PushPromiseFrame : Frame, IFrameContainsHeaders
     }
     public override IEnumerable<byte> Payload {
         get {
-            List<byte> data = new List<byte>();
+            List<byte> data = [];
             if (Padded) {
                 // Add the padding length
                 data.Add((byte) _padLength);
@@ -50,21 +50,17 @@ internal class PushPromiseFrame : Frame, IFrameContainsHeaders
             return data.ToArray();
         }
     }
-    public uint StreamDependency { get; set; } = 0;
     public override FrameType Type => FrameType.PushPromise;
 
-    public PushPromiseFrame() : base()
-    {
+    public PushPromiseFrame() : base() {
     }
 
-    public PushPromiseFrame(uint streamIdentifier) : base()
-    {
+    public PushPromiseFrame(uint streamIdentifier) : base() {
         StreamIdentifier = streamIdentifier;
     }
 
 
-    public override void ParsePayload(byte[] payloadData, FrameHeader frameHeader)
-    {
+    public override void ParsePayload(byte[] payloadData, FrameHeader frameHeader) {
         EndHeaders = (frameHeader.Flags & 0x4) == 0x4;
         Padded = (frameHeader.Flags & 0x8) == 0x8;
 

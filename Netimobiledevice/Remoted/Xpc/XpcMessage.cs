@@ -3,13 +3,11 @@ using System.Linq;
 
 namespace Netimobiledevice.Remoted.Xpc;
 
-public class XpcMessage
-{
+public class XpcMessage {
     public ulong MessageId { get; set; }
     public XpcPayload? Payload { get; set; }
 
-    public static XpcMessage Deserialise(byte[] data)
-    {
+    public static XpcMessage Deserialise(byte[] data) {
         ulong messageSize = BitConverter.ToUInt64(data, 0);
         ulong messageId = BitConverter.ToUInt64(data, 8);
 
@@ -21,12 +19,11 @@ public class XpcMessage
         }
         return new XpcMessage() {
             MessageId = messageId,
-            Payload = XpcPayload.Deserialise(data.Skip(16).ToArray())
+            Payload = XpcPayload.Deserialise([.. data.Skip(16)])
         };
     }
 
-    public byte[] Serialise()
-    {
+    public byte[] Serialise() {
         byte[] payload = Payload?.Serialise() ?? [];
         byte[] messageSize = BitConverter.GetBytes(payload.LongLength);
         return [

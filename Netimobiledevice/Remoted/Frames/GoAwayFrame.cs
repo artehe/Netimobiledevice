@@ -4,11 +4,10 @@ using System.Collections.Generic;
 
 namespace Netimobiledevice.Remoted.Frames;
 
-internal class GoAwayFrame : Frame
-{
+internal class GoAwayFrame : Frame {
     public uint LastStreamId { get; set; }
     public uint ErrorCode { get; set; }
-    public byte[] AdditionalDebugData { get; set; }
+    public byte[] AdditionalDebugData { get; set; } = [];
 
     public override FrameType Type => FrameType.GoAway;
 
@@ -28,8 +27,7 @@ internal class GoAwayFrame : Frame
         }
     }
 
-    public override void ParsePayload(byte[] payloadData, FrameHeader frameHeader)
-    {
+    public override void ParsePayload(byte[] payloadData, FrameHeader frameHeader) {
         // we need to turn the stream id into a uint
         byte[] frameStreamIdData = new byte[4];
         Array.Copy(payloadData, 0, frameStreamIdData, 0, 4);
@@ -46,13 +44,11 @@ internal class GoAwayFrame : Frame
         }
     }
 
-    public override string ToString()
-    {
+    public override string ToString() {
         string debug = string.Empty;
         if (AdditionalDebugData != null && AdditionalDebugData.Length > 0) {
             debug = System.Text.Encoding.ASCII.GetString(AdditionalDebugData);
         }
-
         return $"[Frame: GOAWAY, Id={StreamIdentifier}, ErrorCode={ErrorCode}, LastStreamId={LastStreamId}, AdditionalDebugData={debug}]";
     }
 }

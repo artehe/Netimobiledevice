@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Remoted.Tunnel;
@@ -24,7 +25,7 @@ public class RemotePairingTunnelService(string remoteIdentifier, string hostname
          */
     }
 
-    public override Task CloseAsync() {
+    public override async Task CloseAsync() {
         /* TODO
         if self._writer is None:
             return
@@ -38,7 +39,7 @@ public class RemotePairingTunnelService(string remoteIdentifier, string hostname
          */
     }
 
-    public override async Task Connect(bool autopair = true) {
+    public override void Connect(bool autopair = true) {
         /* TODO
         fut = asyncio.open_connection(self.hostname, self.port)
         self._reader, self._writer = await asyncio.wait_for(fut, timeout=TIMEOUT)
@@ -68,20 +69,29 @@ public class RemotePairingTunnelService(string remoteIdentifier, string hostname
             await self.close()
             raise
         */
+
+        throw new NotImplementedException();
     }
 
-    public override Task<Dictionary<string, object>> ReceiveResponse() {
+    public override async Task<Dictionary<string, object>> ReceiveResponse() {
         /* TODO
         await self._reader.readexactly(len(REPAIRING_PACKET_MAGIC))
         size = struct.unpack('>H', await self._reader.readexactly(2))[0]
         return json.loads(await self._reader.readexactly(size))
          */
+
+        throw new NotImplementedException();
     }
 
-    public override Task SendRequest(Dictionary<string, object> data) {
+    public override async Task SendRequest(Dictionary<string, object> data) {
         /* TODO
         self._writer.write(RPPairingPacket.build({'body': json.dumps(data, default=self._default_json_encoder).encode()}))
         await self._writer.drain()
          */
+    }
+
+    public override Task<TunnelResult> StartTunnel() {
+        // TODO
+        throw new NotImplementedException();
     }
 }

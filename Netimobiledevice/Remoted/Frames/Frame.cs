@@ -6,13 +6,12 @@ using System.Linq;
 
 namespace Netimobiledevice.Remoted.Frames;
 
-internal abstract class Frame : IFrame
-{
+internal abstract class Frame : IFrame {
     private uint? _payloadLength;
 
     public virtual byte Flags { get; protected set; }
     public abstract FrameType Type { get; }
-    public virtual IEnumerable<byte> Payload { get; }
+    public virtual IEnumerable<byte> Payload { get; } = [];
     public virtual uint StreamIdentifier { get; set; }
 
     public bool IsEndStream => (Type == FrameType.Data || Type == FrameType.Headers) && (Flags & 0x1) == 0x1;
@@ -26,13 +25,11 @@ internal abstract class Frame : IFrame
         }
     }
 
-    protected Frame()
-    {
+    protected Frame() {
         Flags = 0;
     }
 
-    public static Frame Create(FrameType frameType)
-    {
+    public static Frame Create(FrameType frameType) {
         return frameType switch {
             FrameType.Data => new DataFrame(),
             FrameType.Headers => new HeadersFrame(),
@@ -50,21 +47,18 @@ internal abstract class Frame : IFrame
 
     public static Frame Create(byte frameType) => Create((FrameType) frameType);
 
-    private static byte[] To24BitInt(uint original)
-    {
+    private static byte[] To24BitInt(uint original) {
         byte[] b = BitConverter.GetBytes(original);
         return [b[0], b[1], b[2]];
     }
 
-    protected static byte ClearBit(byte target, int bitIndex)
-    {
+    protected static byte ClearBit(byte target, int bitIndex) {
         int x = Convert.ToInt32(target);
         x &= ~(1 << bitIndex);
         return Convert.ToByte(x);
     }
 
-    protected static uint ConvertFromUInt31(byte[] data)
-    {
+    protected static uint ConvertFromUInt31(byte[] data) {
         if (data.Length != 4) {
             return 0;
         }
@@ -72,18 +66,15 @@ internal abstract class Frame : IFrame
         return BitConverter.ToUInt32(data, 0);
     }
 
-    protected static byte[] ConvertToUInt31(uint original)
-    {
+    protected static byte[] ConvertToUInt31(uint original) {
         // 1 Bit reserved as unset (0) so let's take the first bit of the next 32 bits and unset it
         byte[] data = BitConverter.GetBytes(original);
         data[3] = ClearBit(data[3], 7);
         return data;
     }
 
-    internal void Parse(byte[] data)
-    {
-        var frameHeader = ParseFrameHeader(data);
-
+    internal void Parse(byte[] data) {
+        FrameHeader frameHeader = ParseFrameHeader(data);
         this.StreamIdentifier = frameHeader.StreamIdentifier;
         this.Flags = frameHeader.Flags;
 
@@ -94,9 +85,8 @@ internal abstract class Frame : IFrame
         ParsePayload(payloadData, frameHeader);
     }
 
-    public IEnumerable<byte> ToBytes()
-    {
-        List<byte> data = new List<byte>();
+    public IEnumerable<byte> ToBytes() {
+        List<byte> data = [];
 
         // Copy Frame Length
         byte[] frameLength = To24BitInt(Length);
@@ -112,15 +102,14 @@ internal abstract class Frame : IFrame
         byte[] streamId = ConvertToUInt31(StreamIdentifier);
         data.AddRange(streamId.EnsureBigEndian());
 
-        byte[] payloadData = Payload.ToArray();
+        byte[] payloadData = [.. Payload];
         // Now the payload
         data.AddRange(payloadData);
 
         return data;
     }
 
-    public static FrameHeader ParseFrameHeader(byte[] data)
-    {
+    public static FrameHeader ParseFrameHeader(byte[] data) {
         if (data.Length < 9) {
             throw new InvalidDataException("data[] is missing frame header");
         }

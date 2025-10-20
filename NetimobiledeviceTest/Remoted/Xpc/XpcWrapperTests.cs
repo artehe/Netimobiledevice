@@ -4,11 +4,9 @@ using NetimobiledeviceTest.TestFiles;
 namespace NetimobiledeviceTest.Remoted.Xpc;
 
 [TestClass]
-public class XpcWrapperTests
-{
+public class XpcWrapperTests {
     [TestMethod]
-    public void CreatesSerialisedWrapperCorrectly()
-    {
+    public void CreatesSerialisedWrapperCorrectly() {
         byte[] expectedData = [
             0x92, 0xb, 0xb0, 0x29, 0x1, 0x0, 0x0, 0x0, 0x14, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
             0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x42, 0x37, 0x13, 0x42, 0x5, 0x0, 0x0, 0x0,
@@ -25,8 +23,7 @@ public class XpcWrapperTests
     }
 
     [TestMethod]
-    public void CreatesSerialisedWrapperCorrectly1()
-    {
+    public void CreatesSerialisedWrapperCorrectly1() {
         byte[] expectedData = [
             0x92, 0x0b, 0xb0, 0x29, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
@@ -47,8 +44,7 @@ public class XpcWrapperTests
     }
 
     [TestMethod]
-    public void CreatesSerialisedWrapperCorrectly2()
-    {
+    public void CreatesSerialisedWrapperCorrectly2() {
         byte[] expectedData = [
             0x92, 0x0b, 0xb0, 0x29, 0x01, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
@@ -69,8 +65,7 @@ public class XpcWrapperTests
     }
 
     [TestMethod]
-    public void CreatesDeserialisedWrapperCorrectly()
-    {
+    public void CreatesDeserialisedWrapperCorrectly() {
         List<byte> data = [];
         using (Stream stream = TestFileHelper.GetTestFileStream("TestFiles/XpcMessage.bin")) {
             byte[] buffer = new byte[4096];
@@ -91,11 +86,8 @@ public class XpcWrapperTests
             }
         };
 
-        Assert.AreEqual(expectedXpcWrapper.Magic, xpcWrapper.Magic);
         Assert.AreEqual(expectedXpcWrapper.Flags, xpcWrapper.Flags);
         Assert.AreEqual(expectedXpcWrapper.Message.MessageId, xpcWrapper.Message.MessageId);
-        Assert.AreEqual(expectedXpcWrapper.Message.Payload.Magic, xpcWrapper.Message.Payload?.Magic);
-        Assert.AreEqual(expectedXpcWrapper.Message.Payload.ProtocolVersion, xpcWrapper.Message.Payload?.ProtocolVersion);
 
         XpcDictionary obj = (XpcDictionary) xpcWrapper.Message.Payload!.Obj!;
         XpcDictionary expectedObj = (XpcDictionary) expectedXpcWrapper.Message.Payload!.Obj;

@@ -4,10 +4,8 @@ using System.Linq;
 
 namespace Netimobiledevice.Remoted.Xpc;
 
-public static class XpcSerialiser
-{
-    public static byte[] AlignData(byte[] data, int alignment)
-    {
+public static class XpcSerialiser {
+    public static byte[] AlignData(byte[] data, int alignment) {
         // Make sure we align the string to the requested alignement number of bytes
         List<byte> alignmentData = [];
 
@@ -28,10 +26,9 @@ public static class XpcSerialiser
         return [.. data, .. alignmentData];
     }
 
-    public static XpcObject Deserialise(byte[] data)
-    {
+    public static XpcObject Deserialise(byte[] data) {
         XpcMessageType type = (XpcMessageType) BitConverter.ToUInt32(data.Take(4).ToArray());
-        data = data.Skip(4).ToArray();
+        data = [.. data.Skip(4)];
         XpcObject xpcObject = type switch {
             XpcMessageType.Array => XpcArray.Deserialise(data),
             XpcMessageType.Bool => XpcBool.Deserialise(data),
@@ -47,8 +44,7 @@ public static class XpcSerialiser
         return xpcObject;
     }
 
-    public static byte[] Serialise(XpcObject obj)
-    {
+    public static byte[] Serialise(XpcObject obj) {
         byte[] data = obj.Serialise();
 
         if (obj.IsPrefixed) {
