@@ -12,7 +12,6 @@ using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -269,13 +268,10 @@ public class ServiceConnection : IDisposable {
         Stream.WriteTimeout = timeout;
     }
 
-    public bool StartSsl(byte[] certData, byte[] privateKeyData) {
-        string certText = Encoding.UTF8.GetString(certData);
-        string privateKeyText = Encoding.UTF8.GetString(privateKeyData);
-
+    public bool StartSsl(string certPem, string privateKeyPem) {
         X509Certificate2? cert = null;
         try {
-            X509Certificate2.CreateFromPem(certText, privateKeyText);
+            X509Certificate2.CreateFromPem(certPem, privateKeyPem);
         }
         catch (CryptographicException ex) {
             _logger.LogWarning(ex, "Failed to generate pem");
@@ -303,16 +299,17 @@ public class ServiceConnection : IDisposable {
         return true;
     }
 
-    public async Task<bool> StartSslAsync(byte[] certData, byte[] privateKeyData) {
-        string certText = Encoding.UTF8.GetString(certData);
-        string privateKeyText = Encoding.UTF8.GetString(privateKeyData);
-
+    public async Task<bool> StartSslAsync(string certPem, string privateKeyPem) {
         X509Certificate2? cert = null;
         try {
-            X509Certificate2.CreateFromPem(certText, privateKeyText);
+            X509Certificate2.CreateFromPem(certPem, privateKeyPem);
         }
         catch (CryptographicException ex) {
             _logger.LogWarning(ex, "Failed to generate pem");
+            return false;
+        }
+
+        if (cert == null) {
             return false;
         }
 
