@@ -16,8 +16,7 @@ public sealed class NotificationProxyService(
     LockdownServiceProvider lockdown,
     bool useInsecureService = false,
     ILogger? logger = null
-) : LockdownService(lockdown, ServiceNameUsed, GetNotificationProxyServiceConnection(lockdown, useInsecureService), logger: logger)
-{
+) : LockdownService(lockdown, ServiceNameUsed, GetNotificationProxyServiceConnection(lockdown, useInsecureService), logger: logger) {
     private const string LOCKDOWN_SERVICE_NAME = "com.apple.mobile.notification_proxy";
     private const string RSD_SERVICE_NAME = "com.apple.mobile.notification_proxy.shim.remote";
 
@@ -31,8 +30,7 @@ public sealed class NotificationProxyService(
 
     public event EventHandler<ReceivedNotificationEventArgs>? ReceivedNotification;
 
-    private static ServiceConnection? GetNotificationProxyServiceConnection(LockdownServiceProvider lockdown, bool useInsecureService)
-    {
+    private static ServiceConnection? GetNotificationProxyServiceConnection(LockdownServiceProvider lockdown, bool useInsecureService) {
         if (lockdown is LockdownClient) {
             if (useInsecureService) {
                 ServiceNameUsed = INSECURE_LOCKDOWN_SERVICE_NAME;
@@ -49,17 +47,15 @@ public sealed class NotificationProxyService(
                 ServiceNameUsed = RSD_SERVICE_NAME;
             }
         }
-        return lockdown.StartLockdownService(ServiceNameUsed);
+        return lockdown.StartLockdownService(ServiceNameUsed, useTrustedConnection: !useInsecureService);
     }
 
-    public override void Dispose()
-    {
+    public override void Dispose() {
         Stop();
         base.Dispose();
     }
 
-    private async Task<string?> GetNotificationAsync(CancellationToken cancellationToken)
-    {
+    private async Task<string?> GetNotificationAsync(CancellationToken cancellationToken) {
         try {
             PropertyNode? plist = await Service.ReceivePlistAsync(cancellationToken).ConfigureAwait(false);
             if (plist != null) {
@@ -88,8 +84,7 @@ public sealed class NotificationProxyService(
         return null;
     }
 
-    private async Task NotificationListener()
-    {
+    private async Task NotificationListener() {
         Service.SetTimeout(5000);
         do {
             try {
@@ -122,8 +117,7 @@ public sealed class NotificationProxyService(
     /// Posts the specified notification.
     /// </summary>
     /// <param name="notification">The notification to post.</param>
-    public void Post(string notification)
-    {
+    public void Post(string notification) {
         DictionaryNode msg = new DictionaryNode() {
             { "Command", new StringNode("PostNotification") },
             { "Name", new StringNode(notification) }
@@ -135,8 +129,7 @@ public sealed class NotificationProxyService(
     /// Posts the specified notification.
     /// </summary>
     /// <param name="notification">The notification to post.</param>
-    public async Task PostAsync(string notification)
-    {
+    public async Task PostAsync(string notification) {
         DictionaryNode msg = new DictionaryNode() {
             { "Command", new StringNode("PostNotification") },
             { "Name", new StringNode(notification) }
@@ -148,8 +141,7 @@ public sealed class NotificationProxyService(
     /// Attempts to observe all builtin receivable notifications.
     /// </summary>
     /// <returns></returns>
-    public void ObserveAll()
-    {
+    public void ObserveAll() {
         foreach (PropertyInfo prop in typeof(ReceivableNotification).GetProperties()) {
             string notification = prop.GetValue(typeof(ReceivableNotification), null)?.ToString() ?? string.Empty;
             if (string.IsNullOrEmpty(notification)) {
@@ -163,8 +155,7 @@ public sealed class NotificationProxyService(
     /// Attempts to observe all builtin receivable notifications.
     /// </summary>
     /// <returns></returns>
-    public async Task ObserveAllAsync()
-    {
+    public async Task ObserveAllAsync() {
         foreach (PropertyInfo prop in typeof(ReceivableNotification).GetProperties()) {
             string notification = prop.GetValue(typeof(ReceivableNotification), null)?.ToString() ?? string.Empty;
             if (string.IsNullOrEmpty(notification)) {
@@ -178,8 +169,7 @@ public sealed class NotificationProxyService(
     /// Inform the device of the notification we want to observe.
     /// </summary>
     /// <param name="notification"></param>
-    public void ObserveNotification(string notification)
-    {
+    public void ObserveNotification(string notification) {
         DictionaryNode request = new DictionaryNode() {
             { "Command", new StringNode("ObserveNotification") },
             { "Name", new StringNode(notification) }
@@ -191,8 +181,7 @@ public sealed class NotificationProxyService(
     /// Inform the device of the notification we want to observe.
     /// </summary>
     /// <param name="notification"></param>
-    public async Task ObserveNotificationAsync(string notification)
-    {
+    public async Task ObserveNotificationAsync(string notification) {
         DictionaryNode request = new DictionaryNode() {
             { "Command", new StringNode("ObserveNotification") },
             { "Name", new StringNode(notification) }
@@ -203,8 +192,7 @@ public sealed class NotificationProxyService(
     /// <summary>
     /// Starts observing any notifications from the device if it is not doing so already
     /// </summary>
-    public void Start()
-    {
+    public void Start() {
         if (_notificationListenerTask == null) {
             _cancellationTokenSource = new CancellationTokenSource();
             _notificationListenerTask = Task.Run(NotificationListener, _cancellationTokenSource.Token);
@@ -214,8 +202,7 @@ public sealed class NotificationProxyService(
     /// <summary>
     /// Stops observing any notifications from the device
     /// </summary>
-    public void Stop()
-    {
+    public void Stop() {
         _cancellationTokenSource.Cancel();
         _notificationListenerTask = null;
     }
