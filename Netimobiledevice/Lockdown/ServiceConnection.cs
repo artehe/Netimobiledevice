@@ -282,6 +282,10 @@ public class ServiceConnection : IDisposable {
             return false;
         }
 
+        if (cert == null) {
+            return false;
+        }
+
         if (_networkStream == null) {
             throw new InvalidOperationException("Network stream is null");
         }
