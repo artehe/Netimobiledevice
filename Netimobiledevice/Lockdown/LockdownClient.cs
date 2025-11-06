@@ -357,8 +357,10 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
         }
 
         // Reload data after pairing
-        _allValues = GetValue()?.AsDictionaryNode() ?? [];
-        Udid = _allValues["UniqueDeviceID"].AsStringNode().Value;
+        if (IsPaired) {
+            _allValues = GetValue()?.AsDictionaryNode() ?? [];
+            Udid = _allValues["UniqueDeviceID"].AsStringNode().Value;
+        }
 
         return IsPaired;
     }
