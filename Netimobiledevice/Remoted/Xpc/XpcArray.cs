@@ -5,8 +5,7 @@ using System.Linq;
 
 namespace Netimobiledevice.Remoted.Xpc;
 
-public class XpcArray : XpcObject, IList<XpcObject>
-{
+public class XpcArray : XpcObject, IList<XpcObject> {
     private readonly IList<XpcObject> _list = [];
 
     public XpcObject this[int index] {
@@ -24,76 +23,64 @@ public class XpcArray : XpcObject, IList<XpcObject>
 
     public bool IsReadOnly => false;
 
-    public void Add(XpcObject item)
-    {
+    public void Add(XpcObject item) {
         _list.Add(item);
     }
 
-    public void Clear()
-    {
+    public void Clear() {
         _list.Clear();
     }
 
-    public bool Contains(XpcObject item)
-    {
+    public bool Contains(XpcObject item) {
         return _list.Contains(item);
     }
 
-    public void CopyTo(XpcObject[] array, int arrayIndex)
-    {
+    public void CopyTo(XpcObject[] array, int arrayIndex) {
         _list.CopyTo(array, arrayIndex);
     }
 
-    public IEnumerator<XpcObject> GetEnumerator()
-    {
+    public IEnumerator<XpcObject> GetEnumerator() {
         return _list.GetEnumerator();
     }
 
-    public int IndexOf(XpcObject item)
-    {
+    public int IndexOf(XpcObject item) {
         return _list.IndexOf(item);
     }
 
-    public void Insert(int index, XpcObject item)
-    {
+    public void Insert(int index, XpcObject item) {
         _list.Insert(index, item);
     }
 
-    public bool Remove(XpcObject item)
-    {
+    public bool Remove(XpcObject item) {
         return _list.Remove(item);
     }
 
-    public void RemoveAt(int index)
-    {
+    public void RemoveAt(int index) {
         _list.RemoveAt(index);
     }
 
-    IEnumerator IEnumerable.GetEnumerator()
-    {
+    IEnumerator IEnumerable.GetEnumerator() {
         return _list.GetEnumerator();
     }
 
-    public static XpcArray Deserialise(byte[] data)
-    {
+    public static XpcArray Deserialise(byte[] data) {
         XpcArray arr = [];
 
         data = GetPrefixSizeFromData(data);
 
         int entryCount = BitConverter.ToInt32(data.Take(sizeof(int)).ToArray());
-        data = data.Skip(sizeof(int)).ToArray();
+        data = [.. data.Skip(sizeof(int))];
         for (int i = 0; i < entryCount; i++) {
             XpcObject xpcObject = XpcSerialiser.Deserialise(data);
             int size = XpcSerialiser.Serialise(xpcObject).Length;
-            data = data.Skip(size).ToArray();
+            data = [.. data.Skip(size)];
 
             arr.Add(xpcObject);
         }
         return arr;
     }
 
-    public override byte[] Serialise()
-    {
+    public override byte[] Serialise() {
         List<byte> entries = [];
         foreach (XpcObject entry in _list) {
             entries.AddRange(XpcSerialiser.Serialise(entry));
