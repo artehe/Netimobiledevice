@@ -10,7 +10,6 @@ using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Authentication;
-using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
@@ -268,20 +267,7 @@ public class ServiceConnection : IDisposable {
         Stream.WriteTimeout = timeout;
     }
 
-    public bool StartSsl(string certPem, string privateKeyPem) {
-        X509Certificate2? cert = null;
-        try {
-            X509Certificate2.CreateFromPem(certPem, privateKeyPem);
-        }
-        catch (CryptographicException ex) {
-            _logger.LogWarning(ex, "Failed to generate pem");
-            return false;
-        }
-
-        if (cert == null) {
-            return false;
-        }
-
+    public bool StartSsl(X509Certificate2 certificate) {
         if (_networkStream == null) {
             throw new InvalidOperationException("Network stream is null");
         }
@@ -289,7 +275,7 @@ public class ServiceConnection : IDisposable {
 
         _sslStream = new SslStream(_networkStream, true, UserCertificateValidationCallback, null, EncryptionPolicy.RequireEncryption);
         try {
-            _sslStream.AuthenticateAsClient(string.Empty, [cert], SslProtocols.None, false);
+            _sslStream.AuthenticateAsClient(string.Empty, [certificate], SslProtocols.None, false);
         }
         catch (AuthenticationException ex) {
             _logger.LogError(ex, "SSL authentication failed");
@@ -299,20 +285,7 @@ public class ServiceConnection : IDisposable {
         return true;
     }
 
-    public async Task<bool> StartSslAsync(string certPem, string privateKeyPem) {
-        X509Certificate2? cert = null;
-        try {
-            X509Certificate2.CreateFromPem(certPem, privateKeyPem);
-        }
-        catch (CryptographicException ex) {
-            _logger.LogWarning(ex, "Failed to generate pem");
-            return false;
-        }
-
-        if (cert == null) {
-            return false;
-        }
-
+    public async Task<bool> StartSslAsync(X509Certificate2 certificate) {
         if (_networkStream == null) {
             throw new InvalidOperationException("Network stream is null");
         }
@@ -320,7 +293,7 @@ public class ServiceConnection : IDisposable {
 
         _sslStream = new SslStream(_networkStream, true, UserCertificateValidationCallback, null, EncryptionPolicy.RequireEncryption);
         try {
-            await _sslStream.AuthenticateAsClientAsync(string.Empty, [cert], SslProtocols.None, false).ConfigureAwait(false);
+            _sslStream.AuthenticateAsClient(string.Empty, [certificate], SslProtocols.None, false);
         }
         catch (AuthenticationException ex) {
             _logger.LogError(ex, "SSL authentication failed");

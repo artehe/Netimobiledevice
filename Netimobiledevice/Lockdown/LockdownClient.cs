@@ -7,6 +7,7 @@ using Netimobiledevice.Usbmuxd;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -352,11 +353,12 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
             }
         }
 
-        if (startSession.ContainsKey("EnableSessionSSL") && startSession["EnableSessionSSL"].AsBooleanNode().Value) {
-            bool? startedSSL = _service?.StartSsl(
+        if (startSession.TryGetValue("EnableSessionSSL", out PropertyNode? enableSessionSslNode) && enableSessionSslNode.AsBooleanNode().Value) {
+            X509Certificate2 sslCert = CertificateGenerator.LoadCertificate(
                 Encoding.UTF8.GetString(_pairRecord["HostCertificate"].AsDataNode().Value),
                 Encoding.UTF8.GetString(_pairRecord["HostPrivateKey"].AsDataNode().Value)
             );
+            bool? startedSSL = _service?.StartSsl(sslCert);
             IsPaired = startedSSL == true;
         }
 
@@ -491,7 +493,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
     /// <param name="cancellationToken">A cancelation token used to cancel stop the operation</param>
     /// <returns>Return <see langword="true"/> if the user accept pairng else <see langword="false"/>.</returns>
     public virtual async Task<bool> PairAsync(IProgress<PairingState> progress, CancellationToken cancellationToken) {
-        using (NotificationProxyService np = new NotificationProxyService(this, true)) {
+        using (NotificationProxyService np = new NotificationProxyService(this, true, Logger)) {
             await np.ObserveNotificationAsync(ReceivableNotification.RequestPair).ConfigureAwait(false);
 
             LockdownError? err = null;
@@ -622,10 +624,11 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
             if (_pairRecord == null) {
                 throw new FatalPairingException("Pair Record is null when it shouldn't be");
             }
-            bool startedSSL = serviceConnection.StartSsl(
+            X509Certificate2 sslCert = CertificateGenerator.LoadCertificate(
                 Encoding.UTF8.GetString(_pairRecord["HostCertificate"].AsDataNode().Value),
                 Encoding.UTF8.GetString(_pairRecord["HostPrivateKey"].AsDataNode().Value)
             );
+            bool startedSSL = serviceConnection.StartSsl(sslCert);
             if (!startedSSL) {
                 throw new FatalPairingException("Failed starting SSL, assuming pairing issue");
             }
@@ -641,10 +644,11 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
             if (_pairRecord == null) {
                 throw new FatalPairingException("Pair Record is null when it shouldn't be");
             }
-            bool startedSSL = await serviceConnection.StartSslAsync(
+            X509Certificate2 sslCert = CertificateGenerator.LoadCertificate(
                 Encoding.UTF8.GetString(_pairRecord["HostCertificate"].AsDataNode().Value),
                 Encoding.UTF8.GetString(_pairRecord["HostPrivateKey"].AsDataNode().Value)
-            ).ConfigureAwait(false);
+            );
+            bool startedSSL = await serviceConnection.StartSslAsync(sslCert).ConfigureAwait(false);
             if (!startedSSL) {
                 throw new FatalPairingException("Failed starting SSL, assuming pairing issue");
             }

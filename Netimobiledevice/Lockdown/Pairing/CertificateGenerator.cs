@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
@@ -42,5 +43,15 @@ public static class CertificateGenerator {
                 rsa.ExportPkcs8PrivateKeyPem()
             );
         }
+    }
+
+    internal static X509Certificate2 LoadCertificate(string certPem, string privateKeyPem) {
+        string tmpPath = Path.GetTempFileName();
+        File.WriteAllText(tmpPath, $"{certPem}\n{privateKeyPem}");
+        X509Certificate2 certificate = X509Certificate2.CreateFromPemFile(tmpPath);
+
+        // NOTE: For some reason we need to re-export and then import the cert again ¯\_(ツ)_/¯
+        // see this for more details: https://github.com/dotnet/runtime/issues/45680
+        return new X509Certificate2(certificate.Export(X509ContentType.Pkcs12));
     }
 }
