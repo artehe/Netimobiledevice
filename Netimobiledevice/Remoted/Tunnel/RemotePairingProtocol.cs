@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Netimobiledevice.Remoted.Xpc;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -7,7 +8,7 @@ namespace Netimobiledevice.Remoted.Tunnel;
 public abstract class RemotePairingProtocol : StartTcpTunnel {
     private const int WIRE_PROTOCOL_VERSION = 19;
 
-    private int _sequenceNumber;
+    private ulong _sequenceNumber;
     private int _encryptedSequenceNumber;
 
     public Dictionary<string, object> HandshakeInfo { get; set; } = [];
@@ -17,19 +18,19 @@ public abstract class RemotePairingProtocol : StartTcpTunnel {
     public RemotePairingProtocol() : base() { }
 
     private void AttemptPairVerify() {
-        /* TODO
-        self.handshake_info = await self._send_receive_handshake({
-            'hostOptions': {'attemptPairVerify': True},
-            'wireProtocolVersion': XpcInt64Type(self.WIRE_PROTOCOL_VERSION)})
-        */
+        Dictionary<string, object> message = new Dictionary<string, object>() {
+            { "hostOptions", new Dictionary<string, object>() { { "attemptPairVerify", true } } },
+            { "wireProtocolVersion", new XpcInt64(WIRE_PROTOCOL_VERSION) }
+        };
+        HandshakeInfo = SendReceiveHandshake(message).GetAwaiter().GetResult();
     }
 
     private async Task AttemptPairVerifyAsync() {
-        /* TODO
-        self.handshake_info = await self._send_receive_handshake({
-            'hostOptions': {'attemptPairVerify': True},
-            'wireProtocolVersion': XpcInt64Type(self.WIRE_PROTOCOL_VERSION)})
-        */
+        Dictionary<string, object> message = new Dictionary<string, object>() {
+            { "hostOptions", new Dictionary<string, object>() { { "attemptPairVerify", true } } },
+            { "wireProtocolVersion", new XpcInt64(WIRE_PROTOCOL_VERSION) }
+        };
+        HandshakeInfo = await SendReceiveHandshake(message).ConfigureAwait(false);
     }
 
     private async Task CreateRemoteUnlock() {
@@ -271,21 +272,25 @@ public abstract class RemotePairingProtocol : StartTcpTunnel {
         */
     }
 
-    private async Task SendReceiveHandshake() {
-        /* TODO
-
-    async def _send_receive_handshake(self, handshake_data: dict) -> dict:
-        response = await self._send_receive_plain_request({'request': {'_0': {'handshake': {'_0': handshake_data}}}})
-        return response['response']['_1']['handshake']['_0']
-        */
+    private async Task SendPlainRequest(Dictionary<string, object> plainRequest) {
+        Dictionary<string, object> request = new Dictionary<string, object> {
+            { "message", new Dictionary<string, object> { { "plain", new Dictionary<string, object>() { { "_0", plainRequest } } } } },
+            { "originatedBy", "host" },
+            { "sequenceNumber", new XpcUInt64(_sequenceNumber) }
+        };
+        await SendRequest(request).ConfigureAwait(false);
+        _sequenceNumber++;
     }
 
-    private async Task SendReceivePlainRequest() {
-        /* TODO
-    async def _send_receive_plain_request(self, plain_request: dict):
-        await self._send_plain_request(plain_request)
-        return await self._receive_plain_response()
-        */
+    private async Task<Dictionary<string, object>> SendReceiveHandshake(Dictionary<string, object> handshakeData) {
+        Dictionary<string, object> request = new Dictionary<string, object>() { { "request", new Dictionary<string, object>() { { "_0", new Dictionary<string, object>() { { "handshake", new Dictionary<string, object>() { { "_0", handshakeData } } } } } } } };
+        Dictionary<string, object> response = await SendReceivePlainRequest(request).ConfigureAwait(false);
+        return response["response"]["_1"]["handshake"]["_0"];
+    }
+
+    private async Task<Dictionary<string, object>> SendReceivePlainRequest(Dictionary<string, object> plainRequest) {
+        await SendPlainRequest(plainRequest).ConfigureAwait(false);
+        return await ReceivePlainResponse().ConfigureAwait(false);
     }
 
     private bool ValidatePairing() {
