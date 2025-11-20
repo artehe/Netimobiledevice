@@ -8,7 +8,7 @@
 		<ImplicitUsings>Disable</ImplicitUsings>
 		<IsTrimmable>True</IsTrimmable>
 		<Nullable>Enable</Nullable>
-		<TargetFrameworks>net8.0</TargetFrameworks>
+		<TargetFrameworks>net9.0</TargetFrameworks>
 	</PropertyGroup>
 
 	<PropertyGroup>
