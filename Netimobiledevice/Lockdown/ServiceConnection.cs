@@ -293,7 +293,8 @@ public class ServiceConnection : IDisposable {
 
         _sslStream = new SslStream(_networkStream, true, UserCertificateValidationCallback, null, EncryptionPolicy.RequireEncryption);
         try {
-            _sslStream.AuthenticateAsClient(string.Empty, [certificate], SslProtocols.None, false);
+            // TLS v1.2 is supported since iOS 5 so we should specify this as a minimum
+            _sslStream.AuthenticateAsClient(string.Empty, [certificate], SslProtocols.Tls12 | SslProtocols.Tls13, false);
         }
         catch (AuthenticationException ex) {
             _logger.LogError(ex, "SSL authentication failed");
