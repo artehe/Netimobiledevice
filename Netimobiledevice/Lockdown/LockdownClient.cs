@@ -7,6 +7,8 @@ using Netimobiledevice.Usbmuxd;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography.X509Certificates;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -246,10 +248,10 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
 
         DictionaryNode newPairRecord = new DictionaryNode {
             { "DevicePublicKey", new DataNode(_devicePublicKey) },
-            { "DeviceCertificate", new DataNode(pairingCertificates.DeviceCertificatePem) },
-            { "HostCertificate", new DataNode(pairingCertificates.RootCertificatePem) },
+            { "DeviceCertificate", new DataNode(Encoding.UTF8.GetBytes(pairingCertificates.DeviceCertificatePem)) },
+            { "HostCertificate", new DataNode(Encoding.UTF8.GetBytes(pairingCertificates.RootCertificatePem)) },
             { "HostID", new StringNode(_hostId) },
-            { "RootCertificate", new DataNode(pairingCertificates.RootCertificatePem) },
+            { "RootCertificate", new DataNode(Encoding.UTF8.GetBytes(pairingCertificates.RootCertificatePem)) },
             { "WiFiMACAddress", new StringNode(WifiMacAddress) },
             { "SystemBUID", new StringNode(_systemBuid) }
         };
@@ -271,8 +273,8 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
             return ex.LockdownError;
         }
 
-        newPairRecord.Add("HostPrivateKey", new DataNode(pairingCertificates.PrivateKeyPem));
-        newPairRecord.Add("RootPrivateKey", new DataNode(pairingCertificates.PrivateKeyPem));
+        newPairRecord.Add("HostPrivateKey", new DataNode(Encoding.UTF8.GetBytes(pairingCertificates.PrivateKeyPem)));
+        newPairRecord.Add("RootPrivateKey", new DataNode(Encoding.UTF8.GetBytes(pairingCertificates.PrivateKeyPem)));
         if (pair.ContainsKey("EscrowBag")) {
             newPairRecord.Add("EscrowBag", pair["EscrowBag"]);
         }
@@ -347,15 +349,20 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
             }
         }
 
-        if (startSession.ContainsKey("EnableSessionSSL") && startSession["EnableSessionSSL"].AsBooleanNode().Value) {
-            _service?.StartSsl(_pairRecord["HostCertificate"].AsDataNode().Value, _pairRecord["HostPrivateKey"].AsDataNode().Value);
+        if (startSession.TryGetValue("EnableSessionSSL", out PropertyNode? enableSessionSslNode) && enableSessionSslNode.AsBooleanNode().Value) {
+            X509Certificate2 sslCert = CertificateGenerator.LoadCertificate(
+                Encoding.UTF8.GetString(_pairRecord["HostCertificate"].AsDataNode().Value),
+                Encoding.UTF8.GetString(_pairRecord["HostPrivateKey"].AsDataNode().Value)
+            );
+            bool? startedSSL = _service?.StartSsl(sslCert);
+            IsPaired = startedSSL == true;
         }
 
-        IsPaired = true;
-
         // Reload data after pairing
-        _allValues = GetValue()?.AsDictionaryNode() ?? [];
-        Udid = _allValues["UniqueDeviceID"].AsStringNode().Value;
+        if (IsPaired) {
+            _allValues = GetValue()?.AsDictionaryNode() ?? [];
+            Udid = _allValues["UniqueDeviceID"].AsStringNode().Value;
+        }
 
         return IsPaired;
     }
@@ -482,7 +489,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
     /// <param name="cancellationToken">A cancelation token used to cancel stop the operation</param>
     /// <returns>Return <see langword="true"/> if the user accept pairng else <see langword="false"/>.</returns>
     public virtual async Task<bool> PairAsync(IProgress<PairingState> progress, CancellationToken cancellationToken) {
-        using (NotificationProxyService np = new NotificationProxyService(this, true)) {
+        using (NotificationProxyService np = new NotificationProxyService(this, true, Logger)) {
             await np.ObserveNotificationAsync(ReceivableNotification.RequestPair).ConfigureAwait(false);
 
             LockdownError? err = null;
@@ -613,7 +620,14 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
             if (_pairRecord == null) {
                 throw new FatalPairingException("Pair Record is null when it shouldn't be");
             }
-            serviceConnection.StartSsl(_pairRecord["HostCertificate"].AsDataNode().Value, _pairRecord["HostPrivateKey"].AsDataNode().Value);
+            X509Certificate2 sslCert = CertificateGenerator.LoadCertificate(
+                Encoding.UTF8.GetString(_pairRecord["HostCertificate"].AsDataNode().Value),
+                Encoding.UTF8.GetString(_pairRecord["HostPrivateKey"].AsDataNode().Value)
+            );
+            bool startedSSL = serviceConnection.StartSsl(sslCert);
+            if (!startedSSL) {
+                throw new FatalPairingException("Failed starting SSL, assuming pairing issue");
+            }
         }
         return serviceConnection;
     }
@@ -626,7 +640,14 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
             if (_pairRecord == null) {
                 throw new FatalPairingException("Pair Record is null when it shouldn't be");
             }
-            await serviceConnection.StartSslAsync(_pairRecord["HostCertificate"].AsDataNode().Value, _pairRecord["HostPrivateKey"].AsDataNode().Value).ConfigureAwait(false);
+            X509Certificate2 sslCert = CertificateGenerator.LoadCertificate(
+                Encoding.UTF8.GetString(_pairRecord["HostCertificate"].AsDataNode().Value),
+                Encoding.UTF8.GetString(_pairRecord["HostPrivateKey"].AsDataNode().Value)
+            );
+            bool startedSSL = await serviceConnection.StartSslAsync(sslCert).ConfigureAwait(false);
+            if (!startedSSL) {
+                throw new FatalPairingException("Failed starting SSL, assuming pairing issue");
+            }
         }
         return serviceConnection;
     }
