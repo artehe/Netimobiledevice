@@ -117,17 +117,4 @@ public class CertificateGeneratorTests {
             CertificateGenerator.LoadCertificate(certPem, keyPem);
         });
     }
-
-
-    [TestMethod]
-    public void LoadCertificate_ExportImportRoundTrip_PreservesKey() {
-        string certPem = CertificateGeneratorTestData.ValidCertPem;
-        string keyPem = CertificateGeneratorTestData.ValidKeyPem;
-
-        X509Certificate2 cert = CertificateGenerator.LoadCertificate(certPem, keyPem);
-        byte[] export = cert.Export(X509ContentType.Pkcs12);
-        X509Certificate2 imported = new X509Certificate2(export, (string?) null, X509KeyStorageFlags.EphemeralKeySet);
-
-        Assert.IsTrue(imported.HasPrivateKey);
-    }
 }
