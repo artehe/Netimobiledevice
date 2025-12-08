@@ -3,6 +3,7 @@ using Netimobiledevice.Afc;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Threading;
@@ -15,15 +16,13 @@ namespace Netimobiledevice.InstallationProxy;
 /// </summary>
 /// <param name="lockdown"></param>
 /// <param name="logger"></param>
-public sealed class InstallationProxyService(LockdownServiceProvider lockdown, ILogger? logger = null) : LockdownService(lockdown, LOCKDOWN_SERVICE_NAME, RSD_SERVICE_NAME, logger: logger)
-{
+public sealed class InstallationProxyService(LockdownServiceProvider lockdown, ILogger? logger = null) : LockdownService(lockdown, LOCKDOWN_SERVICE_NAME, RSD_SERVICE_NAME, logger: logger) {
     private const string LOCKDOWN_SERVICE_NAME = "com.apple.mobile.installation_proxy";
     private const string RSD_SERVICE_NAME = "com.apple.mobile.installation_proxy.shim.remote";
 
     private const string TEMP_REMOTE_IPA_FILE = "/netimobiledevice.ipa";
 
-    private static async Task<byte[]> CreateIpaFromDirectory(string directory, CancellationToken cancellationToken)
-    {
+    private static async Task<byte[]> CreateIpaFromDirectory(string directory, CancellationToken cancellationToken) {
         string payloadPrefix = "Payload/" + Path.GetFileName(directory);
         byte[] ipaContents;
 
@@ -66,8 +65,7 @@ public sealed class InstallationProxyService(LockdownServiceProvider lockdown, I
     /// <param name="callback"></param>
     /// <param name="options"></param>
     /// <returns></returns>
-    private async Task InstallFromLocal(string ipaPath, string command, CancellationToken cancellationToken, DictionaryNode? options = null, IProgress<int>? progress = null)
-    {
+    private async Task InstallFromLocal(string ipaPath, string command, CancellationToken cancellationToken, DictionaryNode? options = null, IProgress<int>? progress = null) {
         options ??= [];
 
         byte[] ipaContents;
@@ -96,8 +94,23 @@ public sealed class InstallationProxyService(LockdownServiceProvider lockdown, I
         Logger?.LogInformation("IPA Installed");
     }
 
-    private async Task WatchForCompletion(string action, CancellationToken cancellationToken, IProgress<int>? progress = null)
-    {
+    /// <summary>
+    /// Search installation database
+    /// </summary>
+    /// <returns></returns>
+    private async Task<DictionaryNode> Lookup(DictionaryNode? options = null, CancellationToken cancellationToken = default) {
+        options ??= [];
+        DictionaryNode cmd = new DictionaryNode() {
+            { "Command", new StringNode("Lookup") },
+            { "ClientOptions", options }
+        };
+
+        PropertyNode? result = await Service.SendReceivePlistAsync(cmd, cancellationToken).ConfigureAwait(false);
+        DictionaryNode dict = result?.AsDictionaryNode() ?? [];
+        return dict["LookupResult"].AsDictionaryNode();
+    }
+
+    private async Task WatchForCompletion(string action, CancellationToken cancellationToken, IProgress<int>? progress = null) {
         while (true) {
             PropertyNode? response = await Service.ReceivePlistAsync(cancellationToken).ConfigureAwait(false);
             if (response == null) {
@@ -123,8 +136,7 @@ public sealed class InstallationProxyService(LockdownServiceProvider lockdown, I
         throw new AppInstallException("Installation or command did not complete successfully.");
     }
 
-    public async Task<ArrayNode> Browse(DictionaryNode? options = null, ArrayNode? attributes = null, CancellationToken cancellationToken = default)
-    {
+    public async Task<ArrayNode> Browse(DictionaryNode? options = null, ArrayNode? attributes = null, CancellationToken cancellationToken = default) {
         options ??= [];
         if (attributes != null) {
             options.Add("ReturnAttributes", attributes);
@@ -160,6 +172,45 @@ public sealed class InstallationProxyService(LockdownServiceProvider lockdown, I
     }
 
     /// <summary>
+    /// Get applications according to given criteria
+    /// </summary>
+    /// <param name="applicationType"></param>
+    /// <param name="calculateSizes"></param>
+    /// <param name="bundleIdentifiers"></param>
+    /// <returns></returns>
+    public async Task<DictionaryNode> GetApps(string applicationType = "Any", bool calculateSizes = false, string[]? bundleIdentifiers = null, CancellationToken cancellationToken = default) {
+        DictionaryNode options = [];
+        if (bundleIdentifiers != null) {
+            ArrayNode bundleIdNode = [];
+            foreach (string bundleIdentifier in bundleIdentifiers) {
+                bundleIdNode.Add(new StringNode(bundleIdentifier));
+            }
+            options["BundleIDs"] = bundleIdNode;
+        }
+        options["ApplicationType"] = new StringNode(applicationType);
+
+        DictionaryNode result = await Lookup(options, cancellationToken).ConfigureAwait(false);
+        if (calculateSizes) {
+            ArrayNode additionalInfoRequest = [
+                new StringNode("CFBundleIdentifier"),
+                new StringNode("StaticDiskUsage"),
+                new StringNode("DynamicDiskUsage")
+            ];
+            options.Add("ReturnAttributes", additionalInfoRequest);
+
+            DictionaryNode additionalInfo = await Lookup(options, cancellationToken).ConfigureAwait(false);
+            foreach (KeyValuePair<string, PropertyNode> entry in additionalInfo) {
+                DictionaryNode app = result[entry.Key].AsDictionaryNode();
+                foreach (KeyValuePair<string, PropertyNode> additionalInfoEntry in entry.Value.AsDictionaryNode()) {
+                    app.Add(additionalInfoEntry);
+                }
+                result[entry.Key] = app;
+            }
+        }
+        return result;
+    }
+
+    /// <summary>
     /// Install a given IPA from device path
     /// </summary>
     /// <param name="ipaPath"></param>
@@ -167,8 +218,7 @@ public sealed class InstallationProxyService(LockdownServiceProvider lockdown, I
     /// <param name="callback"></param>
     /// <param name="options"></param>
     /// <returns></returns>
-    public async Task Install(string ipaPath, CancellationToken cancellationToken, DictionaryNode? options = null, IProgress<int>? progress = null)
-    {
+    public async Task Install(string ipaPath, CancellationToken cancellationToken, DictionaryNode? options = null, IProgress<int>? progress = null) {
         await InstallFromLocal(ipaPath, "Install", cancellationToken, options, progress).ConfigureAwait(false);
     }
 
@@ -180,8 +230,7 @@ public sealed class InstallationProxyService(LockdownServiceProvider lockdown, I
     /// <param name="callback"></param>
     /// <param name=""></param>
     /// <returns></returns>
-    public async Task Uninstall(string bundleIdentifier, CancellationToken cancellationToken, DictionaryNode? options = null, IProgress<int>? progress = null)
-    {
+    public async Task Uninstall(string bundleIdentifier, CancellationToken cancellationToken, DictionaryNode? options = null, IProgress<int>? progress = null) {
         DictionaryNode cmd = new DictionaryNode() {
             { "Command", new StringNode("Uninstall") },
             { "ApplicationIdentifier", new StringNode(bundleIdentifier) }
@@ -202,8 +251,7 @@ public sealed class InstallationProxyService(LockdownServiceProvider lockdown, I
     /// <param name="callback"></param>
     /// <param name="options"></param>
     /// <returns></returns>
-    public async Task Upgrade(string ipaPath, CancellationToken cancellationToken, DictionaryNode? options = null, IProgress<int>? progress = null)
-    {
+    public async Task Upgrade(string ipaPath, CancellationToken cancellationToken, DictionaryNode? options = null, IProgress<int>? progress = null) {
         await InstallFromLocal(ipaPath, "Upgrade", cancellationToken, options, progress).ConfigureAwait(false);
     }
 }
