@@ -175,7 +175,7 @@ public class Program {
     private static async Task Remoted(ILogger logger) {
         Tunneld tunneld = new Tunneld(TunnelProtocol.Tcp, false, false, true, false, logger: logger);
         tunneld.Start();
-        await Task.Delay(5 * 1000);
+        await Task.Delay(5 * 100000);
         RemoteServiceDiscoveryService rsd = await tunneld.GetDevice() ?? throw new LockdownException("No device found");
         using (Mobilebackup2Service mb2 = new Mobilebackup2Service(rsd, logger: logger)) {
             mb2.BeforeReceivingFile += BackupJob_BeforeReceivingFile;
