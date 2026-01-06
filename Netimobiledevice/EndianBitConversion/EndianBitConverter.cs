@@ -12,7 +12,7 @@ namespace Netimobiledevice.EndianBitConversion;
 /// same on both big-endian and little-endian machines (such as <see cref="BitConverter.ToString(byte[])"/>). However, <see cref="GetBytes(bool)"/> is
 /// included for consistency.
 /// </remarks>
-internal abstract class EndianBitConverter
+public abstract class EndianBitConverter
 {
     /// <summary>
     /// Get an instance of a <see cref="BigEndianBitConverter"/>, a BitConverter which performs all conversions in big-endian format regardless of

@@ -4,7 +4,7 @@
 /// A little-endian BitConverter that converts base data types to an array of bytes, and an array of bytes to base data types. All conversions are in
 /// little-endian format regardless of machine architecture.
 /// </summary>
-internal class LittleEndianBitConverter : EndianBitConverter
+public class LittleEndianBitConverter : EndianBitConverter
 {
     public override bool IsLittleEndian { get; } = true;
 
