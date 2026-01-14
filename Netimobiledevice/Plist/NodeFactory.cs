@@ -8,8 +8,8 @@ namespace Netimobiledevice.Plist;
 /// </summary>
 internal static class NodeFactory
 {
-    private static readonly Dictionary<byte, PropertyNode> _binaryTags = [];
-    private static readonly Dictionary<string, PropertyNode> _xmlTags = [];
+    private static readonly Dictionary<byte, Type> _binaryTags = [];
+    private static readonly Dictionary<string, Type> _xmlTags = [];
 
     /// <summary>
     /// Initializes the <see cref="NodeFactory"/> class.
@@ -40,10 +40,10 @@ internal static class NodeFactory
     private static void Register<T>(T node) where T : PropertyNode, new()
     {
         if (!_binaryTags.ContainsKey(node.BinaryTag)) {
-            _binaryTags.Add(node.BinaryTag, node);
+            _binaryTags.Add(node.BinaryTag, node.GetType());
         }
         if (!_xmlTags.ContainsKey(node.XmlTag)) {
-            _xmlTags.Add(node.XmlTag, node);
+            _xmlTags.Add(node.XmlTag, node.GetType());
         }
     }
 
@@ -57,10 +57,10 @@ internal static class NodeFactory
     private static void Register<T>(string xmlTag, byte binaryTag, T node) where T : PropertyNode, new()
     {
         if (!_binaryTags.ContainsKey(binaryTag)) {
-            _binaryTags.Add(binaryTag, node);
+            _binaryTags.Add(binaryTag, node.GetType());
         }
         if (!_xmlTags.ContainsKey(xmlTag)) {
-            _xmlTags.Add(xmlTag, node);
+            _xmlTags.Add(xmlTag, node.GetType());
         }
     }
 
@@ -71,8 +71,8 @@ internal static class NodeFactory
     /// <returns>The created <see cref="PropertyNode"/> object</returns>
     public static PropertyNode Create(string tag)
     {
-        if (_xmlTags.TryGetValue(tag, out PropertyNode? value)) {
-            return (PropertyNode?) Activator.CreateInstance(value.GetType()) ?? new NullNode();
+        if (_xmlTags.TryGetValue(tag, out Type? value)) {
+            return (PropertyNode?) Activator.CreateInstance(value) ?? new NullNode();
         }
         throw new PlistFormatException($"Unknown node - XML tag \"{tag}\"");
     }
@@ -101,8 +101,8 @@ internal static class NodeFactory
                 IsUtf16 = true
             };
         }
-        if (_binaryTags.TryGetValue(shortBinaryTag, out PropertyNode? value)) {
-            return (PropertyNode?) Activator.CreateInstance(value.GetType()) ?? new NullNode();
+        if (_binaryTags.TryGetValue(shortBinaryTag, out Type? value)) {
+            return (PropertyNode?) Activator.CreateInstance(value) ?? new NullNode();
         }
 
         throw new PlistFormatException($"Unknown node - binary tag {binaryTag}");
