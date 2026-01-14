@@ -15,7 +15,7 @@ public static class PropertyList
     {
         byte[] buf = new byte[8];
         // Read in first 8 bytes
-        stream.Read(buf);
+        stream.ReadExactly(buf);
         // Rewind
         stream.Seek(0, SeekOrigin.Begin);
         return ValidateBinaryHeader(buf);
@@ -25,7 +25,7 @@ public static class PropertyList
     {
         byte[] buf = new byte[8];
         // Read in first 8 bytes
-        await stream.ReadAsync(buf);
+        await stream.ReadExactlyAsync(buf);
         // Rewind
         stream.Seek(0, SeekOrigin.Begin);
         return ValidateBinaryHeader(buf);
