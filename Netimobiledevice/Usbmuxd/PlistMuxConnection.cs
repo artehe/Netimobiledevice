@@ -43,10 +43,7 @@ internal class PlistMuxConnection(UsbmuxdSocket sock, ILogger? logger = null) : 
     private static string GetBundleId()
     {
         if (OperatingSystem.IsMacOS()) {
-            string executeablePath = Assembly.GetExecutingAssembly().Location;
-            string executeableDir = Path.GetDirectoryName(executeablePath) ?? string.Empty;
-            string infoPlistPath = Path.Combine(executeableDir, "..", "Info.plist");
-
+            string infoPlistPath = Path.Combine(AppContext.BaseDirectory, "..", "Info.plist");
             if (File.Exists(infoPlistPath)) {
                 using (FileStream fileStream = File.OpenRead(infoPlistPath)) {
                     DictionaryNode infoPlistDict = PropertyList.Load(fileStream).AsDictionaryNode();
