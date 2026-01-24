@@ -3,11 +3,10 @@ using System.Collections.Generic;
 
 namespace Netimobiledevice.Remoted.Frames;
 
-internal class DataFrame : Frame
-{
-    private uint _padLength = 0;
+internal class DataFrame : Frame {
+    private uint _padLength;
 
-    public byte[] Data { get; set; }
+    public byte[] Data { get; set; } = [];
     public bool EndStream { get; set; }
     public bool Padded { get; set; }
 
@@ -23,18 +22,15 @@ internal class DataFrame : Frame
         get => _padLength;
         set {
             if (value > 255) {
-                throw new ArgumentOutOfRangeException("value", "Must be less than or equal to 255");
+                throw new ArgumentOutOfRangeException(nameof(value), "Must be less than or equal to 255");
             }
             _padLength = value;
         }
     }
 
-    public DataFrame() : base()
-    {
-    }
+    public DataFrame() : base() { }
 
-    public DataFrame(uint streamIdentifier) : base()
-    {
+    public DataFrame(uint streamIdentifier) : base() {
         StreamIdentifier = streamIdentifier;
     }
 
@@ -60,8 +56,7 @@ internal class DataFrame : Frame
         }
     }
 
-    public override void ParsePayload(byte[] payloadData, FrameHeader frameHeader)
-    {
+    public override void ParsePayload(byte[] payloadData, FrameHeader frameHeader) {
         EndStream = (frameHeader.Flags & 0x1) == 0x1;
         Padded = (frameHeader.Flags & 0x8) == 0x8;
 
