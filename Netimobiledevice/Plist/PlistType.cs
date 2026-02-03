@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.Serialization;
 
 namespace Netimobiledevice.Plist;
@@ -79,18 +80,16 @@ internal enum PlistType : byte
 
 public static class PlistTypeExtensions
 {
-    internal static string ToEnumMemberAttrValue(this Enum @enum)
-    {
-        EnumMemberAttribute? attr = @enum.GetType()
-            .GetMember(@enum.ToString())
-            .FirstOrDefault()?
-            .GetCustomAttributes(false)
-            .OfType<EnumMemberAttribute>()
-            .FirstOrDefault();
-
-        if (attr == null) {
-            return @enum.ToString();
+    internal static string ToEnumMemberAttrValue<TEnum>(this TEnum value) where TEnum : struct, Enum {
+        string? name = Enum.GetName(value);
+        if (name is null) {
+            // Unnamed or invalid enum value
+            return value.ToString(); 
         }
-        return attr.Value ?? string.Empty;
+
+        FieldInfo? field = typeof(TEnum).GetField(name);
+        EnumMemberAttribute? attr = field?.GetCustomAttribute<EnumMemberAttribute>();
+
+        return attr?.Value ?? name;
     }
 }
