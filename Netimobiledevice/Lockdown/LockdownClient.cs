@@ -62,11 +62,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
 
     public override ILogger Logger => _logger;
 
-    public string ProductFriendlyName {
-        get {
-            return ModelIdentifiers.ResourceManager.GetString(ProductType, null) ?? ProductType;
-        }
-    }
+    public string ProductFriendlyName => ModelIdentifiers.ResourceManager.GetString(ProductType, null) ?? ProductType;
 
     public string SerialNumber { get; private set; } = string.Empty;
 

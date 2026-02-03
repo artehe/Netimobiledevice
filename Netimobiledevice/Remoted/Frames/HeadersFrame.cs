@@ -4,16 +4,15 @@ using System.Collections.Generic;
 
 namespace Netimobiledevice.Remoted.Frames;
 
-internal class HeadersFrame : Frame, IFrameContainsHeaders
-{
-    private ushort padLength = 0;
-    private ushort weight = 0;
+internal class HeadersFrame : Frame, IFrameContainsHeaders {
+    private ushort padLength;
+    private ushort weight;
 
     public bool Padded { get; set; }
     public bool EndStream { get; set; }
     public bool EndHeaders { get; set; }
     public bool Priority { get; set; }
-    public byte[] HeaderBlockFragment { get; set; }
+    public byte[] HeaderBlockFragment { get; set; } = [];
 
     public override byte Flags {
         get {
@@ -66,7 +65,7 @@ internal class HeadersFrame : Frame, IFrameContainsHeaders
         }
     }
 
-    public uint StreamDependency { get; set; } = 0;
+    public uint StreamDependency { get; set; }
     public override FrameType Type => FrameType.Headers;
     public ushort Weight {
         get => weight;
@@ -78,24 +77,20 @@ internal class HeadersFrame : Frame, IFrameContainsHeaders
         }
     }
 
-    public HeadersFrame() : base()
-    {
-    }
+    public HeadersFrame() : base() { }
 
-    public HeadersFrame(uint streamIdentifier) : base()
-    {
+    public HeadersFrame(uint streamIdentifier) : base() {
         StreamIdentifier = streamIdentifier;
     }
 
 
-    public override void ParsePayload(byte[] payloadData, FrameHeader frameHeader)
-    {
+    public override void ParsePayload(byte[] payloadData, FrameHeader frameHeader) {
         EndStream = (frameHeader.Flags & 0x1) == 0x1;
         EndHeaders = (frameHeader.Flags & 0x4) == 0x4;
         Priority = (frameHeader.Flags & 0x20) == 0x20;
         Padded = (frameHeader.Flags & 0x8) == 0x8;
 
-        var index = 0;
+        int index = 0;
 
         if (Padded) {
             // Get pad length (1 byte)
@@ -128,8 +123,6 @@ internal class HeadersFrame : Frame, IFrameContainsHeaders
 
         // Advance the index
         index += HeaderBlockFragment.Length;
-
-        // Don't care about padding
     }
 
     public override string ToString() => $"[Frame: HEADERS, Id={StreamIdentifier}, EndStream={IsEndStream}, EndHeaders={EndHeaders}, Priority={Priority}, Weight={Weight}, Padded={Padded}, PadLength={PadLength}, HeaderBlockFragmentLength={HeaderBlockFragment.Length}]";

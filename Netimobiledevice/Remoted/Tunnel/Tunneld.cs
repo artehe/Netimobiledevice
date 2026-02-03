@@ -289,7 +289,7 @@ public class Tunneld(
         StartTcpTunnel protocolHandler,
         TunnelProtocol? protocol = null
     ) {
-        TunnelProtocol usedProtocol = protocol ?? this._protocol;
+        TunnelProtocol usedProtocol = protocol ?? _protocol;
         if (protocolHandler is CoreDeviceTunnelProxy) {
             usedProtocol = TunnelProtocol.Tcp;
         }
@@ -411,7 +411,7 @@ public class Tunneld(
         foreach (KeyValuePair<string, TunnelDefinition> tunnel in tunnels) {
             RemoteServiceDiscoveryService rsd = new RemoteServiceDiscoveryService(tunnel.Value.TunnelAddres, tunnel.Value.TunnelPort, tunnel.Value.InterfaceId);
             try {
-                await rsd.Connect();
+                await rsd.ConnectAsync().ConfigureAwait(false);
                 rsds.Add(rsd);
             }
             catch (Exception ex) {
