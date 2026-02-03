@@ -8,6 +8,7 @@ namespace Netimobiledevice.Remoted.Tunnel;
 public abstract class RemotePairingProtocol : StartTcpTunnel {
     private const int WIRE_PROTOCOL_VERSION = 19;
 
+    private string _hostname = string.Empty;
     private ulong _sequenceNumber;
     private int _encryptedSequenceNumber;
 
@@ -42,6 +43,24 @@ public abstract class RemotePairingProtocol : StartTcpTunnel {
         except PyMobileDevice3Exception:
             # tvOS does not support remote unlock.
             self.remote_unlock_host_key = ''
+        */
+    }
+
+    private async Task CreateTcpListener() {
+        /* TODO
+        request = {
+            "request": {
+                "_0": {
+                    "createListener": {
+                        "key": base64.b64encode(self.encryption_key).decode(),
+                        "peerConnectionsInfo": [{ "owningPID": os.getpid(), "owningProcessName": "CoreDeviceService"}],
+                        "transportProtocolType": "tcp",
+                    }
+                }
+            }
+        }
+        response = await self._send_receive_encrypted_request(request)
+        return response["createListener"]
         */
     }
 
@@ -285,7 +304,11 @@ public abstract class RemotePairingProtocol : StartTcpTunnel {
     private async Task<Dictionary<string, object>> SendReceiveHandshake(Dictionary<string, object> handshakeData) {
         Dictionary<string, object> request = new Dictionary<string, object>() { { "request", new Dictionary<string, object>() { { "_0", new Dictionary<string, object>() { { "handshake", new Dictionary<string, object>() { { "_0", handshakeData } } } } } } } };
         Dictionary<string, object> response = await SendReceivePlainRequest(request).ConfigureAwait(false);
-        return response["response"]["_1"]["handshake"]["_0"];
+
+        Dictionary<string, object> responseObject = (Dictionary<string, object>) response["response"];
+        Dictionary<string, object> responseObjectFirstElement = (Dictionary<string, object>) responseObject["_1"];
+        Dictionary<string, object> handshakeObject = (Dictionary<string, object>) responseObjectFirstElement["handshake"];
+        return (Dictionary<string, object>) handshakeObject["_0"];
     }
 
     private async Task<Dictionary<string, object>> SendReceivePlainRequest(Dictionary<string, object> plainRequest) {
@@ -551,12 +574,13 @@ public abstract class RemotePairingProtocol : StartTcpTunnel {
     }
 
     public async Task<TunnelResult> StartTcpTunnel() {
+        var parameters = await CreateTcpListener().ConfigureAwait(false);
+        string host = _hostname;
+        var port = parameters["port"];
+        var sock = CreateConnection(host, port);
+
+        // TODO OSUTIL.set_keepalive(sock)
         /* TODO
-        parameters = await self.create_tcp_listener()
-        host = self.hostname
-        port = parameters['port']
-        sock = create_connection((host, port))
-        OSUTIL.set_keepalive(sock)
         if sys.version_info >= (3, 13):
             ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
             ctx.check_hostname = False
@@ -568,20 +592,18 @@ public abstract class RemotePairingProtocol : StartTcpTunnel {
             ctx = SSLPSKContext(ssl.PROTOCOL_TLSv1_2)
             ctx.psk = self.encryption_key
             ctx.set_ciphers('PSK')
-        reader, writer = await asyncio.open_connection(sock=sock, ssl=ctx, server_hostname='')
-        tunnel = RemotePairingTcpTunnel(reader, writer)
-        handshake_response = await tunnel.request_tunnel_establish()
-
-        tunnel.start_tunnel(handshake_response['clientParameters']['address'],
-                            handshake_response['clientParameters']['mtu'],
-                            interface_name=f'{DEFAULT_INTERFACE_NAME}-{self.remote_identifier}')
-
-        try:
-            yield TunnelResult(
-                tunnel.tun.name, handshake_response['serverAddress'], handshake_response['serverRSDPort'],
-                TunnelProtocol.TCP, tunnel)
-        finally:
-            await tunnel.stop_tunnel()
         */
+        // TODO reader, writer = await asyncio.open_connection(sock=sock, ssl=ctx, server_hostname='')
+        var tunnel = new RemotePairingTcpTunnel(stream);
+        EstablishTunnelResponse handshakeResponse = tunnel.RequestTunnelEstablish();
+
+        tunnel.StartTunnel(handshakeResponse.ClientParameters.Address, handshakeResponse.ClientParameters.Mtu);
+        return new TunnelResult(
+            tunnel.Tun?.Name ?? string.Empty,
+            handshakeResponse.ServerAddress,
+            handshakeResponse.ServerRSDPort,
+            TunnelProtocol.Tcp,
+            tunnel
+        );
     }
 }
