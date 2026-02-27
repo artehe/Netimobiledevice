@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.VisualBasic;
 using Microsoft.VisualStudio.Threading;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Remoted.Bonjour;
@@ -11,7 +12,6 @@ using System.Linq;
 using System.Net.NetworkInformation;
 using System.Threading;
 using System.Threading.Tasks;
-using Zeroconf;
 
 namespace Netimobiledevice.Remoted.Tunnel;
 
@@ -34,6 +34,13 @@ public class Tunneld(
 ) {
     private const int REATTEMPT_COUNT = 5;
     private const int REATTEMPT_INTERVAL = 5000;
+    /// <summary>
+    /// USB monitor will periodically forget what interfaces it has seen
+    /// and force a full rescan. The value is number of iterations of the
+    /// inner loop (which sleeps one second each) before blowing away the
+    /// `previousIps` cache.
+    /// </summary>
+    private const int USB_MONITOR_RESCAN_INTERVAL = 30;
 
     private const int MOBDEV2_INTERVAL = 5000;
     private const int REMOTEPAIRING_INTERVAL = 5000;
@@ -57,28 +64,12 @@ public class Tunneld(
     /// </summary>
     private ILogger Logger { get; } = logger ?? NullLogger.Instance;
 
-    private async Task HandleNewPotentialUsbCdcNcmInterfaceTask(NetworkInterface ip, CancellationToken cancellationToken) {
+    private async Task HandleNewPotentialUsbCdcNcmInterfaceTask(string ip) {
         RemoteServiceDiscoveryService? rsd = null;
-        string tunnelTaskId = $"start-tunnel-task-usb-{ip.Name}";
+        string tunnelTaskId = $"start-tunnel-task-usb-{ip}";
         try {
-            List<IZeroconfHost> answers = [];
-            for (int i = 0; i < REATTEMPT_COUNT; i++) {
-                answers = await BonjourService.Browse(BonjourService.RemotedServiceNames, [ip]).ConfigureAwait(false);
-                if (answers.Count > 0) {
-                    break;
-                }
-                Logger.LogDebug("No addresses found for: {ip}", ip);
-                await Task.Delay(REATTEMPT_INTERVAL, cancellationToken).ConfigureAwait(false);
-            }
-
-            if (answers == null) {
-                throw new TaskCanceledException();
-            }
-
-            string peerAddress = answers[0].IPAddress;
-
             // Establish an untrusted RSD handshake
-            rsd = new RemoteServiceDiscoveryService(peerAddress, RemoteServiceDiscoveryService.RSD_PORT);
+            rsd = new RemoteServiceDiscoveryService(ip, RemoteServiceDiscoveryService.RSD_PORT);
 
             using (RemotedProcessStopper stopper = new RemotedProcessStopper()) {
                 try {
@@ -99,18 +90,15 @@ public class Tunneld(
                 await TunnelService.CreateCoreDeviceTunnelServiceUsingRsd(rsd).ConfigureAwait(false)
             ).ConfigureAwait(false);
         }
-        catch (TaskCanceledException) {
-            return;
-        }
         catch (Exception ex) {
             Logger.LogDebug(ex, "Got exception when running HandleNewPotentialUsbCdcNcmInterfaceTask");
         }
         finally {
-            if (rsd != null) {
-                try {
-                    rsd.Close();
-                }
-                catch { }
+            try {
+                rsd?.Close();
+            }
+            catch {
+                // Ignore any errors from attempting to close rsd
             }
             _tunnelTasks.TryRemove(tunnelTaskId, out TunnelTask? _);
         }
@@ -183,14 +171,24 @@ public class Tunneld(
     }
 
     private async Task MonitorUsbTask(CancellationToken cancellationToken) {
+        int iteration = 0;
         List<NetworkInterface> previousIps = [];
         while (!cancellationToken.IsCancellationRequested) {
-            List<NetworkInterface> currentIps = Utils.GetIPv6Interfaces();
+            iteration++;
 
+            List<NetworkInterface> currentIps = Utils.GetIPv6Interfaces();
             IEnumerable<NetworkInterface> added = currentIps.Where(x => !previousIps.Contains(x));
             IEnumerable<NetworkInterface> removed = previousIps.Where(x => !currentIps.Contains(x));
 
-            previousIps = currentIps;
+            // Periodically forget what we have seen so that we re-attempt
+            // tunnels even if the interface didn't disappear / reappear
+            if (iteration >= USB_MONITOR_RESCAN_INTERVAL) {
+                previousIps = [];
+                iteration = 0;
+            }
+            else {
+                previousIps = currentIps;
+            }
 
             Logger.LogDebug("Added Interfaces: {added}", added);
             Logger.LogDebug("Removed Interfaces: {removed}", removed);
@@ -198,7 +196,7 @@ public class Tunneld(
             foreach (NetworkInterface ip in removed) {
                 string tunnelTaskId = $"start-tunnel-task-usb-{ip.Name}";
                 if (_tunnelTasks.ContainsKey(tunnelTaskId)) {
-                    var localCancellationTokenSource = new CancellationTokenSource();
+                    CancellationTokenSource localCancellationTokenSource = new();
                     localCancellationTokenSource.Cancel();
 
                     _tunnelTasks.TryRemove(tunnelTaskId, out TunnelTask? value);
@@ -208,8 +206,21 @@ public class Tunneld(
                 }
             }
 
-            foreach (NetworkInterface ip in added) {
-                await HandleNewPotentialUsbCdcNcmInterfaceTask(ip, cancellationToken).ConfigureAwait(false);
+            if (added.Any()) {
+                // A new interface was attached
+                foreach (ServiceInstance answer in await BonjourService.BrowseRemotedAsync()) {
+                    foreach (Address address in answer.Addresses) {
+                        if (address.Interface.StartsWith("utun", StringComparison.InvariantCulture)) {
+                            // Skip already established tunnels
+                            continue;
+                        }
+                        if (_tunnelTasks.ContainsKey(address.Ip)) {
+                            // Skip already established tunnels
+                            continue;
+                        }
+                        await HandleNewPotentialUsbCdcNcmInterfaceTask(address.Ip).ConfigureAwait(false);
+                    }
+                }
             }
 
             // Wait before re-iterating
@@ -259,7 +270,7 @@ public class Tunneld(
     private async Task MonitorWifiTask(CancellationToken cancellationToken) {
         try {
             while (!cancellationToken.IsCancellationRequested) {
-                foreach (RemotePairingTunnelService service in await TunnelService.GetRemotePairingTunnelServices()) {
+                foreach (RemotePairingTunnelService service in await TunnelService.GetRemotePairingTunnelServicesAsync()) {
                     if (_tunnelTasks.ContainsKey(service.Hostname)) {
                         // Skip tunnel if already exists for this ip
                         await service.CloseAsync();

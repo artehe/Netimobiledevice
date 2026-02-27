@@ -6,7 +6,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.NetworkInformation;
-using Zeroconf;
 
 namespace Netimobiledevice.Lockdown;
 
@@ -89,28 +88,21 @@ public abstract class LockdownService : IDisposable {
         }
 
         List<string> iteratedIps = [];
-        foreach (IZeroconfHost answer in await BonjourService.BrouseMobdev2(timeout, ips).ConfigureAwait(false)) {
-            if (!answer.DisplayName.Contains('@')) {
+        foreach (ServiceInstance answer in await BonjourService.BrowseMobdev2Async(timeout).ConfigureAwait(false)) {
+            if (!answer.Instance.Contains('@')) {
                 continue;
             }
-            string wifiMacAddress = answer.DisplayName.Split('@', 1)[0];
+            string wifiMacAddress = answer.Instance.Split('@', 1)[0];
             DictionaryNode record = records[wifiMacAddress];
 
             if (onlyPaired && record == null) {
                 continue;
             }
 
-            foreach (string? ip in answer.IPAddresses) {
-                if (iteratedIps.Contains(ip)) {
-                    // Skip ips we already iterated over, possibly from previous queries
-                    continue;
-                }
-
-                iteratedIps.Add(ip);
-
+            foreach (Address address in answer.Addresses) {
                 TcpLockdownClient lockdown;
                 try {
-                    lockdown = MobileDevice.CreateUsingTcp(hostname: ip, autopair: false, pairRecord: record);
+                    lockdown = MobileDevice.CreateUsingTcp(hostname: address.Ip, autopair: false, pairRecord: record);
                 }
                 catch (Exception) {
                     continue;
@@ -120,7 +112,7 @@ public abstract class LockdownService : IDisposable {
                     lockdown.Close();
                     continue;
                 }
-                yield return (ip, lockdown);
+                yield return (address.Ip, lockdown);
             }
         }
     }

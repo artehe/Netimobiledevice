@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 
@@ -10,6 +11,22 @@ namespace Netimobiledevice.Lockdown.Pairing;
 
 internal static class PairRecords
 {
+    private static string HomeFolder => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        ".Netimobiledevice"
+    );
+
+    /// <summary>
+    /// Ensure the home folder exists and return its DirectoryInfo.
+    /// </summary>
+    private static DirectoryInfo GetHomeFolder() {
+        var dir = new DirectoryInfo(HomeFolder);
+        if (!dir.Exists) {
+            dir.Create();
+        }
+        return dir;
+    }
+
     private static DictionaryNode? GetItunesPairingRecord(string identifier, ILogger logger)
     {
         string filePath = $"{identifier}.plist";
@@ -37,6 +54,16 @@ internal static class PairRecords
             logger.LogWarning(ex, "Warning unauthorised access excpetion when trying to access itunes plist");
         }
         return null;
+    }
+
+    /// <summary>
+    /// Iterate over the remote pairing record files in the home folder.
+    /// </summary>
+    private static IEnumerable<FileInfo> IterRemotePairRecords() {
+        DirectoryInfo homeDir = GetHomeFolder();
+        foreach (FileInfo file in homeDir.EnumerateFiles("remote_*")) {
+            yield return file;
+        }
     }
 
     public static DirectoryInfo? GetPairingRecordsCacheFolder(string pairingRecordsCacheFolder = "")
@@ -130,5 +157,18 @@ internal static class PairRecords
     public static string GetRemotePairingRecordFilename(string identifier)
     {
         return $"remote_{identifier}";
+    }
+
+    /// <summary>
+    /// Iterate over the identifiers of the remote paired devices.
+    /// </summary>
+    public static IEnumerable<string> IterateRemotePairedIdentifiers() {
+        foreach (FileInfo file in IterRemotePairRecords()) {
+            string fileName = file.Name;
+            if (fileName.StartsWith("remote_", StringComparison.InvariantCulture)) {
+                string identifier = Path.GetFileNameWithoutExtension(fileName.Substring("remote_".Length));
+                yield return identifier;
+            }
+        }
     }
 }

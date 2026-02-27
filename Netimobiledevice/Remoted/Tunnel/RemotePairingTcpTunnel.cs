@@ -63,7 +63,7 @@ public class RemotePairingTcpTunnel : RemotePairingTunnel
         _stream.Write(EncodeCdtunnelPacket(message));
 
         byte[] buffer = new byte[REQUESTED_MTU];
-        _stream.Read(buffer);
+        _stream.ReadExactly(buffer);
         string jsonString = CDTunnelPacket.Parse(buffer).JsonBody;
         return JsonSerializer.Deserialize<EstablishTunnelResponse>(jsonString, new JsonSerializerOptions {
             PropertyNameCaseInsensitive = true
