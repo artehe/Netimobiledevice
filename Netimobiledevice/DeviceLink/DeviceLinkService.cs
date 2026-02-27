@@ -70,10 +70,6 @@ internal sealed class DeviceLinkService : IDisposable
     /// </summary>
     public event EventHandler<BackupFileErrorEventArgs>? FileTransferError;
     /// <summary>
-    /// Event raised when the device requires a passcode to start the backup
-    /// </summary>
-    public event EventHandler? PasscodeRequiredForBackup;
-    /// <summary>
     /// Event raised for signaling the backup progress.
     /// </summary>
     public event ProgressChangedEventHandler? Progress;

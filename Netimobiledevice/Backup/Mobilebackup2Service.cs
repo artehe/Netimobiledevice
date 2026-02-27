@@ -297,11 +297,6 @@ public sealed class Mobilebackup2Service(LockdownServiceProvider lockdown, ILogg
         FileTransferError?.Invoke(sender, e);
     }
 
-    private void DeviceLink_PasscodeRequiredForBackup(object? sender, EventArgs e)
-    {
-        PasscodeRequiredForBackup?.Invoke(sender, e);
-    }
-
     private void DeviceLink_Progress(object? sender, ProgressChangedEventArgs e)
     {
         Progress?.Invoke(sender, e);
@@ -375,7 +370,6 @@ public sealed class Mobilebackup2Service(LockdownServiceProvider lockdown, ILogg
                 dl.FileReceived += DeviceLink_FileReceived;
                 dl.FileReceiving += DeviceLink_FileReceiving;
                 dl.FileTransferError += DeviceLink_FileTransferError;
-                dl.PasscodeRequiredForBackup += DeviceLink_PasscodeRequiredForBackup;
                 dl.Progress += DeviceLink_Progress;
                 dl.Status += DeviceLink_Status;
                 dl.Started += DeviceLink_Started;
@@ -496,7 +490,6 @@ public sealed class Mobilebackup2Service(LockdownServiceProvider lockdown, ILogg
             dl.FileReceived += DeviceLink_FileReceived;
             dl.FileReceiving += DeviceLink_FileReceiving;
             dl.FileTransferError += DeviceLink_FileTransferError;
-            dl.PasscodeRequiredForBackup += DeviceLink_PasscodeRequiredForBackup;
             dl.Progress += DeviceLink_Progress;
             dl.Status += DeviceLink_Status;
             dl.Started += DeviceLink_Started;
