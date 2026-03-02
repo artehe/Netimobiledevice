@@ -5,7 +5,6 @@ using Netimobiledevice.Remoted.Bonjour;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Net.NetworkInformation;
 
 namespace Netimobiledevice.Lockdown;
 
@@ -66,8 +65,7 @@ public abstract class LockdownService : IDisposable {
         string? udid = null,
         string? pairRecordsPath = null,
         bool onlyPaired = false,
-        int timeout = BonjourService.DEFAULT_BONJOUR_TIMEOUT,
-        List<NetworkInterface>? ips = null
+        int timeout = BonjourService.DEFAULT_BONJOUR_TIMEOUT
     ) {
         Dictionary<string, DictionaryNode> records = [];
         DirectoryInfo pairRecordsDirectory = new DirectoryInfo(pairRecordsPath ?? "");
@@ -87,7 +85,6 @@ public abstract class LockdownService : IDisposable {
             records.Add(wiFiMACAddress, record);
         }
 
-        List<string> iteratedIps = [];
         foreach (ServiceInstance answer in await BonjourService.BrowseMobdev2Async(timeout).ConfigureAwait(false)) {
             if (!answer.Instance.Contains('@')) {
                 continue;
