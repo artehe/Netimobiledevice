@@ -19,7 +19,7 @@ namespace Netimobiledevice.Lockdown {
     // class via a tool like ResGen or Visual Studio.
     // To add or remove a member, edit your .ResX file then rerun ResGen
     // with the /str option, or rebuild your VS project.
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "17.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "18.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     internal class ModelIdentifiers {
@@ -493,7 +493,7 @@ namespace Netimobiledevice.Lockdown {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Unreleased iPad.
+        ///   Looks up a localized string similar to iPad Pro 11-inch Wi-Fi (M5).
         /// </summary>
         internal static string iPad17_1 {
             get {
@@ -502,7 +502,7 @@ namespace Netimobiledevice.Lockdown {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Unreleased iPad.
+        ///   Looks up a localized string similar to iPad Pro 11-inch Wi-Fi + Cellular (M5).
         /// </summary>
         internal static string iPad17_2 {
             get {
@@ -511,7 +511,7 @@ namespace Netimobiledevice.Lockdown {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Unreleased iPad.
+        ///   Looks up a localized string similar to iPad Pro 13-inch Wi-Fi (M5).
         /// </summary>
         internal static string iPad17_3 {
             get {
@@ -520,7 +520,7 @@ namespace Netimobiledevice.Lockdown {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Unreleased iPad.
+        ///   Looks up a localized string similar to iPad Pro 13-inch Wi-Fi + Cellular (M5).
         /// </summary>
         internal static string iPad17_4 {
             get {
