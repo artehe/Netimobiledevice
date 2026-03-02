@@ -29,10 +29,6 @@ public class RemoteServiceDiscoveryService : LockdownServiceProvider
 
     public string? Name { get; private set; }
 
-    public string Udid { get; private set; } = string.Empty;
-
-    public string ProductType { get; private set; } = string.Empty;
-
     public RemoteServiceDiscoveryService(string ip, int port, string? name = null) : base()
     {
         Service = new RemoteXPCConnection(ip, port);
@@ -54,10 +50,10 @@ public class RemoteServiceDiscoveryService : LockdownServiceProvider
         ProductType = peerInfo["Properties"].AsXpcDictionary()["ProductType"].AsXpcString().Data ?? string.Empty;
 
         try {
-            Lockdown = MobileDevice.CreateUsingRemote(await StartLockdownServiceAsync(TRUSTED_SERVICE_NAME).ConfigureAwait(false));
+            Lockdown = MobileDevice.CreateUsingRemote(StartLockdownService(TRUSTED_SERVICE_NAME));
         }
         catch (Exception) {
-            Lockdown = MobileDevice.CreateUsingRemote(await StartLockdownServiceAsync(UNTRUSTED_SERVICE_NAME).ConfigureAwait(false));
+            Lockdown = MobileDevice.CreateUsingRemote(StartLockdownService(UNTRUSTED_SERVICE_NAME));
         }
         PropertyNode? allValues = Lockdown.GetValue();
     }
