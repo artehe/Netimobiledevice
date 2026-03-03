@@ -16,12 +16,7 @@ public class RemotePairingTunnelService : RemotePairingProtocol {
         _port = port;
     }
 
-    public override Task<Dictionary<string, object>> ReceiveResponse() {
-        // TODO
-        throw new System.NotImplementedException();
-    }
-
-    public override Task SendRequest(Dictionary<string, object> data) {
+    public override Dictionary<string, object> ReceiveResponse() {
         // TODO
         throw new System.NotImplementedException();
     }
@@ -34,6 +29,21 @@ public class RemotePairingTunnelService : RemotePairingProtocol {
     public Task CloseAsync() {
         // TODO
         return Task.CompletedTask;
+    }
+
+    public override Task<Dictionary<string, object>> ReceiveResponseAsync() {
+        // TODO
+        throw new System.NotImplementedException();
+    }
+
+    public override void SendRequest(Dictionary<string, object> data) {
+        // TODO
+        throw new System.NotImplementedException();
+    }
+
+    public override Task SendRequestAsync(Dictionary<string, object> data) {
+        // TODO
+        throw new System.NotImplementedException();
     }
 
     public override Task<TunnelResult> StartTunnel() {

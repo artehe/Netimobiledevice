@@ -4,7 +4,7 @@ namespace Netimobiledevice.Remoted.Tunnel;
 
 public class RemotePairingQuicTunnel : RemotePairingTunnel
 {
-    public const int MAX_IDLE_TIMEOUT = 30 * 1000;
+    public const float MAX_IDLE_TIMEOUT = 30 * 1000;
 
     public override bool IsTunnelClosed => throw new System.NotImplementedException();
 

@@ -17,21 +17,35 @@ public class CoreDeviceTunnelService : RemotePairingProtocol
 
     public override void Close()
     {
+        // TODO
         throw new System.NotImplementedException();
     }
 
-    public override Task<Dictionary<string, object>> ReceiveResponse()
+    public override Dictionary<string, object> ReceiveResponse()
     {
+        // TODO
         throw new System.NotImplementedException();
     }
 
-    public override Task SendRequest(Dictionary<string, object> data)
+    public override Task<Dictionary<string, object>> ReceiveResponseAsync() {
+        // TODO
+        throw new System.NotImplementedException();
+    }
+
+    public override void SendRequest(Dictionary<string, object> data)
     {
+        // TODO
+        throw new System.NotImplementedException();
+    }
+
+    public override Task SendRequestAsync(Dictionary<string, object> data) {
+        // TODO
         throw new System.NotImplementedException();
     }
 
     public override Task<TunnelResult> StartTunnel()
     {
+        // TODO
         throw new System.NotImplementedException();
     }
 }

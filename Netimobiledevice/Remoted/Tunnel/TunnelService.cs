@@ -15,14 +15,45 @@ public static class TunnelService {
         bool autoPair = true
     ) {
         RemotePairingTunnelService service = new(remoteIdentifier, hostname, port);
-        await service.Connect(autoPair).ConfigureAwait(false);
+        await service.ConnectAsync(autoPair).ConfigureAwait(false);
         return service;
     }
 
     public static async Task<CoreDeviceTunnelService> CreateCoreDeviceTunnelServiceUsingRsd(RemoteServiceDiscoveryService rsd, bool autoPair = true) {
         CoreDeviceTunnelService service = new CoreDeviceTunnelService(rsd);
-        await service.Connect(autoPair).ConfigureAwait(false);
+        await service.ConnectAsync(autoPair).ConfigureAwait(false);
         return service;
+    }
+
+    public static async Task<TunnelResult> StartTunnelOverCoreDevice(
+        CoreDeviceTunnelService serviceProvider,
+        TextWriter? secrets,
+        float maxIdleTimeout,
+        TunnelProtocol protocol
+    ) {
+        using (RemotedProcessStopper stopper = new RemotedProcessStopper()) {
+            switch (protocol) {
+                case TunnelProtocol.Quic: {
+                    /* TODO
+                    var tunnel = await serviceProvider.StartQuicTunnelAsync(secrets, maxIdleTimeout).ConfigureAwait(false);
+                    return tunnel.Result;
+                    */
+                    throw new NotImplementedException();
+                }
+
+                case TunnelProtocol.Tcp: {
+                    /* TODO
+                    var tunnel = await serviceProvider.StartTcpTunnelAsync().ConfigureAwait(false);
+                    return tunnel.Result;
+                    */
+                    throw new NotImplementedException();
+                }
+
+                default: {
+                    throw new NotImplementedException("Unknown TunnelProtocol");
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -65,22 +96,17 @@ public static class TunnelService {
         }
 
         return result;
-
     }
 
     public static async Task<TunnelResult> StartTunnel(
         StartTcpTunnel protocolHandler, 
-        string[]? secrets = null,
-        int maxIdleTimeout = RemotePairingQuicTunnel.MAX_IDLE_TIMEOUT, 
+        TextWriter? secrets = null,
+        float maxIdleTimeout = RemotePairingQuicTunnel.MAX_IDLE_TIMEOUT, 
         TunnelProtocol protocol = TunnelProtocol.Quic
     ) {
-        if (protocolHandler is CoreDeviceTunnelService) {
-            /* TODO
-        async with start_tunnel_over_core_device(
-                protocol_handler, secrets=secrets, max_idle_timeout=max_idle_timeout, protocol=protocol) as service:
-            yield service
-            */
-
+        if (protocolHandler is CoreDeviceTunnelService cdts) {
+            TunnelResult service = await StartTunnelOverCoreDevice(cdts, secrets, maxIdleTimeout, protocol).ConfigureAwait(false);
+            return service;
         }
         else if (protocolHandler is RemotePairingTunnelService) {
             /* TODO
