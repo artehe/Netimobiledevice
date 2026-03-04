@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -18,13 +19,15 @@ public class CrashReportsService : IDisposable
     private const string APPSTORED_PATH = "/com.apple.appstored";
 
     private readonly AfcService _afcService;
+    private readonly LockdownServiceProvider _lockdown;
 
     private readonly string _copyMobileServiceName;
     private readonly string _crashMoverServiceName;
 
     public CrashReportsService(LockdownServiceProvider lockdown)
     {
-        if (lockdown is LockdownClient) {
+        _lockdown = lockdown;
+        if (_lockdown is LockdownClient) {
             _copyMobileServiceName = LOCKDOWN_COPY_MOBILE_NAME;
             _crashMoverServiceName = LOCKDOWN_CRASH_MOVER_NAME;
         }
@@ -33,7 +36,7 @@ public class CrashReportsService : IDisposable
             _crashMoverServiceName = RSD_CRASH_MOVER_NAME;
         }
 
-        _afcService = new AfcService(lockdown, _copyMobileServiceName, lockdown.Logger);
+        _afcService = new AfcService(_lockdown, _copyMobileServiceName, _lockdown.Logger);
     }
 
     /// <summary>
@@ -64,6 +67,19 @@ public class CrashReportsService : IDisposable
     {
         Close();
         GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Trigger com.apple.crashreportmover to flush all products into CrashReports directory
+    /// </summary>
+    public async Task FlushAsync(CancellationToken cancellationToken = default) {
+        byte[] ack = Encoding.UTF8.GetBytes("ping\0");
+        using (ServiceConnection service = _lockdown.StartLockdownService(_crashMoverServiceName)) {
+            byte[] response = await service.ReceiveAsync(ack.Length, cancellationToken).ConfigureAwait(false);
+            if (!response.SequenceEqual(ack)) {
+                throw new AfcException(AfcError.ReadError, "Resposne doesn't equal expected value");
+            }
+        }
     }
 
     /// <summary>
