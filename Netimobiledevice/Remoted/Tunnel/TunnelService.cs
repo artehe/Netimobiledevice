@@ -27,26 +27,16 @@ public static class TunnelService {
 
     public static async Task<TunnelResult> StartTunnelOverCoreDevice(
         CoreDeviceTunnelService serviceProvider,
-        TextWriter? secrets,
-        float maxIdleTimeout,
         TunnelProtocol protocol
     ) {
         using (RemotedProcessStopper stopper = new RemotedProcessStopper()) {
             switch (protocol) {
                 case TunnelProtocol.Quic: {
-                    /* TODO
-                    var tunnel = await serviceProvider.StartQuicTunnelAsync(secrets, maxIdleTimeout).ConfigureAwait(false);
-                    return tunnel.Result;
-                    */
-                    throw new NotImplementedException();
+                    throw new NotSupportedException("Quic tunnel protocol currently isn't supported");
                 }
 
                 case TunnelProtocol.Tcp: {
-                    /* TODO
-                    var tunnel = await serviceProvider.StartTcpTunnelAsync().ConfigureAwait(false);
-                    return tunnel.Result;
-                    */
-                    throw new NotImplementedException();
+                    return await serviceProvider.StartTcpTunnelAsync().ConfigureAwait(false);
                 }
 
                 default: {
@@ -99,13 +89,11 @@ public static class TunnelService {
     }
 
     public static async Task<TunnelResult> StartTunnel(
-        StartTcpTunnel protocolHandler, 
-        TextWriter? secrets = null,
-        float maxIdleTimeout = RemotePairingQuicTunnel.MAX_IDLE_TIMEOUT, 
-        TunnelProtocol protocol = TunnelProtocol.Quic
+        StartTcpTunnel protocolHandler,
+        TunnelProtocol protocol = TunnelProtocol.Tcp
     ) {
         if (protocolHandler is CoreDeviceTunnelService cdts) {
-            TunnelResult service = await StartTunnelOverCoreDevice(cdts, secrets, maxIdleTimeout, protocol).ConfigureAwait(false);
+            TunnelResult service = await StartTunnelOverCoreDevice(cdts, protocol).ConfigureAwait(false);
             return service;
         }
         else if (protocolHandler is RemotePairingTunnelService) {

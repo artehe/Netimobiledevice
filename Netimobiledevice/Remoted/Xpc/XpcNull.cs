@@ -8,7 +8,7 @@ public class XpcNull : XpcObject
 
     public override XpcMessageType Type => XpcMessageType.Null;
 
-    public static XpcNull Deserialise(byte[] data)
+    public static XpcNull Deserialise(byte[] _)
     {
         return new XpcNull();
     }

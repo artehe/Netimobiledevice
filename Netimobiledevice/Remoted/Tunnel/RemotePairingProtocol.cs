@@ -1,4 +1,5 @@
 ﻿using Netimobiledevice.Remoted.Xpc;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -10,6 +11,7 @@ public abstract class RemotePairingProtocol : StartTcpTunnel
 
     private int _encryptedSequenceNumber;
     private ulong _sequenceNumber;
+    private string _hostname = string.Empty;
 
     public string RemoteDeviceModel => HandshakeInfo["peerDeviceInfo"]["model"].ToString();
     public override string RemoteIdentifier => HandshakeInfo["peerDeviceInfo"]["identifier"];
@@ -115,5 +117,10 @@ public abstract class RemotePairingProtocol : StartTcpTunnel
     {
         await SendRequestAsync(data).ConfigureAwait(false);
         return await ReceiveResponseAsync().ConfigureAwait(false);
+    }
+
+    public async Task<TunnelResult> StartTcpTunnelAsync() {
+        // TODO
+        throw new NotImplementedException();
     }
 }

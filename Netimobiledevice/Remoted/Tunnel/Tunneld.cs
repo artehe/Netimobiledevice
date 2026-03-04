@@ -422,7 +422,7 @@ public class Tunneld(
         foreach (KeyValuePair<string, TunnelDefinition> tunnel in tunnels) {
             RemoteServiceDiscoveryService rsd = new RemoteServiceDiscoveryService(tunnel.Value.TunnelAddres, tunnel.Value.TunnelPort, tunnel.Value.InterfaceId);
             try {
-                await rsd.Connect();
+                await rsd.ConnectAsync();
                 rsds.Add(rsd);
             }
             catch (Exception ex) {

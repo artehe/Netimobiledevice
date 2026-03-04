@@ -41,23 +41,6 @@ public class RemoteServiceDiscoveryService : LockdownServiceProvider
         Service.Close();
     }
 
-    // TODO convert to non async
-    public async Task Connect()
-    {
-        await Service.Connect();
-        peerInfo = await Service.ReceiveResponse().ConfigureAwait(false);
-        Udid = peerInfo["Properties"].AsXpcDictionary()["UniqueDeviceID"].AsXpcString().Data ?? string.Empty;
-        ProductType = peerInfo["Properties"].AsXpcDictionary()["ProductType"].AsXpcString().Data ?? string.Empty;
-
-        try {
-            Lockdown = MobileDevice.CreateUsingRemote(StartLockdownService(TRUSTED_SERVICE_NAME));
-        }
-        catch (Exception) {
-            Lockdown = MobileDevice.CreateUsingRemote(StartLockdownService(UNTRUSTED_SERVICE_NAME));
-        }
-        PropertyNode? allValues = Lockdown.GetValue();
-    }
-
     public async Task ConnectAsync()
     {
         await Service.Connect();
