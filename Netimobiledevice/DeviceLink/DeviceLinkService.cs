@@ -50,10 +50,6 @@ internal sealed class DeviceLinkService : IDisposable
     /// </summary>
     public event EventHandler<BackupResultEventArgs>? Completed;
     /// <summary>
-    /// Event raised when there is some error during the backup.
-    /// </summary>
-    public event EventHandler<DetailedErrorEventArgs>? Error;
-    /// <summary>
     /// Event raised when there is a non-fatal error during the backup
     /// </summary>
     public event EventHandler<DetailedErrorEventArgs>? Warning;

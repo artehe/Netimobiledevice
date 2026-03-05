@@ -366,7 +366,6 @@ public sealed class Mobilebackup2Service(LockdownServiceProvider lockdown, ILogg
             try {
                 dl.BeforeReceivingFile += DeviceLink_BeforeReceivingFile;
                 dl.Completed += DeviceLink_Completed;
-                dl.Error += DeviceLink_Error;
                 dl.FileReceived += DeviceLink_FileReceived;
                 dl.FileReceiving += DeviceLink_FileReceiving;
                 dl.FileTransferError += DeviceLink_FileTransferError;
@@ -486,7 +485,6 @@ public sealed class Mobilebackup2Service(LockdownServiceProvider lockdown, ILogg
                    .ConfigureAwait(false)) {
             dl.BeforeReceivingFile += DeviceLink_BeforeReceivingFile;
             dl.Completed += DeviceLink_Completed;
-            dl.Error += DeviceLink_Error;
             dl.FileReceived += DeviceLink_FileReceived;
             dl.FileReceiving += DeviceLink_FileReceiving;
             dl.FileTransferError += DeviceLink_FileTransferError;
