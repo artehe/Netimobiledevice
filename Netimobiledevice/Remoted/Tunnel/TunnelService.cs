@@ -25,7 +25,7 @@ public static class TunnelService {
         return service;
     }
 
-    public static async Task<TunnelResult> StartTunnelOverCoreDevice(
+    private static async Task<TunnelResult> StartTunnelOverCoreDevice(
         CoreDeviceTunnelService serviceProvider,
         TunnelProtocol protocol
     ) {
@@ -40,8 +40,27 @@ public static class TunnelService {
                 }
 
                 default: {
-                    throw new NotImplementedException("Unknown TunnelProtocol");
+                    throw new ArgumentOutOfRangeException(nameof(protocol));
                 }
+            }
+        }
+    }
+
+    public static async Task<TunnelResult> StartTunnelOverRemotePairing(
+        RemotePairingTunnelService serviceProvider,
+        TunnelProtocol protocol = TunnelProtocol.Quic
+    ) {
+        switch (protocol) {
+            case TunnelProtocol.Quic: {
+                throw new NotSupportedException("Quic tunnel protocol currently isn't supported");
+            }
+
+            case TunnelProtocol.Tcp: {
+                return await serviceProvider.StartTcpTunnelAsync().ConfigureAwait(false);
+            }
+
+            default: {
+                throw new ArgumentOutOfRangeException(nameof(protocol));
             }
         }
     }
@@ -93,15 +112,10 @@ public static class TunnelService {
         TunnelProtocol protocol = TunnelProtocol.Tcp
     ) {
         if (protocolHandler is CoreDeviceTunnelService cdts) {
-            TunnelResult service = await StartTunnelOverCoreDevice(cdts, protocol).ConfigureAwait(false);
-            return service;
+            return await StartTunnelOverCoreDevice(cdts, protocol).ConfigureAwait(false);
         }
-        else if (protocolHandler is RemotePairingTunnelService) {
-            /* TODO
-            async with start_tunnel_over_remotepairing(
-                    protocol_handler, secrets=secrets, max_idle_timeout=max_idle_timeout, protocol=protocol) as service:
-                yield service
-                */
+        else if (protocolHandler is RemotePairingTunnelService rpts) {
+            return await StartTunnelOverRemotePairing(rpts, protocol).ConfigureAwait(false);
         }
         else if (protocolHandler is CoreDeviceTunnelProxy cdtp) {
             if (protocol != TunnelProtocol.Tcp) {
