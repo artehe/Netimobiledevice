@@ -44,7 +44,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
 
     public UsbmuxdConnectionType ConnectionType { get; protected set; }
 
-    public string DeviceClass { get; private set; } = LockdownDeviceClass.Unknown;
+    public DeviceClass DeviceClass { get; private set; } = DeviceClass.Unknown;
 
     public string DeviceName => GetValue("DeviceName")?.AsStringNode().Value ?? string.Empty;
 
@@ -117,6 +117,28 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
         else {
             _devicePublicKey = [];
         }
+
+        if (_allValues.TryGetValue("DeviceClass", out PropertyNode? deviceClassNode)) {
+            DeviceClass = GetDeviceClass(deviceClassNode);
+        }
+    }
+
+    /// <summary>
+    /// Returns a DeviceClass instance representing the device class from within the given PropertyNode.
+    /// If the provided value cannot be resolved into a valid DeviceClass, returns a DeviceClass instance 
+    /// with the value DeviceClass.Unknown.
+    /// </summary>
+    /// <param name="property">The DeviceClass property string node</param>
+    /// <returns>The DeviceClass for the given PropertyNode; or DeviceClass.Unknown.</returns>
+    private static DeviceClass GetDeviceClass(PropertyNode property) {
+        return property.AsStringNode().Value switch {
+            "iPhone" => DeviceClass.IPhone,
+            "iPad" => DeviceClass.IPad,
+            "iPod" => DeviceClass.IPod,
+            "Watch" => DeviceClass.Watch,
+            "AppleTV" => DeviceClass.Tv,
+            _ => DeviceClass.Unknown,
+        };
     }
 
     private DictionaryNode GetServiceConnectionAttributes(string name, bool useEscrowBag, bool useTrustedConnection) {
@@ -321,7 +343,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
             return IsPaired;
         }
 
-        if (OsVersion < new Version("7.0") && DeviceClass != LockdownDeviceClass.Watch) {
+        if (OsVersion < new Version("7.0") && DeviceClass != DeviceClass.Watch) {
             try {
                 Request("ValidatePair", new DictionaryNode { { "PairRecord", _pairRecord } });
             }
