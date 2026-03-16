@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Netimobiledevice.Remoted.Xpc;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Remoted.Tunnel;
@@ -17,30 +18,29 @@ public class CoreDeviceTunnelService : RemotePairingProtocol
 
     public override void Close()
     {
-        // TODO
-        throw new System.NotImplementedException();
+        _remoteService.Close();
     }
 
-    public override Dictionary<string, object> ReceiveResponse()
-    {
-        // TODO
-        throw new System.NotImplementedException();
+    public override async Task<XpcDictionary> ReceiveResponseAsync() {
+        if (_remoteService.Service == null) {
+            throw new NetimobiledeviceException("Service is null");
+        }
+
+        XpcDictionary response = await _remoteService.Service.ReceiveResponse();
+        return response["value"].AsXpcDictionary();
     }
 
-    public override Task<Dictionary<string, object>> ReceiveResponseAsync() {
-        // TODO
-        throw new System.NotImplementedException();
-    }
+    public override async Task SendRequestAsync(XpcDictionary data) {
+        if (_remoteService.Service == null) {
+            throw new NetimobiledeviceException("Service is null");
+        }
 
-    public override void SendRequest(Dictionary<string, object> data)
-    {
-        // TODO
-        throw new System.NotImplementedException();
-    }
+        Dictionary<string, XpcObject> request = new Dictionary<string, XpcObject>() {
+            { "mangledTypeName", new XpcString("RemotePairing.ControlChannelMessageEnvelope") },
+            { "value", data }
+        };
 
-    public override Task SendRequestAsync(Dictionary<string, object> data) {
-        // TODO
-        throw new System.NotImplementedException();
+        await _remoteService.Service.SendRequestAsync(request).ConfigureAwait(false);
     }
 
     public override Task<TunnelResult> StartTunnel()

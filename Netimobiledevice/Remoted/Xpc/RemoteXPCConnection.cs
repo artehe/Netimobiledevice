@@ -151,15 +151,6 @@ public class RemoteXPCConnection
         await _stream.WriteAsync(data.ToArray()).ConfigureAwait(false);
     }
 
-    private async Task SendRequestAsync(Dictionary<string, XpcObject> data, bool wantingReply = false)
-    {
-        XpcWrapper xpcWrapper = XpcWrapper.Create(data, _nextMessageId[ROOT_CHANNEL], wantingReply);
-        await SendFrameAsync(new DataFrame() {
-            StreamIdentifier = ROOT_CHANNEL,
-            Data = xpcWrapper.Serialise()
-        }).ConfigureAwait(false);
-    }
-
     public void Close()
     {
         _stream.Close();
@@ -199,5 +190,13 @@ public class RemoteXPCConnection
             _nextMessageId[frame.StreamIdentifier] = message.MessageId + 1;
             return message.Payload.Obj.AsXpcDictionary();
         }
+    }
+
+    public async Task SendRequestAsync(Dictionary<string, XpcObject> data, bool wantingReply = false) {
+        XpcWrapper xpcWrapper = XpcWrapper.Create(data, _nextMessageId[ROOT_CHANNEL], wantingReply);
+        await SendFrameAsync(new DataFrame() {
+            StreamIdentifier = ROOT_CHANNEL,
+            Data = xpcWrapper.Serialise()
+        }).ConfigureAwait(false);
     }
 }

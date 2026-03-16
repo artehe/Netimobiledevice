@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+﻿using Netimobiledevice.Remoted.Xpc;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Remoted.Tunnel;
@@ -16,11 +16,6 @@ public class RemotePairingTunnelService : RemotePairingProtocol {
         _port = port;
     }
 
-    public override Dictionary<string, object> ReceiveResponse() {
-        // TODO
-        throw new System.NotImplementedException();
-    }
-
     public override void Close() {
         // TODO
         throw new System.NotImplementedException();
@@ -31,17 +26,12 @@ public class RemotePairingTunnelService : RemotePairingProtocol {
         return Task.CompletedTask;
     }
 
-    public override Task<Dictionary<string, object>> ReceiveResponseAsync() {
+    public override async Task<XpcDictionary> ReceiveResponseAsync() {
         // TODO
         throw new System.NotImplementedException();
     }
 
-    public override void SendRequest(Dictionary<string, object> data) {
-        // TODO
-        throw new System.NotImplementedException();
-    }
-
-    public override Task SendRequestAsync(Dictionary<string, object> data) {
+    public override Task SendRequestAsync(XpcDictionary data) {
         // TODO
         throw new System.NotImplementedException();
     }

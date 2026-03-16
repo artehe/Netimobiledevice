@@ -1,6 +1,5 @@
 ﻿using Netimobiledevice.Remoted.Xpc;
 using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Remoted.Tunnel;
@@ -13,10 +12,10 @@ public abstract class RemotePairingProtocol : StartTcpTunnel
     private ulong _sequenceNumber;
     private string _hostname = string.Empty;
 
-    public string RemoteDeviceModel => HandshakeInfo["peerDeviceInfo"]["model"].ToString();
-    public override string RemoteIdentifier => HandshakeInfo["peerDeviceInfo"]["identifier"];
+    public string RemoteDeviceModel => HandshakeInfo?["peerDeviceInfo"].AsXpcDictionary()["model"].AsXpcString().Data ?? string.Empty;
+    public override string RemoteIdentifier => HandshakeInfo?["peerDeviceInfo"].AsXpcDictionary()["identifier"].AsXpcString().Data ?? string.Empty;
 
-    public dynamic? HandshakeInfo { get; set; }
+    public XpcDictionary? HandshakeInfo { get; set; }
 
     public RemotePairingProtocol() : base() {
         _sequenceNumber = 0;
@@ -24,79 +23,77 @@ public abstract class RemotePairingProtocol : StartTcpTunnel
     }
 
     private async Task AttemptPairVerifyAsync() {
-        Dictionary<string, object> handshakeData = new Dictionary<string, object> {
-            ["hostOptions"] = new Dictionary<string, object> {
-                ["attemptPairVerify"] = true
-            },
-            ["wireProtocolVersion"] = new XpcInt64(WIRE_PROTOCOL_VERSION)
+        XpcDictionary handshakeData = new() {
+            { "hostOptions", new XpcDictionary() { { "attemptPairVerify", new XpcBool(true) } } },
+            { "wireProtocolVersion",new XpcInt64(WIRE_PROTOCOL_VERSION) },
         };
         HandshakeInfo = await SendReceiveHandshakeAsync(handshakeData);
     }
 
-    private async Task<Dictionary<string, object>> ReceivePlainResponseAsync() {
-        Dictionary<string, object> response = await ReceiveResponseAsync();
+    private void InitClientServerMainEncryptionKeys() {
+        // TODO
+    }
 
-        Dictionary<string, object> message = (Dictionary<string, object>) response["message"];
-        Dictionary<string, object> plain = (Dictionary<string, object>) message["plain"];
-        Dictionary<string, object> payload = (Dictionary<string, object>) plain["_0"];
+    private async Task PairAsync() {
+        // TODO
+    }
+
+    private async Task<XpcDictionary> ReceivePlainResponseAsync() {
+        XpcDictionary response = await ReceiveResponseAsync();
+
+        XpcDictionary message = response["message"].AsXpcDictionary();
+        XpcDictionary plain = message["plain"].AsXpcDictionary();
+        XpcDictionary payload = plain["_0"].AsXpcDictionary();
 
         return payload;
     }
 
-    private async Task SendPlainRequestAsync(Dictionary<string, object> plainRequest) {
-        Dictionary<string, object> request = new Dictionary<string, object> {
-            ["message"] = new Dictionary<string, object> {
-                ["plain"] = new Dictionary<string, object> {
-                    ["_0"] = plainRequest
-                }
-            },
-            ["originatedBy"] = "host",
-            ["sequenceNumber"] = new XpcUInt64(_sequenceNumber)
+    private async Task SendPlainRequestAsync(XpcDictionary plainRequest) {
+        XpcDictionary request = new() {
+            { "message", new XpcDictionary() { { "plain", new XpcDictionary() { { "_0", plainRequest } } } } },
+            { "originatedBy", new XpcString("host") },
+            { "sequenceNumber", new XpcUInt64(_sequenceNumber) }
         };
         await SendRequestAsync(request);
         _sequenceNumber++;
     }
 
-    private async Task<Dictionary<string, object>> SendReceiveHandshakeAsync(Dictionary<string, object> handshakeData) {
-        Dictionary<string, object> request = new Dictionary<string, object> {
-            ["request"] = new Dictionary<string, object> {
-                ["_0"] = new Dictionary<string, object> {
-                    ["handshake"] = new Dictionary<string, object> {
-                        ["_0"] = handshakeData
-                    }
-                }
-            }
+    private async Task<XpcDictionary> SendReceiveHandshakeAsync(XpcDictionary handshakeData) {
+        XpcDictionary request = new() {
+            { "request", new XpcDictionary() { { "_0", new XpcDictionary() { { "handshake", new XpcDictionary() { { "_0", handshakeData } } } } } } }
         };
+        XpcDictionary response = await SendReceivePlainRequestAsync(request).ConfigureAwait(false);
 
-        Dictionary<string, object> response = await SendReceivePlainRequestAsync(request);
-
-        Dictionary<string, object> responseDict = (Dictionary<string, object>) response["response"];
-        Dictionary<string, object> inner = (Dictionary<string, object>) responseDict["_1"];
-        Dictionary<string, object> handshake = (Dictionary<string, object>) inner["handshake"];
-        Dictionary<string, object> result = (Dictionary<string, object>) handshake["_0"];
+        XpcDictionary responseDict = response["response"].AsXpcDictionary();
+        XpcDictionary inner = responseDict["_1"].AsXpcDictionary();
+        XpcDictionary handshake = inner["handshake"].AsXpcDictionary();
+        XpcDictionary result = handshake["_0"].AsXpcDictionary();
 
         return result;
     }
 
 
-    private async Task<Dictionary<string, object>> SendReceivePlainRequestAsync(Dictionary<string, object> plainRequest) {
+    private async Task<XpcDictionary> SendReceivePlainRequestAsync(XpcDictionary plainRequest) {
         await SendPlainRequestAsync(plainRequest);
         return await ReceivePlainResponseAsync();
+    }
+
+    private async Task<bool> ValidatePairingAsync() {
+        // TODO
+        return true;
     }
 
     public async Task ConnectAsync(bool autopair = true) {
         await AttemptPairVerifyAsync();
 
-        /* TODO
         if (await ValidatePairingAsync()) {
             // Pairing record validation succeeded, so we can just initiate the relevant session keys
             InitClientServerMainEncryptionKeys();
             return;
         }
-        */
 
         if (autopair) {
-            // TODO await PairAsync();
+            await PairAsync();
             Close();
 
             // Once pairing is completed, the remote endpoint closes the connection,
@@ -105,15 +102,11 @@ public abstract class RemotePairingProtocol : StartTcpTunnel
         }
     }
 
-    public abstract Dictionary<string, object> ReceiveResponse();
+    public abstract Task<XpcDictionary> ReceiveResponseAsync();
 
-    public abstract Task<Dictionary<string, object>> ReceiveResponseAsync();
+    public abstract Task SendRequestAsync(XpcDictionary data);
 
-    public abstract void SendRequest(Dictionary<string, object> data);
-
-    public abstract Task SendRequestAsync(Dictionary<string, object> data);
-
-    public async Task<Dictionary<string, object>> SendReceiveRequest(Dictionary<string, object> data)
+    public async Task<XpcDictionary> SendReceiveRequest(XpcDictionary data)
     {
         await SendRequestAsync(data).ConfigureAwait(false);
         return await ReceiveResponseAsync().ConfigureAwait(false);

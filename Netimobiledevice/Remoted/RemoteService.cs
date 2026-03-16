@@ -7,16 +7,18 @@ public class RemoteService(RemoteServiceDiscoveryService rsd, string serviceName
 {
     private readonly RemoteServiceDiscoveryService _rsd = rsd;
     private readonly string _serviceName = serviceName;
-    private RemoteXPCConnection? _service;
+
+    public RemoteXPCConnection? Service { get; private set;  }
 
     public void Close()
     {
-        _service?.Close();
+        _rsd.Close();
+        Service?.Close();
     }
 
     public async Task Connect()
     {
-        _service = _rsd.StartRemoteService(_serviceName);
-        await _service.Connect();
+        Service = _rsd.StartRemoteService(_serviceName);
+        await Service.Connect();
     }
 }
