@@ -121,7 +121,7 @@ public static class TunnelService {
             if (protocol != TunnelProtocol.Tcp) {
                 throw new NetimobiledeviceException("CoreDeviceTunnelProxy protocol can only be TCP");
             }
-            return await cdtp.StartTunnel();
+            return await cdtp.StartTcpTunnelAsync();
         }
         throw new NetimobiledeviceException("Bad value for protocol handler");
     }

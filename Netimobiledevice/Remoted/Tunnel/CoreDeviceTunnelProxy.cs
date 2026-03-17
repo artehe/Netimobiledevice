@@ -16,7 +16,7 @@ public class CoreDeviceTunnelProxy(LockdownServiceProvider lockdown) : StartTcpT
         _service?.Close();
     }
 
-    public override async Task<TunnelResult> StartTunnel() {
+    public override async Task<TunnelResult> StartTcpTunnelAsync() {
         _service = await _lockdown.StartLockdownServiceAsync(SERVICE_NAME).ConfigureAwait(false);
         RemotePairingTcpTunnel tunnel = new RemotePairingTcpTunnel(_service.Stream);
         EstablishTunnelResponse handshakeResponse = tunnel.RequestTunnelEstablish();
