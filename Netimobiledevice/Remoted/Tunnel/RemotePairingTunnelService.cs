@@ -35,9 +35,4 @@ public class RemotePairingTunnelService : RemotePairingProtocol {
         // TODO
         throw new System.NotImplementedException();
     }
-
-    public override Task<TunnelResult> StartTunnel() {
-        // TODO
-        throw new System.NotImplementedException();
-    }
 }

@@ -10,5 +10,5 @@ public abstract class StartTcpTunnel
 
     public abstract void Close();
 
-    public abstract Task<TunnelResult> StartTunnel();
+    public abstract Task<TunnelResult> StartTcpTunnelAsync();
 }

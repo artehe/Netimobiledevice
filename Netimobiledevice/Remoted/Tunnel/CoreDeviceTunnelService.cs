@@ -42,10 +42,4 @@ public class CoreDeviceTunnelService : RemotePairingProtocol
 
         await _remoteService.Service.SendRequestAsync(request).ConfigureAwait(false);
     }
-
-    public override Task<TunnelResult> StartTunnel()
-    {
-        // TODO
-        throw new System.NotImplementedException();
-    }
 }

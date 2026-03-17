@@ -112,7 +112,7 @@ public abstract class RemotePairingProtocol : StartTcpTunnel
         return await ReceiveResponseAsync().ConfigureAwait(false);
     }
 
-    public async Task<TunnelResult> StartTcpTunnelAsync() {
+    public override async Task<TunnelResult> StartTcpTunnelAsync() {
         // TODO
         throw new NotImplementedException();
     }
