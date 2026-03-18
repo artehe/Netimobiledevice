@@ -1,21 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace Netimobiledevice.Plist;
 
 /// <summary>
 /// Singleton class which generates concrete <see cref="PropertyNode"/> from the Tag or TypeCode
 /// </summary>
-internal static class NodeFactory
-{
-    private static readonly Dictionary<byte, Type> _binaryTags = [];
-    private static readonly Dictionary<string, Type> _xmlTags = [];
+internal static class NodeFactory {
+    private static readonly Dictionary<byte, PlistType> _binaryTags = [];
+    private static readonly Dictionary<string, PlistType> _xmlTags = [];
 
     /// <summary>
     /// Initializes the <see cref="NodeFactory"/> class.
     /// </summary>
-    static NodeFactory()
-    {
+    static NodeFactory() {
         Register(new DictionaryNode());
         Register(new IntegerNode());
         Register(new RealNode());
@@ -32,18 +29,67 @@ internal static class NodeFactory
         Register("false", 0, new BooleanNode());
     }
 
+    private static PropertyNode GetPropertyNodeFromType(PlistType type) {
+        switch (type) {
+            case PlistType.Array: {
+                return new ArrayNode();
+            }
+
+            case PlistType.Bool:
+            case PlistType.Boolean: {
+                return new BooleanNode();
+            }
+
+            case PlistType.Data: {
+                return new DataNode();
+            }
+
+            case PlistType.Date: {
+                return new DateNode();
+            }
+
+            case PlistType.Dict: {
+                return new DictionaryNode();
+            }
+
+            case PlistType.Fill: {
+                return new FillNode();
+            }
+
+            case PlistType.Integer: {
+                return new IntegerNode();
+            }
+
+            case PlistType.Real: {
+                return new RealNode();
+            }
+
+            case PlistType.String:
+            case PlistType.UString: {
+                return new StringNode();
+            }
+
+            case PlistType.Uid: {
+                return new UidNode();
+            }
+
+            default: {
+                return new NullNode();
+            }
+        }
+    }
+
     /// <summary>
     /// Registers the specified element.
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <param name="node">The node.</param>
-    private static void Register<T>(T node) where T : PropertyNode, new()
-    {
+    private static void Register<T>(T node) where T : PropertyNode, new() {
         if (!_binaryTags.ContainsKey(node.BinaryTag)) {
-            _binaryTags.Add(node.BinaryTag, node.GetType());
+            _binaryTags.Add(node.BinaryTag, node.NodeType);
         }
         if (!_xmlTags.ContainsKey(node.XmlTag)) {
-            _xmlTags.Add(node.XmlTag, node.GetType());
+            _xmlTags.Add(node.XmlTag, node.NodeType);
         }
     }
 
@@ -54,13 +100,12 @@ internal static class NodeFactory
     /// <param name="xmlTag">The tag.</param>
     /// <param name="binaryTag">The type code.</param>
     /// <param name="node">The element.</param>
-    private static void Register<T>(string xmlTag, byte binaryTag, T node) where T : PropertyNode, new()
-    {
+    private static void Register<T>(string xmlTag, byte binaryTag, T node) where T : PropertyNode, new() {
         if (!_binaryTags.ContainsKey(binaryTag)) {
-            _binaryTags.Add(binaryTag, node.GetType());
+            _binaryTags.Add(binaryTag, node.NodeType);
         }
         if (!_xmlTags.ContainsKey(xmlTag)) {
-            _xmlTags.Add(xmlTag, node.GetType());
+            _xmlTags.Add(xmlTag, node.NodeType);
         }
     }
 
@@ -69,10 +114,9 @@ internal static class NodeFactory
     /// </summary>
     /// <param name="tag">The tag of the element.</param>
     /// <returns>The created <see cref="PropertyNode"/> object</returns>
-    public static PropertyNode Create(string tag)
-    {
-        if (_xmlTags.TryGetValue(tag, out Type? value)) {
-            return (PropertyNode?) Activator.CreateInstance(value) ?? new NullNode();
+    public static PropertyNode Create(string tag) {
+        if (_xmlTags.TryGetValue(tag, out PlistType type)) {
+            return GetPropertyNodeFromType(type);
         }
         throw new PlistFormatException($"Unknown node - XML tag \"{tag}\"");
     }
@@ -83,8 +127,7 @@ internal static class NodeFactory
     /// <param name="binaryTag">The typecode of the element.</param>
     /// <param name="length">The length of the element</param>
     /// <returns>The created <see cref="PropertyNode"/> object</returns>
-    public static PropertyNode Create(byte binaryTag, int length)
-    {
+    public static PropertyNode Create(byte binaryTag, int length) {
         byte shortBinaryTag = (byte) (binaryTag & 0xF0);
 
         if (shortBinaryTag == 0) {
@@ -101,8 +144,8 @@ internal static class NodeFactory
                 IsUtf16 = true
             };
         }
-        if (_binaryTags.TryGetValue(shortBinaryTag, out Type? value)) {
-            return (PropertyNode?) Activator.CreateInstance(value) ?? new NullNode();
+        if (_binaryTags.TryGetValue(shortBinaryTag, out PlistType type)) {
+            return GetPropertyNodeFromType(type);
         }
 
         throw new PlistFormatException($"Unknown node - binary tag {binaryTag}");
@@ -113,8 +156,7 @@ internal static class NodeFactory
     /// </summary>
     /// <param name="key">The key.</param>
     /// <returns>The <see cref="PropertyNode"/> object used for dictionary keys.</returns>
-    public static PropertyNode CreateKeyElement(string key)
-    {
+    public static PropertyNode CreateKeyElement(string key) {
         return new StringNode(key);
     }
 
@@ -123,8 +165,7 @@ internal static class NodeFactory
     /// </summary>
     /// <param name="length">The exteded length information.</param>
     /// <returns>The <see cref="PropertyNode"/> object used for exteded length information.</returns>
-    public static PropertyNode CreateLengthElement(int length)
-    {
+    public static PropertyNode CreateLengthElement(int length) {
         return new IntegerNode(length);
     }
 }
