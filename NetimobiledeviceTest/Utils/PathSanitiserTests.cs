@@ -65,4 +65,12 @@ public class PathSanitiserTests {
         string resultPath = PathSanitiser.SantiseWindowsPath(sourcePath);
         Assert.AreEqual(sourcePath, resultPath);
     }
+
+    [TestMethod]
+    public void HandleMixedPathSeperators() {
+        string sourcePath = "C:\\Users\\User\\70356a/Snapshot/af/af0a461";
+        string resultPath = PathSanitiser.SantiseWindowsPath(sourcePath);
+        string expectedPath = "C:\\Users\\User\\70356a\\Snapshot\\af\\af0a461";
+        Assert.AreEqual(expectedPath, resultPath);
+    }
 }
