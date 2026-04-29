@@ -10,8 +10,7 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Usbmuxd;
 
-internal class UsbmuxdConnectionMonitor(Action<UsbmuxdDevice, UsbmuxdConnectionEventType> callback, Action<Exception>? errorCallback = null, ILogger? logger = null)
-{
+internal class UsbmuxdConnectionMonitor(Action<UsbmuxdDevice, UsbmuxdConnectionEventType> callback, Action<Exception>? errorCallback = null, ILogger? logger = null) {
     private readonly Action<UsbmuxdDevice, UsbmuxdConnectionEventType> _callback = callback;
     private readonly ConcurrentDictionary<long, UsbmuxdDevice> _connectedDevices = [];
     private readonly Action<Exception>? _errorCallback = errorCallback;
@@ -24,49 +23,48 @@ internal class UsbmuxdConnectionMonitor(Action<UsbmuxdDevice, UsbmuxdConnectionE
 
     private Task? _connectionMonitorTask;
 
-    private void AddDevice(UsbmuxdDevice usbmuxdDevice)
-    {
+    private void AddDevice(UsbmuxdDevice usbmuxdDevice) {
         _connectedDevices.TryAdd(usbmuxdDevice.DeviceId, usbmuxdDevice);
         _callback(usbmuxdDevice, UsbmuxdConnectionEventType.Add);
     }
 
-    private async Task ConnectionListener()
-    {
-        CancellationToken cancellationToken = _cancellationTokenSource.Token;
+    private async Task ConnectionListener() {
+        CancellationToken ct = _cancellationTokenSource.Token;
         do {
-            UsbmuxConnection muxConnection;
-            try {
-                muxConnection = UsbmuxConnection.Create(logger: _logger);
-            }
-            catch (UsbmuxConnectionException ex) {
-                _errorCallback?.Invoke(ex);
-                _logger?.LogWarning(ex, "Issue trying to create UsbmuxConnection");
+            using (CancellationTokenSource localCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(ct)) {
+                UsbmuxConnection muxConnection;
+                try {
+                    muxConnection = UsbmuxConnection.Create(logger: _logger);
+                }
+                catch (UsbmuxConnectionException ex) {
+                    _errorCallback?.Invoke(ex);
+                    _logger?.LogWarning(ex, "Issue trying to create UsbmuxConnection");
 
-                // Put a delay here so that it doesn't immedietly retry creating the UsbmuxConnection
-                await Task.Delay(500).ConfigureAwait(false);
-                continue;
-            }
+                    // Put a delay here so that it doesn't immedietly retry creating the UsbmuxConnection
+                    await Task.Delay(500).ConfigureAwait(false);
+                    continue;
+                }
 
-            UsbmuxdResult usbmuxError = await muxConnection.ListenAsync(cancellationToken).ConfigureAwait(false);
-            if (usbmuxError != UsbmuxdResult.Ok) {
-                continue;
-            }
+                UsbmuxdResult usbmuxError = await muxConnection.ListenAsync(localCancellationTokenSource.Token).ConfigureAwait(false);
+                if (usbmuxError != UsbmuxdResult.Ok) {
+                    continue;
+                }
 
-            while (!cancellationToken.IsCancellationRequested) {
-                UsbmuxdResult result = await GetAndProcessNextEvent(muxConnection, cancellationToken).ConfigureAwait(false);
-                if (result != UsbmuxdResult.Ok) {
-                    break;
+                while (!localCancellationTokenSource.Token.IsCancellationRequested) {
+                    UsbmuxdResult result = await GetAndProcessNextEvent(muxConnection, localCancellationTokenSource.Token).ConfigureAwait(false);
+                    if (result != UsbmuxdResult.Ok) {
+                        break;
+                    }
                 }
             }
-        } while (!cancellationToken.IsCancellationRequested);
+        } while (!ct.IsCancellationRequested);
     }
 
     /// <summary>
     /// Waits for an event to occur, i.e. a packet coming from usbmuxd.
     /// Calls GenerateEvent to pass the event via callback to the client program.
     /// </summary>
-    private async Task<UsbmuxdResult> GetAndProcessNextEvent(UsbmuxConnection connection, CancellationToken cancellationToken = default)
-    {
+    private async Task<UsbmuxdResult> GetAndProcessNextEvent(UsbmuxConnection connection, CancellationToken cancellationToken = default) {
         UsbmuxPacket packet = await connection.ReceiveAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
         if (packet.Header.Length <= 0) {
             if (!cancellationToken.IsCancellationRequested) {
@@ -138,8 +136,7 @@ internal class UsbmuxdConnectionMonitor(Action<UsbmuxdDevice, UsbmuxdConnectionE
         return UsbmuxdResult.Ok;
     }
 
-    private void PairedDevice(long deviceId)
-    {
+    private void PairedDevice(long deviceId) {
         if (_connectedDevices.TryGetValue(deviceId, out UsbmuxdDevice? device)) {
             _callback(device, UsbmuxdConnectionEventType.Paired);
         }
@@ -148,8 +145,7 @@ internal class UsbmuxdConnectionMonitor(Action<UsbmuxdDevice, UsbmuxdConnectionE
         }
     }
 
-    private void RemoveDevice(long deviceId)
-    {
+    private void RemoveDevice(long deviceId) {
         if (_connectedDevices.TryRemove(deviceId, out UsbmuxdDevice? device)) {
             _callback(device, UsbmuxdConnectionEventType.Remove);
         }
@@ -158,16 +154,14 @@ internal class UsbmuxdConnectionMonitor(Action<UsbmuxdDevice, UsbmuxdConnectionE
         }
     }
 
-    public void Start()
-    {
+    public void Start() {
         if (_connectionMonitorTask == null) {
             _cancellationTokenSource = new CancellationTokenSource();
             _connectionMonitorTask = Task.Run(ConnectionListener, _cancellationTokenSource.Token);
         }
     }
 
-    public void Stop()
-    {
+    public void Stop() {
         _cancellationTokenSource.Cancel();
         _connectionMonitorTask = null;
     }

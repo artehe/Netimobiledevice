@@ -86,31 +86,34 @@ public sealed class NotificationProxyService(
 
     private async Task NotificationListener() {
         Service.SetTimeout(5000);
+        CancellationToken ct = _cancellationTokenSource.Token;
         do {
-            try {
-                string? notification = await GetNotificationAsync(_cancellationTokenSource.Token).ConfigureAwait(false);
-                if (!string.IsNullOrEmpty(notification)) {
-                    ReceivedNotification?.Invoke(this, new ReceivedNotificationEventArgs(notification, this.Lockdown.Udid));
+            using (CancellationTokenSource localCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(ct)) {
+                try {
+                    string? notification = await GetNotificationAsync(localCancellationTokenSource.Token).ConfigureAwait(false);
+                    if (!string.IsNullOrEmpty(notification)) {
+                        ReceivedNotification?.Invoke(this, new ReceivedNotificationEventArgs(notification, this.Lockdown.Udid));
+                    }
                 }
-            }
-            catch (IOException ex) {
-                Logger.LogDebug(ex, "Recieved IO exception");
-            }
-            catch (ObjectDisposedException) {
-                // If the object is disposed the most likely reason is that the service is closed
-                break;
-            }
-            catch (TimeoutException) {
-                Logger.LogDebug("No notifications received yet, trying again");
-            }
-            catch (Exception ex) {
-                if (!_cancellationTokenSource.Token.IsCancellationRequested) {
-                    Logger.LogError(ex, "Notification proxy listener has an error");
-                    throw;
+                catch (IOException ex) {
+                    Logger.LogDebug(ex, "Recieved IO exception");
                 }
+                catch (ObjectDisposedException) {
+                    // If the object is disposed the most likely reason is that the service is closed
+                    break;
+                }
+                catch (TimeoutException) {
+                    Logger.LogDebug("No notifications received yet, trying again");
+                }
+                catch (Exception ex) {
+                    if (!localCancellationTokenSource.Token.IsCancellationRequested) {
+                        Logger.LogError(ex, "Notification proxy listener has an error");
+                        throw;
+                    }
+                }
+                await Task.Delay(200, localCancellationTokenSource.Token).ConfigureAwait(false);
             }
-            await Task.Delay(200, _cancellationTokenSource.Token).ConfigureAwait(false);
-        } while (!_cancellationTokenSource.Token.IsCancellationRequested);
+        } while (!ct.IsCancellationRequested);
     }
 
     /// <summary>

@@ -78,6 +78,10 @@ public class ServiceConnection : IDisposable {
             throw new NoDeviceConnectedException();
         }
         Socket sock = targetDevice.Connect(port, usbmuxAddress: usbmuxAddress, logger);
+        sock.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+        sock.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveTime, 30);
+        sock.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveInterval, 10);
+        sock.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveRetryCount, 3);
         return new ServiceConnection(sock, logger ?? NullLogger.Instance, targetDevice);
     }
 
@@ -90,6 +94,10 @@ public class ServiceConnection : IDisposable {
             throw new NoDeviceConnectedException();
         }
         Socket sock = await targetDevice.ConnectAsync(port, usbmuxAddress: usbmuxAddress, logger).ConfigureAwait(false);
+        sock.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+        sock.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveTime, 30);
+        sock.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveInterval, 10);
+        sock.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveRetryCount, 3);
         return new ServiceConnection(sock, logger ?? NullLogger.Instance, targetDevice);
     }
 
@@ -153,18 +161,20 @@ public class ServiceConnection : IDisposable {
             if (Stream.ReadTimeout != -1) {
                 CancellationTokenSource localTaskComplete = new CancellationTokenSource(Stream.ReadTimeout);
                 CancellationTokenSource linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(localTaskComplete.Token, cancellationToken);
-                try {
-                    bytesRead = await Stream.ReadAsync(buffer.AsMemory(totalBytesRead, readSize), linkedCancellationTokenSource.Token).ConfigureAwait(false);
-                    if (bytesRead == 0) {
-                        _logger.LogError("Read zero bytes so the connection has been broken");
-                        break;
+                using (linkedCancellationTokenSource) {
+                    try {
+                        bytesRead = await Stream.ReadAsync(buffer.AsMemory(totalBytesRead, readSize), linkedCancellationTokenSource.Token).ConfigureAwait(false);
+                        if (bytesRead == 0) {
+                            _logger.LogError("Read zero bytes so the connection has been broken");
+                            break;
+                        }
                     }
-                }
-                catch (OperationCanceledException) {
-                    if (localTaskComplete.IsCancellationRequested) {
-                        throw new TimeoutException("Timeout waiting for message from service");
+                    catch (OperationCanceledException) {
+                        if (localTaskComplete.IsCancellationRequested) {
+                            throw new TimeoutException("Timeout waiting for message from service");
+                        }
+                        throw;
                     }
-                    throw;
                 }
             }
             else {
