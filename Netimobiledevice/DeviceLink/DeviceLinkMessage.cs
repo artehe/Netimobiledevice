@@ -3,8 +3,7 @@
 /// <summary>
 /// DeviceLink Messages received from the device during the backup process.
 /// </summary>
-internal class DeviceLinkMessage
-{
+internal class DeviceLinkMessage {
     /// <summary>
     /// The device asks to receive files from the host.
     /// </summary>
@@ -57,5 +56,8 @@ internal class DeviceLinkMessage
     /// <summary>
     /// The device tells the host how many disk space it requires so the host can try to make room.
     /// </summary>
+    /// <remarks>
+    /// iOS 26 sends DLMessagePurgeDiskSpace as a routine pre-backup space check, not as a signal that the host is actually out of space.
+    /// </remarks>
     public const string PurgeDiskSpace = "DLMessagePurgeDiskSpace";
 }

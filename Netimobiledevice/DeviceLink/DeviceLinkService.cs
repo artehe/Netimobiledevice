@@ -101,6 +101,7 @@ internal sealed class DeviceLinkService : IDisposable {
             { DeviceLinkMessage.Disconnect, DisconnectAsync },
             { DeviceLinkMessage.DownloadFiles, DownloadFiles },
             { DeviceLinkMessage.GetFreeDiskSpace, GetFreeDiskSpace },
+            { DeviceLinkMessage.PurgeDiskSpace, GetFreeDiskSpace },
             { DeviceLinkMessage.MoveFiles, MoveItems },
             { DeviceLinkMessage.MoveItems, MoveItems },
             { DeviceLinkMessage.RemoveFiles, RemoveItems },
@@ -645,24 +646,29 @@ internal sealed class DeviceLinkService : IDisposable {
 
             string command = message[0].AsStringNode().Value;
             _logger.LogDebug("Command recieved: {command}", command);
-            if (command == DeviceLinkMessage.ProcessMessage) {
-                if (message[1].AsDictionaryNode()["ErrorCode"].AsIntegerNode().Value != (ulong) ResultCode.Success) {
-                    throw new DeviceLinkException($"Device link error: {PropertyList.SaveAsString(message[1], PlistFormat.Xml)}");
+            switch (command) {
+                case DeviceLinkMessage.ProcessMessage: {
+                    if (message[1].AsDictionaryNode()["ErrorCode"].AsIntegerNode().Value != (ulong) ResultCode.Success) {
+                        throw new DeviceLinkException($"Device link error: {PropertyList.SaveAsString(message[1], PlistFormat.Xml)}");
+                    }
+                    Completed?.Invoke(this, new BackupResultEventArgs(FailedFiles, false, false));
+                    return ResultCode.Success;
                 }
-                Completed?.Invoke(this, new BackupResultEventArgs(FailedFiles, false, false));
-                return ResultCode.Success;
-            }
-            else if (command == DeviceLinkMessage.GetFreeDiskSpace) {
-                // We don't do anything specific for this command we just don't want to update progress as there isn't any attached to this message.
-            }
-            else if (command == DeviceLinkMessage.PurgeDiskSpace) {
-                throw new DiskSpacePurgeException($"Device requested {message[1].AsIntegerNode().SignedValue} bytes of disk space, but the host could not free enough space.");
-            }
-            else if (command == DeviceLinkMessage.UploadFiles) {
-                UpdateProgressForMessage(message[2].AsRealNode());
-            }
-            else {
-                UpdateProgressForMessage(message[3].AsRealNode());
+
+                case DeviceLinkMessage.UploadFiles: {
+                    UpdateProgressForMessage(message[2].AsRealNode());
+                    break;
+                }
+
+                case DeviceLinkMessage.GetFreeDiskSpace: {
+                    // We don't do anything specific for this, so just skip
+                    break;
+                }
+
+                default: {
+                    UpdateProgressForMessage(message[3].AsRealNode());
+                    break;
+                }
             }
 
             await DeviceLinkHandlers[command](message, _internalCancellationTokenSource.Token).ConfigureAwait(false);
