@@ -705,12 +705,13 @@ internal sealed class DeviceLinkService : IDisposable {
     public async Task VersionExchange(ulong versionMajor, ulong versionMinor, CancellationToken cancellationToken) {
         // Get DLMessageVersionExchange from device
         ArrayNode versionExchangeMessage = await ReceiveMessage(cancellationToken);
+        if (versionExchangeMessage.Count < 3) {
+            throw new DeviceLinkException("DLMessageVersionExchange has unexpected format (size < 3)");
+        }
+
         string dlMessage = versionExchangeMessage[0].AsStringNode().Value;
         if (string.IsNullOrEmpty(dlMessage) || dlMessage != "DLMessageVersionExchange") {
             throw new DeviceLinkException("Didn't receive DLMessageVersionExchange from device");
-        }
-        if (versionExchangeMessage.Count < 3) {
-            throw new DeviceLinkException("DLMessageVersionExchange has unexpected format");
         }
 
         // Get major and minor version number
