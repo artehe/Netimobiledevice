@@ -279,7 +279,7 @@ public class ServiceConnection : IDisposable {
         try {
             _sslStream.AuthenticateAsClient(string.Empty, [certificate], SslProtocols.None, false);
         }
-        catch (AuthenticationException ex) {
+        catch (Exception ex) {
             _logger.LogError(ex, "SSL authentication failed");
             return false;
         }
