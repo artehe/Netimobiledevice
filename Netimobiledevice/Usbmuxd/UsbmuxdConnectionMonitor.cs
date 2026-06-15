@@ -4,6 +4,7 @@ using Netimobiledevice.Usbmuxd.Responses;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Channels;
@@ -198,7 +199,12 @@ public sealed class UsbmuxdConnectionMonitor(Action<Exception>? errorCallback = 
         _connectionMonitorTask = null;
     }
 
-    public IAsyncEnumerable<UsbmuxdConnectionEvent> WatchAsync(CancellationToken cancellationToken = default) {
-        return _events.Reader.ReadAllAsync(cancellationToken);
+    public async IAsyncEnumerable<UsbmuxdConnectionEvent> WatchAsync([EnumeratorCancellation] CancellationToken cancellationToken = default) {
+        while (!cancellationToken.IsCancellationRequested) {
+            await foreach (UsbmuxdConnectionEvent connectionEvent in _events.Reader.ReadAllAsync(cancellationToken)) {
+                yield return connectionEvent;
+            }
+            await Task.Delay(200, cancellationToken);
+        }
     }
 }
