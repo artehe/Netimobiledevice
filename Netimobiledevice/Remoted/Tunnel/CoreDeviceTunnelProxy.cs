@@ -1,4 +1,5 @@
 ﻿using Netimobiledevice.Lockdown;
+using System;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Remoted.Tunnel;
@@ -21,6 +22,11 @@ public class CoreDeviceTunnelProxy(LockdownServiceProvider lockdown) : StartTcpT
         RemotePairingTcpTunnel tunnel = new RemotePairingTcpTunnel(_service.Stream);
         EstablishTunnelResponse handshakeResponse = tunnel.RequestTunnelEstablish();
         tunnel.StartTunnel(handshakeResponse.ClientParameters.Address, handshakeResponse.ClientParameters.Mtu);
-        return new TunnelResult(tunnel.Tun.Name, handshakeResponse.ServerAddress, handshakeResponse.ServerRSDPort, TunnelProtocol.Tcp, tunnel);
+
+        string tunnelName = string.Empty;
+        if (OperatingSystem.IsWindows()) {
+            tunnelName = tunnel.Tun?.Name ?? string.Empty;
+        }
+        return new TunnelResult(tunnelName, handshakeResponse.ServerAddress, handshakeResponse.ServerRSDPort, TunnelProtocol.Tcp, tunnel);
     }
 }

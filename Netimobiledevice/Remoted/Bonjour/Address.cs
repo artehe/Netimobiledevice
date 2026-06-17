@@ -11,7 +11,7 @@ public class Address(string ip, string @interface) {
 
     public string FullIp {
         get {
-            if (Interface != null && Ip.StartsWith("fe80:", StringComparison.OrdinalIgnoreCase)) {
+            if (!string.IsNullOrEmpty(Interface) && Ip.StartsWith("fe80:", StringComparison.OrdinalIgnoreCase)) {
                 return $"{Ip}%{Interface}";
             }
             return Ip;

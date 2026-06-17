@@ -32,8 +32,6 @@ public class Program {
         };
         Console.WriteLine("Press Ctrl+C to cancel the operation.");
 
-        Usbmux.Subscribe(SubscriptionCallback, SubscriptionErrorCallback, logger);
-
         List<UsbmuxdDevice> devices = Usbmux.GetDeviceList();
         if (devices.Count == 0) {
             logger.LogError("No device is connected to the system.");
@@ -159,17 +157,6 @@ public class Program {
 
     private static void Progress_ProgressChanged(object? sender, PairingState e) {
         Console.WriteLine($"Pair Progress Changed: {e}");
-    }
-
-    private static void SubscriptionCallback(UsbmuxdDevice device, UsbmuxdConnectionEventType connectionEvent) {
-        Console.WriteLine("NewCallbackExecuted");
-        Console.WriteLine($"Connection event: {connectionEvent}");
-        Console.WriteLine($"Device: {device.DeviceId} - {device.Serial}");
-    }
-
-    private static void SubscriptionErrorCallback(Exception ex) {
-        Console.WriteLine("NewErrorCallbackExecuted");
-        Console.WriteLine(ex.Message);
     }
 
     private static async Task Remoted(ILogger logger) {

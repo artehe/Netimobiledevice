@@ -7,8 +7,7 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Remoted.Tunnel;
 
-public abstract class RemotePairingTunnel
-{
+public abstract class RemotePairingTunnel {
     private CancellationTokenSource cts = new();
     private Task? _tunReadTask;
 
@@ -18,12 +17,10 @@ public abstract class RemotePairingTunnel
 
     public abstract bool IsTunnelClosed { get; }
 
-    public RemotePairingTunnel()
-    {
+    public RemotePairingTunnel() {
     }
 
-    private async Task TunReadTask(CancellationToken cancellationToken)
-    {
+    private async Task TunReadTask(CancellationToken cancellationToken) {
         if (OperatingSystem.IsWindows()) {
             byte[] packet = Tun == null ? [] : await Tun.ReadAsync(cancellationToken).ConfigureAwait(false);
             await SendPacketToDevice(packet).ConfigureAwait(false);
@@ -33,20 +30,19 @@ public abstract class RemotePairingTunnel
         }
     }
 
-    public byte[] EncodeCdtunnelPacket(Dictionary<string, object> data)
-    {
+    public byte[] EncodeCdtunnelPacket(Dictionary<string, object> data) {
         return new CDTunnelPacket(JsonSerializer.Serialize(data)).GetBytes();
     }
 
-    public virtual void StartTunnel(string address, uint mtu)
-    {
+    public virtual void StartTunnel(string address, uint mtu) {
         cts = new CancellationTokenSource();
 
-        Tun = new TunTapDevice();
-        Tun.SetAddress(address);
-        Tun.Mtu = mtu;
-
-        Tun.Up();
+        if (OperatingSystem.IsWindows()) {
+            Tun = new TunTapDevice();
+            Tun.SetAddress(address);
+            Tun.Mtu = mtu;
+            Tun.Up();
+        }
         _tunReadTask = Task.Run(() => TunReadTask(cts.Token));
     }
 
@@ -56,11 +52,13 @@ public abstract class RemotePairingTunnel
 
     public abstract EstablishTunnelResponse RequestTunnelEstablish();
 
-    public void StopTunnel()
-    {
+    public void StopTunnel() {
         Debug.WriteLine("Stopping tunnel");
         cts.Cancel();
-        Tun?.Close();
+
+        if (OperatingSystem.IsWindows()) {
+            Tun?.Close();
+        }
         Tun = null;
     }
 }
