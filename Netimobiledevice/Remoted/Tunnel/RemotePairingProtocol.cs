@@ -82,7 +82,7 @@ public abstract class RemotePairingProtocol : StartTcpTunnel {
         return true;
     }
 
-    public async Task ConnectAsync(bool autopair = true) {
+    public virtual async Task ConnectAsync(bool autopair = true) {
         await AttemptPairVerifyAsync();
 
         if (await ValidatePairingAsync()) {

@@ -30,21 +30,16 @@ public class RemotePairingTunnelService : RemotePairingProtocol {
         Port = port;
     }
 
-    public async Task ConnectAsync(
-        bool autopair = true,
-        CancellationToken cancellationToken = default
-    ) {
+    public override async Task ConnectAsync(bool autopair = true) {
         _client = new TcpClient();
         using (CancellationTokenSource timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(TIMEOUT))) {
-            using (CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token)) {
-                try {
-                    await _client.ConnectAsync(Hostname, Port, linkedCts.Token);
-                    _stream = _client.GetStream();
-                }
-                catch {
-                    await CloseAsync();
-                    throw;
-                }
+            try {
+                await _client.ConnectAsync(Hostname, Port, timeoutCts.Token);
+                _stream = _client.GetStream();
+            }
+            catch {
+                await CloseAsync();
+                throw;
             }
         }
 
