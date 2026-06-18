@@ -7,26 +7,22 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown;
 
-public class UsbmuxLockdownClient : LockdownClient
-{
+public class UsbmuxLockdownClient : LockdownClient {
     private readonly string _usbmuxAddress;
 
     public UsbmuxLockdownClient(ServiceConnection service, string hostId, string identifier = "", string label = DEFAULT_CLIENT_NAME, string systemBuid = SYSTEM_BUID,
         DictionaryNode? pairRecord = null, DirectoryInfo? pairingRecordsCacheDirectory = null, ushort port = SERVICE_PORT, string usbmuxAddress = "", ILogger? logger = null)
-        : base(service, hostId, identifier, label, systemBuid, pairRecord, pairingRecordsCacheDirectory, port, logger)
-    {
+        : base(service, hostId, identifier, label, systemBuid, pairRecord, pairingRecordsCacheDirectory, port, logger) {
         _usbmuxAddress = usbmuxAddress;
         ConnectionType = UsbmuxdConnectionType.Usb;
     }
 
-    public override ServiceConnection CreateServiceConnection(ushort port)
-    {
-        return ServiceConnection.CreateUsingUsbmux(Identifier, port, _service?.MuxDevice?.ConnectionType, _usbmuxAddress, Logger);
+    public override ServiceConnection CreateServiceConnection(ushort port) {
+        return ServiceConnection.CreateUsingUsbmux(Identifier, port, _service?.MuxDevice?.ConnectionType, _usbmuxAddress, logger: Logger);
     }
 
-    public override async Task<ServiceConnection> CreateServiceConnectionAsync(ushort port)
-    {
-        return await ServiceConnection.CreateUsingUsbmuxAsync(Identifier, port, _service?.MuxDevice?.ConnectionType, _usbmuxAddress, Logger).ConfigureAwait(false);
+    public override async Task<ServiceConnection> CreateServiceConnectionAsync(ushort port) {
+        return await ServiceConnection.CreateUsingUsbmuxAsync(Identifier, port, _service?.MuxDevice?.ConnectionType, _usbmuxAddress, logger: Logger).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -45,8 +41,7 @@ public class UsbmuxLockdownClient : LockdownClient
     /// <returns>A new LockdownClient instance</returns>
     public static UsbmuxLockdownClient Create(ServiceConnection service, string identifier = "", string systemBuid = SYSTEM_BUID, string label = DEFAULT_CLIENT_NAME,
         bool autopair = true, float? pairTimeout = null, string localHostname = "", DictionaryNode? pairRecord = null, string pairingRecordsCacheFolder = "",
-        ushort port = SERVICE_PORT, string usbmuxAddress = "", ILogger? logger = null)
-    {
+        ushort port = SERVICE_PORT, string usbmuxAddress = "", ILogger? logger = null) {
         string hostId = PairRecords.GenerateHostId(localHostname);
         DirectoryInfo? pairingRecordsCacheDirectory = PairRecords.GetPairingRecordsCacheFolder(pairingRecordsCacheFolder);
 
@@ -57,8 +52,7 @@ public class UsbmuxLockdownClient : LockdownClient
         return lockdownClient;
     }
 
-    protected override void FetchPairRecord()
-    {
+    protected override void FetchPairRecord() {
         _pairRecord = PairRecords.GetPreferredPairRecord(Identifier, _pairingRecordsCacheDirectory, usbmuxAddress: _usbmuxAddress, logger: Logger);
     }
 }

@@ -36,6 +36,7 @@ public class ServiceConnection : IDisposable {
     /// property instead
     /// </summary>
     private SslStream? _sslStream;
+    private int _timeout = Timeout.Infinite;
 
     public UsbmuxdDevice? MuxDevice { get; private set; }
 
@@ -47,29 +48,47 @@ public class ServiceConnection : IDisposable {
 
     public Stream Stream => _sslStream != null ? _sslStream : _networkStream;
 
-    private ServiceConnection(Socket sock, ILogger logger, UsbmuxdDevice? muxDevice = null) {
+    private ServiceConnection(Socket sock, int timeout, ILogger logger, UsbmuxdDevice? muxDevice = null) {
         _logger = logger;
-        _networkStream = new NetworkStream(sock, true);
+        _timeout = timeout;
+        _networkStream = new NetworkStream(sock, true) {
+            ReadTimeout = _timeout,
+            WriteTimeout = _timeout
+        };
 
         // Usbmux connections contain additional information associated with the current connection
         MuxDevice = muxDevice;
     }
 
-    internal static ServiceConnection CreateUsingTcp(string hostname, ushort port, ILogger? logger = null) {
+    internal static ServiceConnection CreateUsingTcp(string hostname, ushort port, int timeout = 10_000, ILogger? logger = null) {
         IPAddress ip = IPAddress.Parse(hostname);
         Socket sock = new Socket(SocketType.Stream, ProtocolType.IP);
         sock.Connect(ip, port);
-        return new ServiceConnection(sock, logger ?? NullLogger.Instance);
+        return new ServiceConnection(sock, timeout, logger ?? NullLogger.Instance);
     }
 
-    internal static async Task<ServiceConnection> CreateUsingTcpAsync(string hostname, ushort port, ILogger? logger = null) {
+    internal static async Task<ServiceConnection> CreateUsingTcpAsync(string hostname, ushort port, int timeout = 10_000, ILogger? logger = null) {
         IPAddress ip = IPAddress.Parse(hostname);
         Socket sock = new Socket(SocketType.Stream, ProtocolType.IP);
-        await sock.ConnectAsync(ip, port).ConfigureAwait(false);
-        return new ServiceConnection(sock, logger ?? NullLogger.Instance);
+
+        using (CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(timeout))) {
+            try {
+                await sock.ConnectAsync(ip, port).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) {
+                sock.Dispose();
+                throw new SocketException((int) SocketError.TimedOut);
+            }
+            catch {
+                sock.Dispose();
+                throw;
+            }
+        }
+
+        return new ServiceConnection(sock, timeout, logger ?? NullLogger.Instance);
     }
 
-    internal static ServiceConnection CreateUsingUsbmux(string udid, ushort port, UsbmuxdConnectionType? connectionType = null, string usbmuxAddress = "", ILogger? logger = null) {
+    internal static ServiceConnection CreateUsingUsbmux(string udid, ushort port, UsbmuxdConnectionType? connectionType = null, string usbmuxAddress = "", int timeout = 10_000, ILogger? logger = null) {
         UsbmuxdDevice? targetDevice = Usbmux.GetDevice(udid, connectionType: connectionType, usbmuxAddress: usbmuxAddress);
         if (targetDevice == null) {
             if (!string.IsNullOrEmpty(udid)) {
@@ -78,10 +97,10 @@ public class ServiceConnection : IDisposable {
             throw new NoDeviceConnectedException();
         }
         Socket sock = targetDevice.Connect(port, usbmuxAddress: usbmuxAddress, logger);
-        return new ServiceConnection(sock, logger ?? NullLogger.Instance, targetDevice);
+        return new ServiceConnection(sock, timeout, logger ?? NullLogger.Instance, targetDevice);
     }
 
-    internal static async Task<ServiceConnection> CreateUsingUsbmuxAsync(string udid, ushort port, UsbmuxdConnectionType? connectionType = null, string usbmuxAddress = "", ILogger? logger = null) {
+    internal static async Task<ServiceConnection> CreateUsingUsbmuxAsync(string udid, ushort port, UsbmuxdConnectionType? connectionType = null, string usbmuxAddress = "", int timeout = 10_000, ILogger? logger = null) {
         UsbmuxdDevice? targetDevice = Usbmux.GetDevice(udid, connectionType: connectionType, usbmuxAddress: usbmuxAddress);
         if (targetDevice == null) {
             if (!string.IsNullOrEmpty(udid)) {
@@ -90,7 +109,7 @@ public class ServiceConnection : IDisposable {
             throw new NoDeviceConnectedException();
         }
         Socket sock = await targetDevice.ConnectAsync(port, usbmuxAddress: usbmuxAddress, logger).ConfigureAwait(false);
-        return new ServiceConnection(sock, logger ?? NullLogger.Instance, targetDevice);
+        return new ServiceConnection(sock, timeout, logger ?? NullLogger.Instance, targetDevice);
     }
 
     private bool UserCertificateValidationCallback(object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors) {
@@ -264,7 +283,11 @@ public class ServiceConnection : IDisposable {
     /// Set a value in milliseconds, that determines how long the service connection will attempt to read/write for before timing out
     /// </summary>
     /// <param name="timeout">A value in milliseconds that detemines how long the service connection will wait before timing out</param>
-    public void SetTimeout(int timeout = -1) {
+    public void SetTimeout(int timeout = Timeout.Infinite) {
+        // Update the internal timeout
+        _timeout = timeout;
+
+        // Update the currently active stream to use these timeouts.
         Stream.ReadTimeout = timeout;
         Stream.WriteTimeout = timeout;
     }
@@ -275,8 +298,12 @@ public class ServiceConnection : IDisposable {
         }
         _networkStream.Flush();
 
-        _sslStream = new SslStream(_networkStream, true, UserCertificateValidationCallback, null, EncryptionPolicy.RequireEncryption);
+        _sslStream = new SslStream(_networkStream, true, UserCertificateValidationCallback, null, EncryptionPolicy.RequireEncryption) {
+            ReadTimeout = _timeout,
+            WriteTimeout = _timeout
+        };
         try {
+            // TLS v1.2 is supported since iOS 5 so we should specify this as a minimum
             _sslStream.AuthenticateAsClient(string.Empty, [certificate], SslProtocols.None, false);
         }
         catch (Exception ex) {
@@ -293,10 +320,13 @@ public class ServiceConnection : IDisposable {
         }
         await _networkStream.FlushAsync().ConfigureAwait(false);
 
-        _sslStream = new SslStream(_networkStream, true, UserCertificateValidationCallback, null, EncryptionPolicy.RequireEncryption);
+        _sslStream = new SslStream(_networkStream, true, UserCertificateValidationCallback, null, EncryptionPolicy.RequireEncryption) {
+            ReadTimeout = _timeout,
+            WriteTimeout = _timeout
+        };
         try {
             // TLS v1.2 is supported since iOS 5 so we should specify this as a minimum
-            _sslStream.AuthenticateAsClient(string.Empty, [certificate], SslProtocols.Tls12 | SslProtocols.Tls13, false);
+            await _sslStream.AuthenticateAsClientAsync(string.Empty, [certificate], SslProtocols.Tls12 | SslProtocols.Tls13, false);
         }
         catch (AuthenticationException ex) {
             _logger.LogError(ex, "SSL authentication failed");

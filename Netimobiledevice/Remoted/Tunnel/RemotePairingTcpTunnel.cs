@@ -1,4 +1,5 @@
 ﻿using Netimobiledevice.EndianBitConversion;
+using Netimobiledevice.Serialisation;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -61,10 +62,10 @@ public class RemotePairingTcpTunnel : RemotePairingTunnel {
 
         byte[] buffer = new byte[REQUESTED_MTU];
         _stream.ReadExactly(buffer);
+
         string jsonString = CDTunnelPacket.Parse(buffer).JsonBody;
-        return JsonSerializer.Deserialize<EstablishTunnelResponse>(jsonString, new JsonSerializerOptions {
-            PropertyNameCaseInsensitive = true
-        });
+        EstablishTunnelResponse? response = JsonSerializer.Deserialize(jsonString, InternalJsonSerialisationContext.Default.EstablishTunnelResponse);
+        return response is null ? throw new NetimobiledeviceException("EstablishTunnelResponse is null") : response;
     }
 
     public override async Task SendPacketToDevice(byte[] packet) {

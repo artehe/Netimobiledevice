@@ -6,8 +6,7 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice;
 
-public static class MobileDevice
-{
+public static class MobileDevice {
     /// <summary>
     /// Create a UsbmuxLockdownClient
     /// </summary>
@@ -25,9 +24,8 @@ public static class MobileDevice
     /// <returns></returns>
     public static UsbmuxLockdownClient CreateUsingUsbmux(string serial = "", string identifier = "", string label = LockdownClient.DEFAULT_CLIENT_NAME,
         bool autopair = true, UsbmuxdConnectionType? connectionType = null, float? pairTimeout = null, string localHostname = "", DictionaryNode? pairRecord = null,
-        string pairingRecordsCacheDir = "", ushort port = LockdownClient.SERVICE_PORT, string usbmuxAddress = "", ILogger? logger = null)
-    {
-        ServiceConnection service = ServiceConnection.CreateUsingUsbmux(serial, port, connectionType: connectionType, usbmuxAddress: usbmuxAddress, logger);
+        string pairingRecordsCacheDir = "", ushort port = LockdownClient.SERVICE_PORT, string usbmuxAddress = "", ILogger? logger = null) {
+        ServiceConnection service = ServiceConnection.CreateUsingUsbmux(serial, port, connectionType: connectionType, usbmuxAddress: usbmuxAddress, logger: logger);
 
         string systemBuid = string.Empty;
 
@@ -72,9 +70,8 @@ public static class MobileDevice
     /// <returns></returns>
     public static async Task<UsbmuxLockdownClient> CreateUsingUsbmuxAsync(string serial = "", string identifier = "", string label = LockdownClient.DEFAULT_CLIENT_NAME,
         bool autopair = true, UsbmuxdConnectionType? connectionType = null, float? pairTimeout = null, string localHostname = "", DictionaryNode? pairRecord = null,
-        string pairingRecordsCacheDir = "", ushort port = LockdownClient.SERVICE_PORT, string usbmuxAddress = "", ILogger? logger = null)
-    {
-        ServiceConnection service = await ServiceConnection.CreateUsingUsbmuxAsync(serial, port, connectionType: connectionType, usbmuxAddress: usbmuxAddress, logger).ConfigureAwait(false);
+        string pairingRecordsCacheDir = "", ushort port = LockdownClient.SERVICE_PORT, string usbmuxAddress = "", ILogger? logger = null) {
+        ServiceConnection service = await ServiceConnection.CreateUsingUsbmuxAsync(serial, port, connectionType: connectionType, usbmuxAddress: usbmuxAddress, logger: logger).ConfigureAwait(false);
 
         string systemBuid = string.Empty;
 
@@ -117,8 +114,7 @@ public static class MobileDevice
     /// <returns>RemoteLockdownClient instance</returns>
     public static RemoteLockdownClient CreateUsingRemote(ServiceConnection service, string identifier = "", string label = LockdownClient.DEFAULT_CLIENT_NAME,
         bool autopair = true, float? pairTimeout = null, string localHostname = "", DictionaryNode? pairRecord = null, string pairingRecordsCacheDir = "",
-        ushort port = LockdownClient.SERVICE_PORT, ILogger? logger = null)
-    {
+        ushort port = LockdownClient.SERVICE_PORT, ILogger? logger = null) {
         RemoteLockdownClient client = RemoteLockdownClient.Create(service, identifier, label: label, localHostname: localHostname, pairRecord: pairRecord,
             pairingRecordsCacheFolder: pairingRecordsCacheDir, pairTimeout: pairTimeout, autopair: autopair, port: port, logger: logger);
         return client;
@@ -136,37 +132,13 @@ public static class MobileDevice
     /// <param name="pairRecord">Use this pair record instead of the default behavior (search in host/create our own)</param>
     /// <param name="pairingRecordsCacheDir">Use the following location to search and save pair records</param>
     /// <param name="port">lockdownd service port</param>
-    /// <param name="keepAlive">Use keep-alive to get notified when the connection is lost</param>
-    /// <returns></returns>
-    public static TcpLockdownClient CreateUsingTcp(string hostname, string identifier = "", string label = LockdownClient.DEFAULT_CLIENT_NAME, bool autopair = true,
-        float? pairTimeout = null, string localHostname = "", DictionaryNode? pairRecord = null, string pairingRecordsCacheDir = "",
-        ushort port = LockdownClient.SERVICE_PORT, ILogger? logger = null)
-    {
-        ServiceConnection service = ServiceConnection.CreateUsingTcp(hostname, port, logger);
-        TcpLockdownClient client = TcpLockdownClient.Create(service, identifier: identifier, label: label, localHostname: localHostname, pairRecord: pairRecord,
-            pairingRecordsCacheFolder: pairingRecordsCacheDir, pairTimeout: pairTimeout, autopair: autopair, port: port, hostname: hostname, logger: logger);
-        return client;
-    }
-
-    /// <summary>
-    /// Create a TcpLockdownClient
-    /// </summary>
-    /// <param name="hostname">The target device hostname</param>
-    /// <param name="identifier">Used as an identifier to look for the device pair record</param>
-    /// <param name="label">lockdownd user-agent</param>
-    /// <param name="autopair">Attempt to pair with device (blocking) if not already paired</param>
-    /// <param name="pairTimeout">Timeout for autopair</param>
-    /// <param name="localHostname">Used as a seed to generate the HostID</param>
-    /// <param name="pairRecord">Use this pair record instead of the default behavior (search in host/create our own)</param>
-    /// <param name="pairingRecordsCacheDir">Use the following location to search and save pair records</param>
-    /// <param name="port">lockdownd service port</param>
-    /// <param name="keepAlive">Use keep-alive to get notified when the connection is lost</param>
+    /// <param name="connectionTimeout">The timeout to use when connecting to the service in milliseconds; default is 10s</param>
+    /// <param name="logger"></param>
     /// <returns></returns>
     public static async Task<TcpLockdownClient> CreateUsingTcpAsync(string hostname, string identifier = "", string label = LockdownClient.DEFAULT_CLIENT_NAME, bool autopair = true,
         float? pairTimeout = null, string localHostname = "", DictionaryNode? pairRecord = null, string pairingRecordsCacheDir = "",
-        ushort port = LockdownClient.SERVICE_PORT, ILogger? logger = null)
-    {
-        ServiceConnection service = await ServiceConnection.CreateUsingTcpAsync(hostname, port, logger).ConfigureAwait(false);
+        ushort port = LockdownClient.SERVICE_PORT, int connectionTimeout = 10_000, ILogger? logger = null) {
+        ServiceConnection service = await ServiceConnection.CreateUsingTcpAsync(hostname, port, connectionTimeout, logger).ConfigureAwait(false);
         TcpLockdownClient client = TcpLockdownClient.Create(service, identifier: identifier, label: label, localHostname: localHostname, pairRecord: pairRecord,
             pairingRecordsCacheFolder: pairingRecordsCacheDir, pairTimeout: pairTimeout, autopair: autopair, port: port, hostname: hostname, logger: logger);
         return client;

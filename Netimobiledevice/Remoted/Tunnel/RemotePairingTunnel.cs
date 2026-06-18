@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Netimobiledevice.Serialisation;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text.Json;
@@ -31,7 +32,7 @@ public abstract class RemotePairingTunnel {
     }
 
     public byte[] EncodeCdtunnelPacket(Dictionary<string, object> data) {
-        return new CDTunnelPacket(JsonSerializer.Serialize(data)).GetBytes();
+        return new CDTunnelPacket(JsonSerializer.Serialize(data, InternalJsonSerialisationContext.Default.DictionaryStringObject)).GetBytes();
     }
 
     public virtual void StartTunnel(string address, uint mtu) {

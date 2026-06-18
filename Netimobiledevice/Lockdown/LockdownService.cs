@@ -99,7 +99,7 @@ public abstract class LockdownService : IDisposable {
             foreach (Address address in answer.Addresses) {
                 TcpLockdownClient lockdown;
                 try {
-                    lockdown = MobileDevice.CreateUsingTcp(hostname: address.Ip, autopair: false, pairRecord: record);
+                    lockdown = await MobileDevice.CreateUsingTcpAsync(hostname: address.Ip, autopair: false, pairRecord: record);
                 }
                 catch (Exception) {
                     continue;

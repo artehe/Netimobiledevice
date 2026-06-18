@@ -4,8 +4,7 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Remoted.Tunnel;
 
-public abstract class RemotePairingProtocol : StartTcpTunnel
-{
+public abstract class RemotePairingProtocol : StartTcpTunnel {
     private const int WIRE_PROTOCOL_VERSION = 19;
 
     private int _encryptedSequenceNumber;
@@ -20,18 +19,6 @@ public abstract class RemotePairingProtocol : StartTcpTunnel
     public RemotePairingProtocol() : base() {
         _sequenceNumber = 0;
         _encryptedSequenceNumber = 0;
-    }
-
-    private async Task AttemptPairVerifyAsync() {
-        XpcDictionary handshakeData = new() {
-            { "hostOptions", new XpcDictionary() { { "attemptPairVerify", new XpcBool(true) } } },
-            { "wireProtocolVersion",new XpcInt64(WIRE_PROTOCOL_VERSION) },
-        };
-        HandshakeInfo = await SendReceiveHandshakeAsync(handshakeData);
-    }
-
-    private void InitClientServerMainEncryptionKeys() {
-        // TODO
     }
 
     private async Task PairAsync() {
@@ -78,7 +65,19 @@ public abstract class RemotePairingProtocol : StartTcpTunnel
         return await ReceivePlainResponseAsync();
     }
 
-    private async Task<bool> ValidatePairingAsync() {
+    protected async Task AttemptPairVerifyAsync() {
+        XpcDictionary handshakeData = new() {
+            { "hostOptions", new XpcDictionary() { { "attemptPairVerify", new XpcBool(true) } } },
+            { "wireProtocolVersion",new XpcInt64(WIRE_PROTOCOL_VERSION) },
+        };
+        HandshakeInfo = await SendReceiveHandshakeAsync(handshakeData);
+    }
+
+    protected void InitClientServerMainEncryptionKeys() {
+        // TODO
+    }
+
+    protected async Task<bool> ValidatePairingAsync() {
         // TODO
         return true;
     }
@@ -106,8 +105,7 @@ public abstract class RemotePairingProtocol : StartTcpTunnel
 
     public abstract Task SendRequestAsync(XpcDictionary data);
 
-    public async Task<XpcDictionary> SendReceiveRequest(XpcDictionary data)
-    {
+    public async Task<XpcDictionary> SendReceiveRequest(XpcDictionary data) {
         await SendRequestAsync(data).ConfigureAwait(false);
         return await ReceiveResponseAsync().ConfigureAwait(false);
     }

@@ -7,26 +7,22 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown;
 
-public class TcpLockdownClient : LockdownClient
-{
+public class TcpLockdownClient : LockdownClient {
     private readonly string _hostname;
 
     public TcpLockdownClient(ServiceConnection service, string hostId, string hostname = "", string identifier = "", string label = DEFAULT_CLIENT_NAME,
         string systemBuid = SYSTEM_BUID, DictionaryNode? pairRecord = null, DirectoryInfo? pairingRecordsCacheDirectory = null, ushort port = SERVICE_PORT,
-        ILogger? logger = null) : base(service, hostId, identifier, label, systemBuid, pairRecord, pairingRecordsCacheDirectory, port, logger)
-    {
+        ILogger? logger = null) : base(service, hostId, identifier, label, systemBuid, pairRecord, pairingRecordsCacheDirectory, port, logger) {
         _hostname = hostname;
         ConnectionType = UsbmuxdConnectionType.Network;
     }
 
-    public override ServiceConnection CreateServiceConnection(ushort port)
-    {
-        return ServiceConnection.CreateUsingTcp(_hostname, port, Logger);
+    public override ServiceConnection CreateServiceConnection(ushort port) {
+        return ServiceConnection.CreateUsingTcp(_hostname, port, logger: Logger);
     }
 
-    public override async Task<ServiceConnection> CreateServiceConnectionAsync(ushort port)
-    {
-        return await ServiceConnection.CreateUsingTcpAsync(_hostname, port, Logger).ConfigureAwait(false);
+    public override async Task<ServiceConnection> CreateServiceConnectionAsync(ushort port) {
+        return await ServiceConnection.CreateUsingTcpAsync(_hostname, port, logger: Logger).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -45,8 +41,7 @@ public class TcpLockdownClient : LockdownClient
     /// <returns>A new LockdownClient instance</returns>
     public static TcpLockdownClient Create(ServiceConnection service, string hostname = "", string identifier = "", string systemBuid = SYSTEM_BUID, string label = DEFAULT_CLIENT_NAME,
         bool autopair = true, float? pairTimeout = null, string localHostname = "", DictionaryNode? pairRecord = null, string pairingRecordsCacheFolder = "",
-        ushort port = SERVICE_PORT, ILogger? logger = null)
-    {
+        ushort port = SERVICE_PORT, ILogger? logger = null) {
         string hostId = PairRecords.GenerateHostId(localHostname);
         DirectoryInfo? pairingRecordsCacheDirectory = PairRecords.GetPairingRecordsCacheFolder(pairingRecordsCacheFolder);
 
