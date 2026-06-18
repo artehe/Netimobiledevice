@@ -1,4 +1,5 @@
 ﻿using Netimobiledevice.Remoted.Tunnel;
+using Netimobiledevice.Remoted.Xpc;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
@@ -6,6 +7,7 @@ namespace Netimobiledevice.Serialisation;
 
 [JsonSerializable(typeof(Dictionary<string, object>))]
 [JsonSerializable(typeof(EstablishTunnelResponse))]
+[JsonSerializable(typeof(XpcDictionary))]
 [JsonSourceGenerationOptions(
     PropertyNameCaseInsensitive = true
 )]
