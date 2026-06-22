@@ -2,8 +2,8 @@
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -141,29 +141,39 @@ public sealed class NotificationProxyService(
     }
 
     /// <summary>
-    /// Attempts to observe all builtin receivable notifications.
+    /// Attempts to observe all known builtin receivable notifications.
     /// </summary>
-    /// <returns></returns>
     public void ObserveAll() {
-        foreach (PropertyInfo prop in typeof(ReceivableNotification).GetProperties()) {
-            string notification = prop.GetValue(typeof(ReceivableNotification), null)?.ToString() ?? string.Empty;
-            if (string.IsNullOrEmpty(notification)) {
-                continue;
-            }
+        foreach (string notification in ReceivableNotification.All) {
             ObserveNotification(notification);
         }
     }
 
     /// <summary>
-    /// Attempts to observe all builtin receivable notifications.
+    /// Attempts to observe all builtin including experimental options receivable notifications.
     /// </summary>
-    /// <returns></returns>
+    [Experimental("NETIMOBILE001")]
+    public void ObserveAllExperimental() {
+        foreach (string notification in ReceivableNotification.AllExperimental) {
+            ObserveNotification(notification);
+        }
+    }
+
+    /// <summary>
+    /// Attempts to observe all known builtin receivable notifications.
+    /// </summary>
     public async Task ObserveAllAsync() {
-        foreach (PropertyInfo prop in typeof(ReceivableNotification).GetProperties()) {
-            string notification = prop.GetValue(typeof(ReceivableNotification), null)?.ToString() ?? string.Empty;
-            if (string.IsNullOrEmpty(notification)) {
-                continue;
-            }
+        foreach (string notification in ReceivableNotification.All) {
+            await ObserveNotificationAsync(notification).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Attempts to observe all builtin including experimental options receivable notifications.
+    /// </summary>
+    [Experimental("NETIMOBILE001")]
+    public async Task ObserveAllExperimentalAsynx() {
+        foreach (string notification in ReceivableNotification.AllExperimental) {
             await ObserveNotificationAsync(notification).ConfigureAwait(false);
         }
     }
