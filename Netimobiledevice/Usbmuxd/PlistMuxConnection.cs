@@ -11,37 +11,39 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Usbmuxd;
 
-internal class PlistMuxConnection(UsbmuxdSocket sock, ILogger? logger = null) : UsbmuxConnection(sock, UsbmuxdVersion.Plist, logger)
-{
+internal class PlistMuxConnection(UsbmuxdSocket sock, ILogger? logger = null) : UsbmuxConnection(sock, UsbmuxdVersion.Plist, logger) {
     private const string PLIST_CLIENT_VERSION_STRING = "1.0.0.0";
     private const int PLIST_USBMUX_VERSION = 3;
 
-    private static DictionaryNode CreatePlistMessage(string messageType)
-    {
-        string bundleId = GetBundleId();
-        string assemblyName = GetAssemblyName();
+    /// <summary>
+    /// The assembly name to send in a standard plist message; We only ever need to calculate this once and then we can reuse every time afterwards
+    /// </summary>
+    private static readonly Lazy<string> _assemblyName = new(ComputeAssemblyName);
+    /// <summary>
+    /// The bundle id to send in a standard plist message; We only ever need to calculate this once and then we can reuse every time afterwards
+    /// </summary>
+    private static readonly Lazy<string> _bundleId = new(ComputeBundleId);
 
+    private static DictionaryNode CreatePlistMessage(string messageType) {
         DictionaryNode plistDict = [];
-        if (!string.IsNullOrWhiteSpace(bundleId)) {
-            plistDict.Add("BundleID", new StringNode(bundleId));
+        if (!string.IsNullOrWhiteSpace(_bundleId.Value)) {
+            plistDict.Add("BundleID", new StringNode(_bundleId.Value));
         }
         plistDict.Add("ClientVersionString", new StringNode(PLIST_CLIENT_VERSION_STRING));
         plistDict.Add("MessageType", new StringNode(messageType));
-        if (!string.IsNullOrWhiteSpace(assemblyName)) {
-            plistDict.Add("ProgName", new StringNode(assemblyName));
+        if (!string.IsNullOrWhiteSpace(_assemblyName.Value)) {
+            plistDict.Add("ProgName", new StringNode(_assemblyName.Value));
         }
         plistDict.Add("kLibUSBMuxVersion", new IntegerNode(PLIST_USBMUX_VERSION));
         return plistDict;
     }
 
-    private static string GetAssemblyName()
-    {
+    private static string ComputeAssemblyName() {
         AssemblyName? progName = Assembly.GetEntryAssembly()?.GetName();
         return progName?.Name ?? "Netimobiledevice";
     }
 
-    private static string GetBundleId()
-    {
+    private static string ComputeBundleId() {
         if (OperatingSystem.IsMacOS()) {
             string infoPlistPath = Path.Combine(AppContext.BaseDirectory, "..", "Info.plist");
             if (File.Exists(infoPlistPath)) {
@@ -55,8 +57,7 @@ internal class PlistMuxConnection(UsbmuxdSocket sock, ILogger? logger = null) : 
         return string.Empty;
     }
 
-    private UsbmuxdResult SendReceive(PropertyNode msg)
-    {
+    private UsbmuxdResult SendReceive(PropertyNode msg) {
         Send(msg);
 
         PlistResponse response = ReceivePlist(Tag - 1);
@@ -75,8 +76,7 @@ internal class PlistMuxConnection(UsbmuxdSocket sock, ILogger? logger = null) : 
         return result;
     }
 
-    private async Task<UsbmuxdResult> SendReceiveAsync(PropertyNode msg, CancellationToken cancellationToken = default)
-    {
+    private async Task<UsbmuxdResult> SendReceiveAsync(PropertyNode msg, CancellationToken cancellationToken = default) {
         await SendAsync(msg, cancellationToken).ConfigureAwait(false);
 
         PlistResponse response = await ReceivePlistAsync(Tag - 1, cancellationToken).ConfigureAwait(false);
@@ -94,8 +94,7 @@ internal class PlistMuxConnection(UsbmuxdSocket sock, ILogger? logger = null) : 
         return result;
     }
 
-    protected override void RequestConnect(long deviceId, ushort port, CancellationToken cancellationToken = default)
-    {
+    protected override void RequestConnect(long deviceId, ushort port, CancellationToken cancellationToken = default) {
         DictionaryNode dict = new DictionaryNode {
             { "MessageType", new StringNode("Connect") },
             { "DeviceID", new IntegerNode(deviceId) },
@@ -104,8 +103,7 @@ internal class PlistMuxConnection(UsbmuxdSocket sock, ILogger? logger = null) : 
         SendReceive(dict);
     }
 
-    protected override async Task RequestConnectAsync(long deviceId, ushort port, CancellationToken cancellationToken = default)
-    {
+    protected override async Task RequestConnectAsync(long deviceId, ushort port, CancellationToken cancellationToken = default) {
         DictionaryNode dict = new DictionaryNode {
             { "MessageType", new StringNode("Connect") },
             { "DeviceID", new IntegerNode(deviceId) },
@@ -114,8 +112,7 @@ internal class PlistMuxConnection(UsbmuxdSocket sock, ILogger? logger = null) : 
         await SendReceiveAsync(dict, cancellationToken).ConfigureAwait(false);
     }
 
-    public DictionaryNode GetPairRecord(string serial)
-    {
+    public DictionaryNode GetPairRecord(string serial) {
         // Serials are saved inside usbmuxd without '-'
         DictionaryNode message = CreatePlistMessage("ReadPairRecord").AsDictionaryNode();
         message.Add("PairRecordID", new StringNode(serial));
@@ -135,8 +132,7 @@ internal class PlistMuxConnection(UsbmuxdSocket sock, ILogger? logger = null) : 
     /// get SystemBUID
     /// </summary>
     /// <returns></returns>
-    public string GetBuid()
-    {
+    public string GetBuid() {
         DictionaryNode msg = new DictionaryNode() {
             { "MessageType", new StringNode("ReadBUID") }
         };
@@ -144,24 +140,21 @@ internal class PlistMuxConnection(UsbmuxdSocket sock, ILogger? logger = null) : 
         return ReceivePlist(Tag - 1).Plist.AsDictionaryNode()["BUID"].AsStringNode().Value;
     }
 
-    public override UsbmuxdResult Listen()
-    {
+    public override UsbmuxdResult Listen() {
         connectionTimeout = -1;
         Sock.SetTimeout(connectionTimeout);
         PropertyNode plistMessage = CreatePlistMessage("Listen");
         return SendReceive(plistMessage);
     }
 
-    public override async Task<UsbmuxdResult> ListenAsync(CancellationToken cancellationToken = default)
-    {
+    public override async Task<UsbmuxdResult> ListenAsync(CancellationToken cancellationToken = default) {
         connectionTimeout = -1;
         Sock.SetTimeout(connectionTimeout);
         PropertyNode plistMessage = CreatePlistMessage("Listen");
         return await SendReceiveAsync(plistMessage, cancellationToken).ConfigureAwait(false);
     }
 
-    public PlistResponse ReceivePlist(int expectedTag)
-    {
+    public PlistResponse ReceivePlist(int expectedTag) {
         (UsbmuxdHeader header, byte[] payload) = Receive(expectedTag);
         if (header.Message != UsbmuxdMessageType.Plist) {
             throw new UsbmuxException($"Received non-plist type {header}");
@@ -171,8 +164,7 @@ internal class PlistMuxConnection(UsbmuxdSocket sock, ILogger? logger = null) : 
         return response;
     }
 
-    public async Task<PlistResponse> ReceivePlistAsync(int expectedTag, CancellationToken cancellationToken = default)
-    {
+    public async Task<PlistResponse> ReceivePlistAsync(int expectedTag, CancellationToken cancellationToken = default) {
         UsbmuxPacket packet = await ReceiveAsync(expectedTag, cancellationToken).ConfigureAwait(false);
         if (packet.Header.Message != UsbmuxdMessageType.Plist) {
             throw new UsbmuxException($"Received non-plist type {packet.Header}");
@@ -182,8 +174,7 @@ internal class PlistMuxConnection(UsbmuxdSocket sock, ILogger? logger = null) : 
         return response;
     }
 
-    public void SavePairRecord(string identifier, long deviceId, byte[] recordData)
-    {
+    public void SavePairRecord(string identifier, long deviceId, byte[] recordData) {
         // Serials are saved inside usbmuxd without '-'
         DictionaryNode message = new DictionaryNode {
             { "MessageType", new StringNode("SavePairRecord") },
@@ -194,20 +185,17 @@ internal class PlistMuxConnection(UsbmuxdSocket sock, ILogger? logger = null) : 
         SendReceive(message);
     }
 
-    public int Send(PropertyNode msg)
-    {
+    public int Send(PropertyNode msg) {
         byte[] payload = PropertyList.SaveAsByteArray(msg, PlistFormat.Xml);
         return SendPacket(UsbmuxdMessageType.Plist, Tag, payload);
     }
 
-    public async Task<int> SendAsync(PropertyNode msg, CancellationToken cancellationToken = default)
-    {
+    public async Task<int> SendAsync(PropertyNode msg, CancellationToken cancellationToken = default) {
         byte[] payload = PropertyList.SaveAsByteArray(msg, PlistFormat.Xml);
         return await SendPacketAsync(UsbmuxdMessageType.Plist, Tag, payload, cancellationToken).ConfigureAwait(false);
     }
 
-    public override void UpdateDeviceList(int timeout = 5000)
-    {
+    public override void UpdateDeviceList(int timeout = 5000) {
         // Get the list of devices synchronously without waiting for the timeout
         Devices.Clear();
         PropertyNode plistMessage = CreatePlistMessage("ListDevices");
@@ -231,8 +219,7 @@ internal class PlistMuxConnection(UsbmuxdSocket sock, ILogger? logger = null) : 
         }
     }
 
-    public override async Task UpdateDeviceListAsync(int timeout = 5000, CancellationToken cancellationToken = default)
-    {
+    public override async Task UpdateDeviceListAsync(int timeout = 5000, CancellationToken cancellationToken = default) {
         // Get the list of devices synchronously without waiting for the timeout
         Devices.Clear();
         PropertyNode plistMessage = CreatePlistMessage("ListDevices");
