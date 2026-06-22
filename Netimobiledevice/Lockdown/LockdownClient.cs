@@ -123,6 +123,19 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
         }
     }
 
+    private DictionaryNode CreateRequestMessage(string request, DictionaryNode? options) {
+        DictionaryNode message = new DictionaryNode {
+            { "Label", new StringNode(_label) },
+            { "Request", new StringNode(request) }
+        };
+        if (options != null) {
+            foreach (KeyValuePair<string, PropertyNode> option in options) {
+                message.Add(option);
+            }
+        }
+        return message;
+    }
+
     /// <summary>
     /// Returns a DeviceClass instance representing the device class from within the given PropertyNode.
     /// If the provided value cannot be resolved into a valid DeviceClass, returns a DeviceClass instance 
@@ -167,83 +180,22 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
     }
 
     private DictionaryNode Request(string request, DictionaryNode? options = null, bool verifyRequest = true) {
-        DictionaryNode message = new DictionaryNode {
-            { "Label", new StringNode(_label) },
-            { "Request", new StringNode(request) }
-        };
-        if (options != null) {
-            foreach (KeyValuePair<string, PropertyNode> option in options) {
-                message.Add(option);
+        DictionaryNode message = CreateRequestMessage(request, options);
+        if (_service != null) {
+            PropertyNode? response = _service.SendReceivePlist(message);
+            if (response is DictionaryNode responseDict) {
+                return VerifyRequestResponse(request, verifyRequest, responseDict);
             }
         }
-
-        DictionaryNode response = _service?.SendReceivePlist(message)?.AsDictionaryNode() ?? [];
-
-        if (verifyRequest && response.TryGetValue("Request", out PropertyNode? requestNode)) {
-            if (requestNode.AsStringNode().Value != request) {
-                Logger.LogWarning("Request response did not contain our expected value {value}: {response}", requestNode, response);
-                throw new LockdownException($"Incorrect response returned, as got {requestNode} instead of {request}");
-            }
-        }
-        else if (verifyRequest) {
-            throw new LockdownException("Response did not contain the key \"Request\"");
-        }
-
-        if (response.TryGetValue("Error", out PropertyNode? errorNode)) {
-            string error = errorNode.AsStringNode().Value;
-            Enum.TryParse(typeof(LockdownError), error, out object? lockdownError);
-            throw ((LockdownError?) lockdownError)?.GetException() ?? new LockdownException(error);
-        }
-
-        // On iOS < 5: "Error" doesn't exist, so we have to check for "Result" instead
-        if (response.TryGetValue("Result", out PropertyNode? resultNode)) {
-            string error = resultNode.AsStringNode().Value;
-            if (error == "Failure") {
-                throw new LockdownException();
-            }
-        }
-
-        return response;
+        return [];
     }
 
     private async Task<DictionaryNode> RequestAsync(string request, DictionaryNode? options = null, bool verifyRequest = true, CancellationToken cancellationToken = default) {
-        DictionaryNode message = new DictionaryNode {
-            { "Label", new StringNode(_label) },
-            { "Request", new StringNode(request) }
-        };
-        if (options != null) {
-            foreach (KeyValuePair<string, PropertyNode> option in options) {
-                message.Add(option);
-            }
-        }
-
+        DictionaryNode message = CreateRequestMessage(request, options);
         if (_service != null) {
             PropertyNode? response = await _service.SendReceivePlistAsync(message, cancellationToken).ConfigureAwait(false);
             if (response is DictionaryNode responseDict) {
-                if (verifyRequest && responseDict.TryGetValue("Request", out PropertyNode? requestNode)) {
-                    if (requestNode.AsStringNode().Value != request) {
-                        Logger.LogWarning("Request response did not contain our expected value {value}: {response}", requestNode, response);
-                        throw new LockdownException($"Incorrect response returned, as got {requestNode} instead of {request}");
-                    }
-                }
-                else if (verifyRequest) {
-                    throw new LockdownException("Response did not contain the key \"Request\"");
-                }
-
-                if (responseDict.TryGetValue("Error", out PropertyNode? errorNode)) {
-                    string error = errorNode.AsStringNode().Value;
-                    Enum.TryParse(typeof(LockdownError), error, out object? lockdownError);
-                    throw ((LockdownError?) lockdownError)?.GetException() ?? new LockdownException(error);
-                }
-
-                // On iOS < 5: "Error" doesn't exist, so we have to check for "Result" instead
-                if (responseDict.TryGetValue("Result", out PropertyNode? resultNode)) {
-                    string error = resultNode.AsStringNode().Value;
-                    if (error == "Failure") {
-                        throw new LockdownException();
-                    }
-                }
-                return responseDict;
+                return VerifyRequestResponse(request, verifyRequest, responseDict);
             }
         }
         return [];
@@ -310,13 +262,12 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
 
         if (_medium == ConnectionMedium.Usbmux) {
             byte[] recordData = PropertyList.SaveAsByteArray(_pairRecord, PlistFormat.Xml);
-
-            UsbmuxConnection mux = UsbmuxConnection.Create(logger: Logger);
-            if (mux is PlistMuxConnection plistMuxConnection) {
-                long deviceId = _service?.MuxDevice?.DeviceId ?? -1;
-                plistMuxConnection.SavePairRecord(Udid, deviceId, recordData);
+            using (UsbmuxConnection mux = UsbmuxConnection.Create(logger: Logger)) {
+                if (mux is PlistMuxConnection plistMuxConnection) {
+                    long deviceId = _service?.MuxDevice?.DeviceId ?? -1;
+                    plistMuxConnection.SavePairRecord(Udid, deviceId, recordData);
+                }
             }
-            mux.Close();
         }
 
         IsPaired = true;
@@ -391,6 +342,37 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
         }
 
         return IsPaired;
+    }
+
+    private DictionaryNode VerifyRequestResponse(string request, bool verifyRequest, DictionaryNode responseDict) {
+        if (verifyRequest && responseDict.TryGetValue("Request", out PropertyNode? requestNode)) {
+            if (requestNode.AsStringNode().Value != request) {
+                Logger.LogWarning("Request response did not contain our expected value {value}: {response}", requestNode, responseDict);
+                throw new LockdownException($"Incorrect response returned, as got {requestNode} instead of {request}");
+            }
+        }
+        else if (verifyRequest) {
+            throw new LockdownException("Response did not contain the key \"Request\"");
+        }
+
+        if (responseDict.TryGetValue("Error", out PropertyNode? errorNode)) {
+            string error = errorNode.AsStringNode().Value;
+            if (Enum.TryParse(error, out LockdownError lockdownError)) {
+                throw lockdownError.GetException() ?? new LockdownException(error);
+            }
+            else {
+                throw new LockdownException(error);
+            }
+        }
+
+        // On iOS < 5: "Error" doesn't exist, so we have to check for "Result" instead
+        if (responseDict.TryGetValue("Result", out PropertyNode? resultNode)) {
+            string error = resultNode.AsStringNode().Value;
+            if (error == "Failure") {
+                throw new LockdownException();
+            }
+        }
+        return responseDict;
     }
 
     private void WriteStorageFile(string filename, byte[] data) {
@@ -485,7 +467,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
     /// <summary>
     /// Start a pairing operation.
     /// </summary>
-    /// <returns>Return <see langword="true"/> if the user accept pairng else <see langword="false"/>.</returns>
+    /// <returns>Return <see langword="true"/> if the user accept pairing else <see langword="false"/>.</returns>
     public virtual Task<bool> PairAsync() {
         return PairAsync(new Progress<PairingState>(), CancellationToken.None);
     }
@@ -494,7 +476,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
     /// Start a pairing operation.
     /// </summary>
     /// <param name="cancellationToken">A cancelation token used to cancel stop the operation</param>
-    /// <returns>Return <see langword="true"/> if the user accept pairng else <see langword="false"/>.</returns>
+    /// <returns>Return <see langword="true"/> if the user accept pairing else <see langword="false"/>.</returns>
     public virtual Task<bool> PairAsync(CancellationToken cancellationToken) {
         return PairAsync(new Progress<PairingState>(), cancellationToken);
     }
@@ -503,7 +485,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
     /// Start a pairing operation.
     /// </summary>
     /// <param name="progress">Used to report the progress</param>
-    /// <returns>Return <see langword="true"/> if the user accept pairng else <see langword="false"/>.</returns>
+    /// <returns>Return <see langword="true"/> if the user accept pairing else <see langword="false"/>.</returns>
     public virtual Task<bool> PairAsync(IProgress<PairingState> progress) {
         return PairAsync(progress, CancellationToken.None);
     }
@@ -513,7 +495,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
     /// </summary>
     /// <param name="progress">Used to report the progress</param>
     /// <param name="cancellationToken">A cancelation token used to cancel stop the operation</param>
-    /// <returns>Return <see langword="true"/> if the user accept pairng else <see langword="false"/>.</returns>
+    /// <returns>Return <see langword="true"/> if the user accept pairing else <see langword="false"/>.</returns>
     public virtual async Task<bool> PairAsync(IProgress<PairingState> progress, CancellationToken cancellationToken) {
         using (NotificationProxyService np = new NotificationProxyService(this, true, Logger)) {
             await np.ObserveNotificationAsync(ReceivableNotification.RequestPair).ConfigureAwait(false);
@@ -577,7 +559,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
         Pair();
 
         // Get sessionId
-        if (ValidatePairing()) {
+        if (!ValidatePairing()) {
             throw new FatalPairingException();
         }
 
@@ -625,18 +607,14 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
     /// </summary>
     /// <param name="port"></param>
     /// <returns></returns>
-    public virtual ServiceConnection CreateServiceConnection(ushort port) {
-        throw new NotImplementedException();
-    }
+    public abstract ServiceConnection CreateServiceConnection(ushort port);
 
     /// <summary>
     /// Used to establish a new ServiceConnection to a given port
     /// </summary>
     /// <param name="port"></param>
     /// <returns></returns>
-    public virtual Task<ServiceConnection> CreateServiceConnectionAsync(ushort port) {
-        throw new NotImplementedException();
-    }
+    public abstract Task<ServiceConnection> CreateServiceConnectionAsync(ushort port);
 
     public override ServiceConnection StartLockdownService(string name, bool useEscrowBag = false, bool useTrustedConnection = true) {
         DictionaryNode attr = GetServiceConnectionAttributes(name, useEscrowBag, useTrustedConnection).AsDictionaryNode();
