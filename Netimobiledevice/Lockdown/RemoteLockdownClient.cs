@@ -30,10 +30,8 @@ public class RemoteLockdownClient(
     DirectoryInfo? pairingRecordsCacheDirectory = null,
     ushort port = LockdownClient.SERVICE_PORT,
     ILogger? logger = null
-) : LockdownClient(service, hostId, identifier, label, systemBuid, pairRecord, pairingRecordsCacheDirectory, port, logger)
-{
-    protected override void HandleAutoPair(bool autoPair, float timeout)
-    {
+) : LockdownClient(service, hostId, identifier, label, systemBuid, pairRecord, pairingRecordsCacheDirectory, port, logger) {
+    protected override void HandleAutoPair(bool autoPair, float timeout) {
         // RemoteXPC lockdown version does not support pairing operations
         return;
     }
@@ -54,8 +52,7 @@ public class RemoteLockdownClient(
     /// <returns>A new LockdownClient instance</returns>
     public static RemoteLockdownClient Create(ServiceConnection service, string identifier = "", string systemBuid = SYSTEM_BUID, string label = DEFAULT_CLIENT_NAME,
         bool autopair = true, float? pairTimeout = null, string localHostname = "", DictionaryNode? pairRecord = null, string pairingRecordsCacheFolder = "",
-        ushort port = SERVICE_PORT, ILogger? logger = null)
-    {
+        ushort port = SERVICE_PORT, ILogger? logger = null) {
         string hostId = PairRecords.GenerateHostId(localHostname);
         DirectoryInfo? pairingRecordsCacheDirectory = PairRecords.GetPairingRecordsCacheFolder(pairingRecordsCacheFolder);
 
@@ -66,44 +63,35 @@ public class RemoteLockdownClient(
         return lockdownClient;
     }
 
-    public override ServiceConnection CreateServiceConnection(ushort port)
-    {
+    public override ServiceConnection CreateServiceConnection(ushort port) {
         throw new NotImplementedException("RemoteXPC service connections should only be created using RemoteServiceDiscoveryService");
 
     }
-    public override Task<ServiceConnection> CreateServiceConnectionAsync(ushort port)
-    {
+    public override Task<ServiceConnection> CreateServiceConnectionAsync(ushort port) {
         throw new NotImplementedException("RemoteXPC service connections should only be created using RemoteServiceDiscoveryService");
-
     }
 
-    public override Task<bool> PairAsync()
-    {
+    public override Task<bool> PairAsync() {
         throw new NotImplementedException("RemoteXPC lockdown version does not support pairing operations");
     }
 
-    public override Task<bool> PairAsync(CancellationToken cancellationToken)
-    {
+    public override Task<bool> PairAsync(CancellationToken cancellationToken) {
         throw new NotImplementedException("RemoteXPC lockdown version does not support pairing operations");
     }
 
-    public override Task<bool> PairAsync(IProgress<PairingState> progress)
-    {
+    public override Task<bool> PairAsync(IProgress<PairingState> progress) {
         throw new NotImplementedException("RemoteXPC lockdown version does not support pairing operations");
     }
 
-    public override Task<bool> PairAsync(IProgress<PairingState> progress, CancellationToken cancellationToken)
-    {
+    public override Task<bool> PairAsync(IProgress<PairingState> progress, CancellationToken cancellationToken) {
         throw new NotImplementedException("RemoteXPC lockdown version does not support pairing operations");
     }
 
-    public override bool PairDevice()
-    {
+    public override bool PairDevice() {
         throw new NotImplementedException("RemoteXPC lockdown version does not support pairing operations");
     }
 
-    public override void Unpair()
-    {
+    public override void Unpair() {
         throw new NotImplementedException("RemoteXPC lockdown version does not support pairing operations");
     }
 }

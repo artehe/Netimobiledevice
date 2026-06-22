@@ -62,18 +62,18 @@ public class ServiceConnection : IDisposable {
 
     internal static ServiceConnection CreateUsingTcp(string hostname, ushort port, int timeout = 10_000, ILogger? logger = null) {
         IPAddress ip = IPAddress.Parse(hostname);
-        Socket sock = new Socket(SocketType.Stream, ProtocolType.IP);
+        Socket sock = new Socket(SocketType.Stream, ProtocolType.Tcp);
         sock.Connect(ip, port);
         return new ServiceConnection(sock, timeout, logger ?? NullLogger.Instance);
     }
 
     internal static async Task<ServiceConnection> CreateUsingTcpAsync(string hostname, ushort port, int timeout = 10_000, ILogger? logger = null) {
         IPAddress ip = IPAddress.Parse(hostname);
-        Socket sock = new Socket(SocketType.Stream, ProtocolType.IP);
+        Socket sock = new Socket(SocketType.Stream, ProtocolType.Tcp);
 
         using (CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(timeout))) {
             try {
-                await sock.ConnectAsync(ip, port).ConfigureAwait(false);
+                await sock.ConnectAsync(ip, port, cts.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException) {
                 sock.Dispose();
@@ -117,12 +117,16 @@ public class ServiceConnection : IDisposable {
     }
 
     public void Close() {
-        Stream.Close();
+        _sslStream?.Close();
+        _networkStream.Close();
     }
 
     public void Dispose() {
         Close();
-        Stream.Dispose();
+
+        _sslStream?.Dispose();
+        _networkStream.Dispose();
+
         GC.SuppressFinalize(this);
     }
 
@@ -255,7 +259,7 @@ public class ServiceConnection : IDisposable {
 
     public void SendPlist(PropertyNode data, PlistFormat format = PlistFormat.Xml) {
         byte[] plistBytes = PropertyList.SaveAsByteArray(data, format);
-        byte[] lengthBytes = BitConverter.GetBytes(EndianBitConverter.BigEndian.ToUInt32(BitConverter.GetBytes(plistBytes.Length), 0));
+        byte[] lengthBytes = EndianBitConverter.BigEndian.GetBytes((uint) plistBytes.Length);
 
         Send(lengthBytes);
         Send(plistBytes);
@@ -304,7 +308,7 @@ public class ServiceConnection : IDisposable {
         };
         try {
             // TLS v1.2 is supported since iOS 5 so we should specify this as a minimum
-            _sslStream.AuthenticateAsClient(string.Empty, [certificate], SslProtocols.None, false);
+            _sslStream.AuthenticateAsClient(string.Empty, [certificate], SslProtocols.Tls12 | SslProtocols.Tls13, false);
         }
         catch (Exception ex) {
             _logger.LogError(ex, "SSL authentication failed");
@@ -328,7 +332,7 @@ public class ServiceConnection : IDisposable {
             // TLS v1.2 is supported since iOS 5 so we should specify this as a minimum
             await _sslStream.AuthenticateAsClientAsync(string.Empty, [certificate], SslProtocols.Tls12 | SslProtocols.Tls13, false);
         }
-        catch (AuthenticationException ex) {
+        catch (Exception ex) {
             _logger.LogError(ex, "SSL authentication failed");
             return false;
         }
