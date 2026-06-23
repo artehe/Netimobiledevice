@@ -8,8 +8,7 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Afc;
 
-public class CrashReportsService : IDisposable
-{
+public class CrashReportsService : IDisposable {
     private const string LOCKDOWN_COPY_MOBILE_NAME = "com.apple.crashreportcopymobile";
     private const string RSD_COPY_MOBILE_NAME = "com.apple.crashreportcopymobile.shim.remote";
 
@@ -24,8 +23,7 @@ public class CrashReportsService : IDisposable
     private readonly string _copyMobileServiceName;
     private readonly string _crashMoverServiceName;
 
-    public CrashReportsService(LockdownServiceProvider lockdown)
-    {
+    public CrashReportsService(LockdownServiceProvider lockdown) {
         _lockdown = lockdown;
         if (_lockdown is LockdownClient) {
             _copyMobileServiceName = LOCKDOWN_COPY_MOBILE_NAME;
@@ -42,8 +40,7 @@ public class CrashReportsService : IDisposable
     /// <summary>
     /// Clear all crash reports
     /// </summary>
-    public async Task Clear(CancellationToken cancellationToken = default)
-    {
+    public async Task Clear(CancellationToken cancellationToken = default) {
         List<string> undeletedFiles = [];
         foreach (string filename in await GetCrashReportsList("/", cancellationToken: cancellationToken).ConfigureAwait(false)) {
             undeletedFiles.AddRange(await _afcService.Rm(filename, cancellationToken, force: true).ConfigureAwait(false));
@@ -58,13 +55,11 @@ public class CrashReportsService : IDisposable
         }
     }
 
-    public void Close()
-    {
+    public void Close() {
         _afcService.Close();
     }
 
-    public void Dispose()
-    {
+    public void Dispose() {
         Close();
         GC.SuppressFinalize(this);
     }
@@ -74,7 +69,7 @@ public class CrashReportsService : IDisposable
     /// </summary>
     public async Task FlushAsync(CancellationToken cancellationToken = default) {
         byte[] ack = Encoding.UTF8.GetBytes("ping\0");
-        using (ServiceConnection service = _lockdown.StartLockdownService(_crashMoverServiceName)) {
+        await using (ServiceConnection service = _lockdown.StartLockdownService(_crashMoverServiceName)) {
             byte[] response = await service.ReceiveAsync(ack.Length, cancellationToken).ConfigureAwait(false);
             if (!response.SequenceEqual(ack)) {
                 throw new AfcException(AfcError.ReadError, "Resposne doesn't equal expected value");
@@ -88,8 +83,7 @@ public class CrashReportsService : IDisposable
     /// <param name="outDir">The directory to pull the crash report(s) to</param>
     /// <param name="entry">File or folder to pull</param>
     /// <param name="erase">Whether to erase the original file form the CrashReports directory</param>
-    public async Task GetCrashReport(string outDir, string entry = "/", bool erase = false, CancellationToken cancellationToken = default)
-    {
+    public async Task GetCrashReport(string outDir, string entry = "/", bool erase = false, CancellationToken cancellationToken = default) {
         await _afcService.Pull(entry, outDir, cancellationToken).ConfigureAwait(false);
         if (erase) {
             string[] paths = [".", "/"];
@@ -108,8 +102,7 @@ public class CrashReportsService : IDisposable
     /// <param name="path">Path to list, relative to the crash report's directory</param>
     /// <param name="depth">Listing depth, -1 to list infinite depth</param>
     /// <returns>List of files found</returns>
-    public async Task<List<string>> GetCrashReportsList(string path = "/", int depth = 1, CancellationToken cancellationToken = default)
-    {
+    public async Task<List<string>> GetCrashReportsList(string path = "/", int depth = 1, CancellationToken cancellationToken = default) {
         // Get the results then skip the root path '/'
         List<string> results = [];
         await foreach (string item in _afcService.LsDirectory(path, cancellationToken, depth).ConfigureAwait(false)) {

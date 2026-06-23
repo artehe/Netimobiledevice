@@ -1,11 +1,10 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd;
 using System;
+using System.Buffers.Binary;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
@@ -19,9 +18,7 @@ namespace Netimobiledevice.Lockdown;
 /// <summary>
 /// A wrapper for usbmux tcp-relay connections
 /// </summary>
-public class ServiceConnection : IDisposable {
-    private const int MAX_READ_SIZE = 32768;
-
+public sealed class ServiceConnection : IDisposable, IAsyncDisposable {
     /// <summary>
     /// The internal logger
     /// </summary>
@@ -36,7 +33,7 @@ public class ServiceConnection : IDisposable {
     /// property instead
     /// </summary>
     private SslStream? _sslStream;
-    private int _timeout = Timeout.Infinite;
+    private int _timeout;
 
     public UsbmuxdDevice? MuxDevice { get; private set; }
 
@@ -112,6 +109,14 @@ public class ServiceConnection : IDisposable {
         return new ServiceConnection(sock, timeout, logger ?? NullLogger.Instance, targetDevice);
     }
 
+    /// <summary>
+    /// iOS pairing uses self-signed/host-issued certs that can't be chain-validated so we have this function which always returns true to ignore that
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="certificate"></param>
+    /// <param name="chain"></param>
+    /// <param name="sslPolicyErrors"></param>
+    /// <returns></returns>
     private bool UserCertificateValidationCallback(object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors) {
         return true;
     }
@@ -130,31 +135,24 @@ public class ServiceConnection : IDisposable {
         GC.SuppressFinalize(this);
     }
 
+    public async ValueTask DisposeAsync() {
+        Close();
+
+        if (_sslStream != null) {
+            await _sslStream.DisposeAsync().ConfigureAwait(false);
+        }
+        await _networkStream.DisposeAsync().ConfigureAwait(false);
+
+        GC.SuppressFinalize(this);
+    }
+
     public byte[] Receive(int length = 4096) {
         if (length <= 0) {
             return [];
         }
+
         byte[] buffer = new byte[length];
-
-        int totalBytesRead = 0;
-        while (totalBytesRead < length) {
-            int remainingSize = length - totalBytesRead;
-            int readSize = remainingSize;
-            if (remainingSize > MAX_READ_SIZE) {
-                readSize = MAX_READ_SIZE;
-            }
-
-            int bytesRead = Stream.Read(buffer, totalBytesRead, readSize);
-            if (bytesRead == 0) {
-                _logger.LogError("Read zero bytes so the connection has been broken");
-                break;
-            }
-            totalBytesRead += bytesRead;
-        }
-
-        if (totalBytesRead < buffer.Length) {
-            return [.. buffer.Take(totalBytesRead)];
-        }
+        Stream.ReadExactly(buffer);
         return buffer;
     }
 
@@ -162,45 +160,19 @@ public class ServiceConnection : IDisposable {
         if (length <= 0) {
             return [];
         }
+
         byte[] buffer = new byte[length];
 
-        int totalBytesRead = 0;
-        while (totalBytesRead < length) {
-            int remainingSize = length - totalBytesRead;
-            int readSize = remainingSize;
-            if (remainingSize > MAX_READ_SIZE) {
-                readSize = MAX_READ_SIZE;
-            }
-
-            int bytesRead;
-            if (Stream.ReadTimeout != -1) {
-                CancellationTokenSource localTaskComplete = new CancellationTokenSource(Stream.ReadTimeout);
-                CancellationTokenSource linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(localTaskComplete.Token, cancellationToken);
-                using (linkedCancellationTokenSource) {
-                    try {
-                        bytesRead = await Stream.ReadAsync(buffer.AsMemory(totalBytesRead, readSize), linkedCancellationTokenSource.Token).ConfigureAwait(false);
-                        if (bytesRead == 0) {
-                            _logger.LogError("Read zero bytes so the connection has been broken");
-                            break;
-                        }
-                    }
-                    catch (OperationCanceledException) {
-                        if (localTaskComplete.IsCancellationRequested) {
-                            throw new TimeoutException("Timeout waiting for message from service");
-                        }
-                        throw;
-                    }
+        TimeSpan timeout = Stream.ReadTimeout == Timeout.Infinite ? Timeout.InfiniteTimeSpan : TimeSpan.FromMilliseconds(Stream.ReadTimeout);
+        using (CancellationTokenSource timeoutCts = new CancellationTokenSource(timeout)) {
+            using (CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, cancellationToken)) {
+                try {
+                    await Stream.ReadExactlyAsync(buffer, linkedCts.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested) {
+                    throw new TimeoutException("Timeout waiting for message from service");
                 }
             }
-            else {
-                bytesRead = await Stream.ReadAsync(buffer.AsMemory(totalBytesRead, readSize), cancellationToken).ConfigureAwait(false);
-            }
-
-            totalBytesRead += bytesRead;
-        }
-
-        if (totalBytesRead < buffer.Length) {
-            return [.. buffer.Take(totalBytesRead)];
         }
         return buffer;
     }
@@ -231,7 +203,7 @@ public class ServiceConnection : IDisposable {
             return [];
         }
 
-        int size = EndianBitConverter.BigEndian.ToInt32(sizeBytes, 0);
+        int size = BinaryPrimitives.ReadInt32BigEndian(sizeBytes);
         return Receive(size);
     }
 
@@ -245,7 +217,7 @@ public class ServiceConnection : IDisposable {
             return [];
         }
 
-        int size = EndianBitConverter.BigEndian.ToInt32(sizeBytes, 0);
+        int size = BinaryPrimitives.ReadInt32BigEndian(sizeBytes);
         return await ReceiveAsync(size, cancellationToken).ConfigureAwait(false);
     }
 
@@ -259,7 +231,9 @@ public class ServiceConnection : IDisposable {
 
     public void SendPlist(PropertyNode data, PlistFormat format = PlistFormat.Xml) {
         byte[] plistBytes = PropertyList.SaveAsByteArray(data, format);
-        byte[] lengthBytes = EndianBitConverter.BigEndian.GetBytes((uint) plistBytes.Length);
+
+        byte[] lengthBytes = new byte[sizeof(uint)];
+        BinaryPrimitives.WriteUInt32BigEndian(lengthBytes, (uint) plistBytes.Length);
 
         Send(lengthBytes);
         Send(plistBytes);
@@ -267,7 +241,9 @@ public class ServiceConnection : IDisposable {
 
     public async Task SendPlistAsync(PropertyNode data, PlistFormat format = PlistFormat.Xml, CancellationToken cancellationToken = default) {
         byte[] plistBytes = PropertyList.SaveAsByteArray(data, format);
-        byte[] lengthBytes = BitConverter.GetBytes(EndianBitConverter.BigEndian.ToUInt32(BitConverter.GetBytes(plistBytes.Length), 0));
+
+        byte[] lengthBytes = new byte[sizeof(uint)];
+        BinaryPrimitives.WriteUInt32BigEndian(lengthBytes, (uint) plistBytes.Length);
 
         await SendAsync(lengthBytes, cancellationToken).ConfigureAwait(false);
         await SendAsync(plistBytes, cancellationToken).ConfigureAwait(false);
@@ -297,6 +273,9 @@ public class ServiceConnection : IDisposable {
     }
 
     public bool StartSsl(X509Certificate2 certificate) {
+        if (_sslStream != null) {
+            throw new InvalidOperationException("SSL stream already exists");
+        }
         if (_networkStream == null) {
             throw new InvalidOperationException("Network stream is null");
         }
@@ -319,6 +298,9 @@ public class ServiceConnection : IDisposable {
     }
 
     public async Task<bool> StartSslAsync(X509Certificate2 certificate) {
+        if (_sslStream != null) {
+            throw new InvalidOperationException("SSL stream already exists");
+        }
         if (_networkStream == null) {
             throw new InvalidOperationException("Network stream is null");
         }

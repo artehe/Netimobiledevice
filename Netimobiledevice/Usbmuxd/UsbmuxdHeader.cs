@@ -1,9 +1,14 @@
-﻿using Netimobiledevice.EndianBitConversion;
+﻿using System;
+using System.Buffers.Binary;
 
 namespace Netimobiledevice.Usbmuxd;
 
-internal struct UsbmuxdHeader
-{
+internal struct UsbmuxdHeader {
+    /// <summary>
+    /// The size of UsbmuxdHeader in bytes
+    /// </summary>
+    public const int SIZE = sizeof(int) + sizeof(UsbmuxdVersion) + sizeof(UsbmuxdMessageType) + sizeof(int);
+
     /// <summary>
     /// Length of message including header
     /// </summary>
@@ -21,23 +26,28 @@ internal struct UsbmuxdHeader
     /// </summary>
     public int Tag;
 
-    public readonly byte[] GetBytes()
-    {
-        return [
-            .. EndianBitConverter.LittleEndian.GetBytes(Length),
-            .. EndianBitConverter.LittleEndian.GetBytes((uint) Version),
-            .. EndianBitConverter.LittleEndian.GetBytes((uint) Message),
-            .. EndianBitConverter.LittleEndian.GetBytes(Tag),
-        ];
+    private readonly void WriteBytes(Span<byte> destination) {
+        BinaryPrimitives.WriteInt32LittleEndian(destination[0..4], Length);
+        BinaryPrimitives.WriteUInt32LittleEndian(destination[4..8], (uint) Version);
+        BinaryPrimitives.WriteUInt32LittleEndian(destination[8..12], (uint) Message);
+        BinaryPrimitives.WriteInt32LittleEndian(destination[12..16], Tag);
     }
 
-    public static UsbmuxdHeader FromBytes(byte[] bytes)
-    {
-        return new UsbmuxdHeader() {
-            Length = EndianBitConverter.LittleEndian.ToInt32(bytes, 0),
-            Version = (UsbmuxdVersion) EndianBitConverter.LittleEndian.ToUInt32(bytes, 4),
-            Message = (UsbmuxdMessageType) EndianBitConverter.LittleEndian.ToUInt32(bytes, 8),
-            Tag = EndianBitConverter.LittleEndian.ToInt32(bytes, 12),
+    public readonly byte[] GetBytes() {
+        byte[] buffer = new byte[SIZE];
+        WriteBytes(buffer);
+        return buffer;
+    }
+
+    public static UsbmuxdHeader FromBytes(ReadOnlySpan<byte> bytes) {
+        if (bytes.Length < SIZE) {
+            throw new ArgumentException($"Expected at least {SIZE} bytes, got {bytes.Length}", nameof(bytes));
+        }
+        return new UsbmuxdHeader {
+            Length = BinaryPrimitives.ReadInt32LittleEndian(bytes[0..4]),
+            Version = (UsbmuxdVersion) BinaryPrimitives.ReadUInt32LittleEndian(bytes[4..8]),
+            Message = (UsbmuxdMessageType) BinaryPrimitives.ReadUInt32LittleEndian(bytes[8..12]),
+            Tag = BinaryPrimitives.ReadInt32LittleEndian(bytes[12..16]),
         };
     }
 }

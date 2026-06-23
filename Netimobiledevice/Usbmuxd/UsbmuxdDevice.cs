@@ -10,16 +10,14 @@ namespace Netimobiledevice.Usbmuxd;
 /// <summary>
 /// Usbmuxd Device information.
 /// </summary>
-public class UsbmuxdDevice
-{
+public class UsbmuxdDevice {
     public UsbmuxdConnectionType ConnectionType { get; private set; } = UsbmuxdConnectionType.None;
     public long DeviceId { get; private set; } = -1;
     public string Serial { get; private set; } = string.Empty;
     public byte[] NetworkAddress { get; private set; } = [];
     public int InterfaceIndex { get; private set; } = -1;
 
-    public UsbmuxdDevice(IntegerNode deviceId, DictionaryNode propertiesDict)
-    {
+    public UsbmuxdDevice(IntegerNode deviceId, DictionaryNode propertiesDict) {
         DeviceId = deviceId.SignedValue;
         Serial = propertiesDict["SerialNumber"].AsStringNode().Value;
 
@@ -63,35 +61,32 @@ public class UsbmuxdDevice
         }
     }
 
-    public UsbmuxdDevice(uint deviceId, string serialNumber, UsbmuxdConnectionType connectionType)
-    {
+    public UsbmuxdDevice(uint deviceId, string serialNumber, UsbmuxdConnectionType connectionType) {
         DeviceId = deviceId;
         Serial = serialNumber;
         ConnectionType = connectionType;
     }
 
-    public Socket Connect(ushort port, string usbmuxAddress = "", ILogger? logger = null)
-    {
+    public Socket Connect(ushort port, string usbmuxAddress = "", ILogger? logger = null) {
         UsbmuxConnection muxConnection = UsbmuxConnection.Create(usbmuxAddress, logger);
         try {
             return muxConnection.Connect(this, port);
         }
         catch (Exception ex) {
             logger?.LogWarning(ex, "Couldn't connect to port {port}", port);
-            muxConnection.Close();
+            muxConnection.Dispose();
             throw;
         }
     }
 
-    public async Task<Socket> ConnectAsync(ushort port, string usbmuxAddress = "", ILogger? logger = null)
-    {
+    public async Task<Socket> ConnectAsync(ushort port, string usbmuxAddress = "", ILogger? logger = null) {
         UsbmuxConnection muxConnection = UsbmuxConnection.Create(usbmuxAddress, logger);
         try {
             return await muxConnection.ConnectAsync(this, port).ConfigureAwait(false);
         }
         catch (Exception ex) {
             logger?.LogWarning(ex, "Couldn't connect to port {port}", port);
-            muxConnection.Close();
+            muxConnection.Dispose();
             throw;
         }
     }

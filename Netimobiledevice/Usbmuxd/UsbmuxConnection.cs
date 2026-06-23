@@ -4,14 +4,12 @@ using Netimobiledevice.Usbmuxd.Responses;
 using System;
 using System.Collections.Generic;
 using System.Net.Sockets;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Usbmuxd;
 
-internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion protocolVersion, ILogger? logger = null) : IDisposable
-{
+internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion protocolVersion, ILogger? logger = null) : IDisposable {
     protected const int DEFAULT_CONNECTION_TIMEOUT = 5000;
 
     /// <summary>
@@ -35,13 +33,11 @@ internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion pr
     public UsbmuxdVersion ProtocolVersion { get; } = protocolVersion;
     public List<UsbmuxdDevice> Devices { get; private set; } = [];
 
-    public void Dispose()
-    {
+    public void Dispose() {
         Sock.Close();
     }
 
-    private int ReceivePacket(out UsbmuxdHeader header, out byte[] payload)
-    {
+    private int ReceivePacket(out UsbmuxdHeader header, out byte[] payload) {
         AssertNotConnected();
 
         payload = [];
@@ -53,13 +49,13 @@ internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion pr
         };
 
         Sock.SetTimeout(connectionTimeout);
-        byte[] headerBuffer = Sock.Receive(Marshal.SizeOf(header));
+        byte[] headerBuffer = Sock.Receive(UsbmuxdHeader.SIZE);
         int recievedLength = headerBuffer.Length;
         if (recievedLength < 0) {
             Logger?.LogError("Error receiving packet: {recievedLength}", recievedLength);
             return recievedLength;
         }
-        if (recievedLength < Marshal.SizeOf(header)) {
+        if (recievedLength < UsbmuxdHeader.SIZE) {
             Logger?.LogError("Received packet is too small, got {recievedLength} bytes!", recievedLength);
             return recievedLength;
         }
@@ -67,7 +63,7 @@ internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion pr
         header = UsbmuxdHeader.FromBytes(headerBuffer);
         byte[] payloadLoc = [];
 
-        int payloadSize = header.Length - Marshal.SizeOf(header);
+        int payloadSize = header.Length - UsbmuxdHeader.SIZE;
         if (payloadSize > 0) {
             uint rsize = 0;
             do {
@@ -89,34 +85,25 @@ internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion pr
         return header.Length;
     }
 
-    private async Task<UsbmuxPacket> ReceivePacketAsync(CancellationToken cancellationToken)
-    {
+    private async Task<UsbmuxPacket> ReceivePacketAsync(CancellationToken cancellationToken) {
         AssertNotConnected();
 
         Sock.SetTimeout(connectionTimeout);
 
-        UsbmuxdHeader header = new() {
-            Length = 0,
-            Message = 0,
-            Tag = 0,
-            Version = 0
-        };
-        int headerSize = Marshal.SizeOf(header);
-        byte[] headerBuffer = new byte[headerSize];
-
+        byte[] headerBuffer = new byte[UsbmuxdHeader.SIZE];
         int recievedLength = await Sock.ReceiveAsync(headerBuffer, cancellationToken).ConfigureAwait(false);
         if (recievedLength < 0) {
             Logger?.LogError("Error receiving packet: {recievedLength}", recievedLength);
             throw new UsbmuxException($"Error receiving packet: {recievedLength}");
         }
-        if (recievedLength < headerSize) {
-            Logger?.LogError("Received packet is too small, got {recievedLength} bytes instead of {headerSize}!", recievedLength, headerSize);
-            throw new UsbmuxException($"Received packet is too small, got {recievedLength} bytes instead of {headerSize}!");
+        if (recievedLength < UsbmuxdHeader.SIZE) {
+            Logger?.LogError("Received packet is too small, got {recievedLength} bytes instead of {headerSize}!", recievedLength, UsbmuxdHeader.SIZE);
+            throw new UsbmuxException($"Received packet is too small, got {recievedLength} bytes instead of {UsbmuxdHeader.SIZE}!");
         }
 
-        header = UsbmuxdHeader.FromBytes(headerBuffer);
+        UsbmuxdHeader header = UsbmuxdHeader.FromBytes(headerBuffer);
 
-        int payloadSize = header.Length - headerSize;
+        int payloadSize = header.Length - UsbmuxdHeader.SIZE;
         byte[] payload = new byte[payloadSize];
         if (payloadSize > 0) {
             int rsize = 0;
@@ -141,20 +128,17 @@ internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion pr
     /// Verify active state is in state for control messages
     /// </summary>
     /// <exception cref="UsbmuxException"></exception>
-    protected void AssertNotConnected()
-    {
+    protected void AssertNotConnected() {
         if (_connected) {
             throw new UsbmuxException("Usbmux is connected, cannot issue control packets");
         }
     }
 
-    protected void AddDevice(UsbmuxdDevice device)
-    {
+    protected void AddDevice(UsbmuxdDevice device) {
         Devices.Add(device);
     }
 
-    protected void RemoveDevice(long deviceId)
-    {
+    protected void RemoveDevice(long deviceId) {
         Devices.RemoveAll(x => x.DeviceId == deviceId);
     }
 
@@ -168,12 +152,11 @@ internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion pr
     /// </summary>
     protected abstract Task RequestConnectAsync(long deviceId, ushort port, CancellationToken cancellationToken = default);
 
-    protected int SendPacket(UsbmuxdMessageType message, int tag, byte[] payload)
-    {
+    protected int SendPacket(UsbmuxdMessageType message, int tag, byte[] payload) {
         AssertNotConnected();
 
         UsbmuxdHeader header = new UsbmuxdHeader {
-            Length = Marshal.SizeOf(typeof(UsbmuxdHeader)),
+            Length = UsbmuxdHeader.SIZE,
             Version = ProtocolVersion,
             Message = message,
             Tag = tag
@@ -184,7 +167,7 @@ internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion pr
         }
 
         int sent = Sock.Send(header.GetBytes());
-        if (sent != Marshal.SizeOf(header)) {
+        if (sent != UsbmuxdHeader.SIZE) {
             Logger?.LogError($"ERROR: could not send packet header");
             return -1;
         }
@@ -209,12 +192,11 @@ internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion pr
         return sent;
     }
 
-    protected async Task<int> SendPacketAsync(UsbmuxdMessageType message, int tag, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken = default)
-    {
+    protected async Task<int> SendPacketAsync(UsbmuxdMessageType message, int tag, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken = default) {
         AssertNotConnected();
 
         UsbmuxdHeader header = new UsbmuxdHeader {
-            Length = Marshal.SizeOf(typeof(UsbmuxdHeader)),
+            Length = UsbmuxdHeader.SIZE,
             Version = ProtocolVersion,
             Message = message,
             Tag = tag
@@ -225,7 +207,7 @@ internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion pr
         }
 
         int sent = await Sock.SendAsync(header.GetBytes(), cancellationToken).ConfigureAwait(false);
-        if (sent != Marshal.SizeOf(header)) {
+        if (sent != UsbmuxdHeader.SIZE) {
             Logger?.LogError($"ERROR: could not send packet header");
             return -1;
         }
@@ -251,8 +233,7 @@ internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion pr
     /// <summary>
     /// Close the current Usbmux socket/connection
     /// </summary>
-    public void Close()
-    {
+    public void Close() {
         Sock.Close();
     }
 
@@ -262,8 +243,7 @@ internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion pr
     /// <param name="device">The usbmux device to connect to</param>
     /// <param name="port">The port to connect to the device on</param>
     /// <returns></returns>
-    public Socket Connect(UsbmuxdDevice device, ushort port)
-    {
+    public Socket Connect(UsbmuxdDevice device, ushort port) {
         RequestConnect(device.DeviceId, port);
         _connected = true;
         return Sock.GetInternalSocket();
@@ -275,15 +255,13 @@ internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion pr
     /// <param name="device">The usbmux device to connect to</param>
     /// <param name="port">The port to connect to the device on</param>
     /// <returns></returns>
-    public async Task<Socket> ConnectAsync(UsbmuxdDevice device, ushort port)
-    {
+    public async Task<Socket> ConnectAsync(UsbmuxdDevice device, ushort port) {
         await RequestConnectAsync(device.DeviceId, port).ConfigureAwait(false);
         _connected = true;
         return Sock.GetInternalSocket();
     }
 
-    public static UsbmuxConnection Create(string usbmuxAddress = "", ILogger? logger = null)
-    {
+    public static UsbmuxConnection Create(string usbmuxAddress = "", ILogger? logger = null) {
         // First attempt to connect with possibly the wrong version header (using Plist protocol)
         UsbmuxdSocket sock = new UsbmuxdSocket(usbmuxAddress: usbmuxAddress);
 
@@ -319,8 +297,7 @@ internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion pr
     /// </summary>
     public abstract Task<UsbmuxdResult> ListenAsync(CancellationToken cancellationToken = default);
 
-    public UsbmuxPacket Receive(int expectedTag = -1)
-    {
+    public UsbmuxPacket Receive(int expectedTag = -1) {
         AssertNotConnected();
         ReceivePacket(out UsbmuxdHeader header, out byte[] payload);
         if (expectedTag > -1 && header.Tag != expectedTag) {
@@ -329,8 +306,7 @@ internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion pr
         return new UsbmuxPacket(header, payload);
     }
 
-    public async Task<UsbmuxPacket> ReceiveAsync(int expectedTag = -1, CancellationToken cancellationToken = default)
-    {
+    public async Task<UsbmuxPacket> ReceiveAsync(int expectedTag = -1, CancellationToken cancellationToken = default) {
         AssertNotConnected();
         UsbmuxPacket packet = await ReceivePacketAsync(cancellationToken).ConfigureAwait(false);
         if (expectedTag > -1 && packet.Header.Tag != expectedTag) {
