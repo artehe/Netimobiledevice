@@ -131,14 +131,14 @@ internal sealed class DeviceLinkService : IDisposable {
         DictionaryNode dirList = [];
         DirectoryInfo dir = new DirectoryInfo(path);
         if (dir.Exists) {
-            foreach (FileSystemInfo entry in dir.GetFileSystemInfos()) {
+            foreach (FileSystemInfo entry in dir.EnumerateFileSystemInfos()) {
                 if (cancellationToken.IsCancellationRequested) {
                     break;
                 }
                 DictionaryNode entryDict = new DictionaryNode {
                     { "DLFileModificationDate", new DateNode(entry.LastWriteTime) },
                     { "DLFileSize", new IntegerNode(entry is FileInfo fileInfo ? fileInfo.Length : 0L) },
-                    { "DLFileType", new StringNode(entry.Attributes.HasFlag(FileAttributes.Directory) ? "DLFileTypeDirectory" : "DLFileTypeRegular") }
+                    { "DLFileType", new StringNode(entry is DirectoryInfo ? "DLFileTypeDirectory" : "DLFileTypeRegular") }
                 };
                 dirList.Add(entry.Name, entryDict);
             }
@@ -487,10 +487,10 @@ internal sealed class DeviceLinkService : IDisposable {
                     Directory.Delete(path, true);
                 }
             }
+        }
 
-            if (!cancellationToken.IsCancellationRequested) {
-                await SendStatusReport(0, string.Empty, cancellationToken: cancellationToken).ConfigureAwait(false);
-            }
+        if (!cancellationToken.IsCancellationRequested) {
+            await SendStatusReport(0, string.Empty, cancellationToken: cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -566,7 +566,7 @@ internal sealed class DeviceLinkService : IDisposable {
             if (backupFile != null) {
                 // Ensure the directory requested exists before writing to it.
                 string? pathDir = Path.GetDirectoryName(backupFile.LocalPath);
-                if (!string.IsNullOrWhiteSpace(pathDir) && !Directory.Exists(backupFile.LocalPath)) {
+                if (!string.IsNullOrWhiteSpace(pathDir) && !Directory.Exists(pathDir)) {
                     Directory.CreateDirectory(pathDir);
                 }
 
@@ -600,7 +600,7 @@ internal sealed class DeviceLinkService : IDisposable {
                     byte[] msgBuffer = await _service.ReceiveAsync(size, cancellationToken).ConfigureAwait(false);
                     string errorMessage = Encoding.UTF8.GetString(msgBuffer);
 
-                    _logger.LogWarning("Failed to fully upload {localPath}. Device file name {devicePath}. Reason: {msg}", backupFile.LocalPath, backupFile.DevicePath, errorMessage);
+                    _logger.LogWarning("Failed to fully upload {localPath}. Device file name {devicePath}. Reason: {errorMessage}", backupFile.LocalPath, backupFile.DevicePath, errorMessage);
                     OnFileTransferError(backupFile, $"{code}: {msg} [ExpectedSize: {backupFile.ExpectedFileSize}, ActualReceived: {backupFile.FileSize} ]");
 
                     continue;
@@ -666,7 +666,9 @@ internal sealed class DeviceLinkService : IDisposable {
                 }
 
                 default: {
-                    UpdateProgressForMessage(message[3].AsRealNode());
+                    if (message.Count > 3) {
+                        UpdateProgressForMessage(message[3].AsRealNode());
+                    }
                     break;
                 }
             }
