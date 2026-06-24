@@ -8,6 +8,7 @@ namespace Netimobiledevice.Serialisation;
 [JsonSerializable(typeof(Dictionary<string, object>))]
 [JsonSerializable(typeof(EstablishTunnelResponse))]
 [JsonSerializable(typeof(XpcDictionary))]
+[JsonSerializable(typeof(XpcObject))]
 [JsonSourceGenerationOptions(
     PropertyNameCaseInsensitive = true
 )]
