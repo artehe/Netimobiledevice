@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace Netimobiledevice.Plist;
 
@@ -29,68 +30,29 @@ internal static class NodeFactory {
         Register("false", 0, new BooleanNode());
     }
 
-    private static PropertyNode GetPropertyNodeFromType(PlistType type) {
-        switch (type) {
-            case PlistType.Array: {
-                return new ArrayNode();
-            }
-
-            case PlistType.Bool:
-            case PlistType.Boolean: {
-                return new BooleanNode();
-            }
-
-            case PlistType.Data: {
-                return new DataNode();
-            }
-
-            case PlistType.Date: {
-                return new DateNode();
-            }
-
-            case PlistType.Dict: {
-                return new DictionaryNode();
-            }
-
-            case PlistType.Fill: {
-                return new FillNode();
-            }
-
-            case PlistType.Integer: {
-                return new IntegerNode();
-            }
-
-            case PlistType.Real: {
-                return new RealNode();
-            }
-
-            case PlistType.String:
-            case PlistType.UString: {
-                return new StringNode();
-            }
-
-            case PlistType.Uid: {
-                return new UidNode();
-            }
-
-            default: {
-                return new NullNode();
-            }
-        }
-    }
+    private static PropertyNode GetPropertyNodeFromType(PlistType type) => type switch {
+        PlistType.Array => new ArrayNode(),
+        PlistType.Boolean or PlistType.Bool => new BooleanNode(),
+        PlistType.Data => new DataNode(),
+        PlistType.Date => new DateNode(),
+        PlistType.Dict => new DictionaryNode(),
+        PlistType.Fill => new FillNode(),
+        PlistType.Integer => new IntegerNode(),
+        PlistType.Null => new NullNode(),
+        PlistType.Real => new RealNode(),
+        PlistType.String or PlistType.UString => new StringNode(),
+        PlistType.Uid => new UidNode(),
+        _ => throw new ArgumentOutOfRangeException(nameof(type))
+    };
 
     /// <summary>
     /// Registers the specified element.
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <param name="node">The node.</param>
-    private static void Register<T>(T node) where T : PropertyNode, new() {
-        if (!_binaryTags.ContainsKey(node.BinaryTag)) {
-            _binaryTags.Add(node.BinaryTag, node.NodeType);
-        }
-        if (!_xmlTags.ContainsKey(node.XmlTag)) {
-            _xmlTags.Add(node.XmlTag, node.NodeType);
-        }
+    private static void Register(PropertyNode node) {
+        _binaryTags.TryAdd(node.BinaryTag, node.NodeType);
+        _xmlTags.TryAdd(node.XmlTag, node.NodeType);
     }
 
     /// <summary>
@@ -100,7 +62,7 @@ internal static class NodeFactory {
     /// <param name="xmlTag">The tag.</param>
     /// <param name="binaryTag">The type code.</param>
     /// <param name="node">The element.</param>
-    private static void Register<T>(string xmlTag, byte binaryTag, T node) where T : PropertyNode, new() {
+    private static void Register(string xmlTag, byte binaryTag, PropertyNode node) {
         if (!_binaryTags.ContainsKey(binaryTag)) {
             _binaryTags.Add(binaryTag, node.NodeType);
         }
@@ -110,7 +72,7 @@ internal static class NodeFactory {
     }
 
     /// <summary>        
-    /// Creates a concrete <see cref="PropertyNode"/> object secified specified by it's tag.
+    /// Creates a concrete <see cref="PropertyNode"/> object specified by it's tag.
     /// </summary>
     /// <param name="tag">The tag of the element.</param>
     /// <returns>The created <see cref="PropertyNode"/> object</returns>
@@ -161,10 +123,10 @@ internal static class NodeFactory {
     }
 
     /// <summary>
-    /// Creates a <see cref="PropertyNode"/> object used for exteded length information.
+    /// Creates a <see cref="PropertyNode"/> object used for extended length information.
     /// </summary>
-    /// <param name="length">The exteded length information.</param>
-    /// <returns>The <see cref="PropertyNode"/> object used for exteded length information.</returns>
+    /// <param name="length">The extended length information.</param>
+    /// <returns>The <see cref="PropertyNode"/> object used for extended length information.</returns>
     public static PropertyNode CreateLengthElement(int length) {
         return new IntegerNode(length);
     }

@@ -1,4 +1,6 @@
 ﻿using Netimobiledevice.EndianBitConversion;
+using System;
+using System.Buffers.Binary;
 using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
@@ -8,8 +10,7 @@ namespace Netimobiledevice.Plist;
 /// <summary>
 /// Represents a double value from a Plist
 /// </summary>
-public sealed class RealNode : PropertyNode<double>
-{
+public sealed class RealNode : PropertyNode<double> {
     internal override int BinaryLength => 3;
     internal override PlistType NodeType => PlistType.Real;
 
@@ -24,72 +25,36 @@ public sealed class RealNode : PropertyNode<double>
     /// <param name="value">The value of this element.</param>
     public RealNode(double value) : base(value) { }
 
+    private void Decode(ReadOnlySpan<byte> buffer, int nodeLength) {
+        Value = nodeLength switch {
+            < 2 => throw new PlistFormatException("Binary real values must be at least 32 bits."),
+            2 => BinaryPrimitives.ReadSingleBigEndian(buffer),
+            3 => BinaryPrimitives.ReadDoubleBigEndian(buffer),
+            _ => throw new PlistFormatException("Binary real values larger than 64 bits are not supported.")
+        };
+    }
+
     /// <summary>
     /// Parses the specified value from a given string, read from Xml.
     /// </summary>
     /// <param name="data">The string whis is parsed.</param>
-    internal override void Parse(string data)
-    {
+    internal override void Parse(string data) {
         Value = double.Parse(data, CultureInfo.InvariantCulture);
     }
 
     /// <summary>
     /// Reads this element binary from the reader.
     /// </summary>
-    internal override void ReadBinary(Stream stream, int nodeLength)
-    {
+    internal override void ReadBinary(Stream stream, int nodeLength) {
         byte[] buf = new byte[1 << nodeLength];
-        if (stream.Read(buf, 0, buf.Length) != buf.Length) {
-            throw new PlistFormatException();
-        }
-
-        switch (nodeLength) {
-            case 0: {
-                throw new PlistFormatException("Real < 32Bit");
-            }
-            case 1: {
-                throw new PlistFormatException("Real < 32Bit");
-            }
-            case 2: {
-                Value = EndianBitConverter.BigEndian.ToSingle(buf, 0);
-                break;
-            }
-            case 3: {
-                Value = EndianBitConverter.BigEndian.ToDouble(buf, 0);
-                break;
-            }
-            default: {
-                throw new PlistFormatException("Real > 64Bit");
-            }
-        }
+        stream.ReadExactly(buf);
+        Decode(buf, nodeLength);
     }
 
-    internal override async Task ReadBinaryAsync(Stream stream, int nodeLength)
-    {
+    internal override async Task ReadBinaryAsync(Stream stream, int nodeLength) {
         byte[] buf = new byte[1 << nodeLength];
-        if (await stream.ReadAsync(buf).ConfigureAwait(false) != buf.Length) {
-            throw new PlistFormatException();
-        }
-
-        switch (nodeLength) {
-            case 0: {
-                throw new PlistFormatException("Real < 32Bit");
-            }
-            case 1: {
-                throw new PlistFormatException("Real < 32Bit");
-            }
-            case 2: {
-                Value = EndianBitConverter.BigEndian.ToSingle(buf, 0);
-                break;
-            }
-            case 3: {
-                Value = EndianBitConverter.BigEndian.ToDouble(buf, 0);
-                break;
-            }
-            default: {
-                throw new PlistFormatException("Real > 64Bit");
-            }
-        }
+        await stream.ReadExactlyAsync(buf).ConfigureAwait(false);
+        Decode(buf, nodeLength);
     }
 
     /// <summary>
@@ -98,22 +63,19 @@ public sealed class RealNode : PropertyNode<double>
     /// <returns>
     /// The XML string representation of the Value.
     /// </returns>
-    internal override string ToXmlString()
-    {
+    internal override string ToXmlString() {
         return Value.ToString(CultureInfo.InvariantCulture);
     }
 
     /// <summary>
     /// Writes this element binary to the writer.
     /// </summary>
-    internal override void WriteBinary(Stream stream)
-    {
+    internal override void WriteBinary(Stream stream) {
         byte[] buf = EndianBitConverter.BigEndian.GetBytes(Value);
         stream.Write(buf, 0, buf.Length);
     }
 
-    internal override async Task WriteBinaryAsync(Stream stream)
-    {
+    internal override async Task WriteBinaryAsync(Stream stream) {
         byte[] buf = EndianBitConverter.BigEndian.GetBytes(Value);
         await stream.WriteAsync(buf).ConfigureAwait(false);
     }

@@ -1,15 +1,17 @@
 ﻿using Netimobiledevice.EndianBitConversion;
 using System;
+using System.Buffers.Binary;
+using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
+using System.Xml;
 
 namespace Netimobiledevice.Plist;
 
 /// <summary>
 /// Represents a UID value from a Plist
 /// </summary>
-public sealed class UidNode : PropertyNode<ulong>
-{
+public sealed class UidNode : PropertyNode<ulong> {
     internal override int BinaryLength {
         get {
             if (Value <= byte.MaxValue) {
@@ -34,33 +36,22 @@ public sealed class UidNode : PropertyNode<ulong>
     /// <param name="value"></param>
     public UidNode(ulong value) : base(value) { }
 
-    internal override void Parse(string data)
-    {
-        throw new NotImplementedException();
-    }
-
-    internal override void ReadBinary(Stream stream, int nodeLength)
-    {
-        byte[] buf = new byte[1 << nodeLength];
-        if (stream.Read(buf, 0, buf.Length) != buf.Length) {
-            throw new PlistFormatException();
-        }
-
+    private void ReadInternal(ReadOnlySpan<byte> data, int nodeLength) {
         switch (nodeLength) {
             case 0: {
-                Value = buf[0];
+                Value = data[0];
                 break;
             }
             case 1: {
-                Value = EndianBitConverter.BigEndian.ToUInt16(buf, 0);
+                Value = BinaryPrimitives.ReadUInt16BigEndian(data);
                 break;
             }
             case 2: {
-                Value = EndianBitConverter.BigEndian.ToUInt32(buf, 0);
+                Value = BinaryPrimitives.ReadUInt32BigEndian(data);
                 break;
             }
             case 3: {
-                Value = EndianBitConverter.BigEndian.ToUInt64(buf, 0);
+                Value = BinaryPrimitives.ReadUInt64BigEndian(data);
                 break;
             }
             default: {
@@ -69,93 +60,46 @@ public sealed class UidNode : PropertyNode<ulong>
         }
     }
 
-    internal override async Task ReadBinaryAsync(Stream stream, int nodeLength)
-    {
+    private byte[] WriteInternal() => BinaryLength switch {
+        0 => [(byte) Value],
+        1 => EndianBitConverter.BigEndian.GetBytes((ushort) Value),
+        2 => EndianBitConverter.BigEndian.GetBytes((uint) Value),
+        3 => EndianBitConverter.BigEndian.GetBytes(Value),
+        _ => throw new PlistException($"Unexpected length: {BinaryLength}."),
+    };
+
+    internal override void Parse(string data) => throw new NotSupportedException("UID nodes cannot be parsed from XML plist format.");
+
+    internal override void ReadBinary(Stream stream, int nodeLength) {
         byte[] buf = new byte[1 << nodeLength];
-        if (await stream.ReadAsync(buf).ConfigureAwait(false) != buf.Length) {
-            throw new PlistFormatException();
-        }
-
-        switch (nodeLength) {
-            case 0: {
-                Value = buf[0];
-                break;
-            }
-            case 1: {
-                Value = EndianBitConverter.BigEndian.ToUInt16(buf, 0);
-                break;
-            }
-            case 2: {
-                Value = EndianBitConverter.BigEndian.ToUInt32(buf, 0);
-                break;
-            }
-            case 3: {
-                Value = EndianBitConverter.BigEndian.ToUInt64(buf, 0);
-                break;
-            }
-            default: {
-                throw new PlistFormatException("Int > 64Bit");
-            }
-        }
+        stream.ReadExactly(buf);
+        ReadInternal(buf, nodeLength);
     }
 
-    internal override string ToXmlString()
-    {
-        return $"<dict><key>CF$UID</key><integer>{Value}</integer></dict>";
+    internal override async Task ReadBinaryAsync(Stream stream, int nodeLength) {
+        byte[] buf = new byte[1 << nodeLength];
+        await stream.ReadExactlyAsync(buf).ConfigureAwait(false);
+        ReadInternal(buf, nodeLength);
     }
 
-    internal override void WriteBinary(Stream stream)
-    {
-        byte[] buf;
-        switch (BinaryLength) {
-            case 0: {
-                buf = [(byte) Value];
-                break;
-            }
-            case 1: {
-                buf = EndianBitConverter.BigEndian.GetBytes((ushort) Value);
-                break;
-            }
-            case 2: {
-                buf = EndianBitConverter.BigEndian.GetBytes((uint) Value);
-                break;
-            }
-            case 3: {
-                buf = EndianBitConverter.BigEndian.GetBytes(Value);
-                break;
-            }
-            default: {
-                throw new PlistException($"Unexpected length: {BinaryLength}.");
-            }
-        }
+    internal override string ToXmlString() {
+        return Value.ToString(CultureInfo.InvariantCulture);
+    }
 
+    internal override void WriteBinary(Stream stream) {
+        byte[] buf = WriteInternal();
         stream.Write(buf, 0, buf.Length);
     }
 
-    internal override async Task WriteBinaryAsync(Stream stream)
-    {
-        byte[] buf;
-        switch (BinaryLength) {
-            case 0: {
-                buf = [(byte) Value];
-                break;
-            }
-            case 1: {
-                buf = EndianBitConverter.BigEndian.GetBytes((ushort) Value);
-                break;
-            }
-            case 2: {
-                buf = EndianBitConverter.BigEndian.GetBytes((uint) Value);
-                break;
-            }
-            case 3: {
-                buf = EndianBitConverter.BigEndian.GetBytes(Value);
-                break;
-            }
-            default: {
-                throw new PlistException($"Unexpected length: {BinaryLength}.");
-            }
-        }
+    internal override async Task WriteBinaryAsync(Stream stream) {
+        byte[] buf = WriteInternal();
         await stream.WriteAsync(buf).ConfigureAwait(false);
+    }
+
+    internal override void WriteXml(XmlWriter writer) {
+        writer.WriteStartElement("dict");
+        writer.WriteElementString("key", "CF$UID");
+        writer.WriteElementString("integer", Value.ToString(CultureInfo.InvariantCulture));
+        writer.WriteEndElement();
     }
 }

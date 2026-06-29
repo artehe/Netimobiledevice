@@ -11,8 +11,7 @@ namespace Netimobiledevice.Plist;
 /// <summary>
 /// Represents a Dictionary value from a plist.
 /// </summary>
-public sealed class DictionaryNode : PropertyNode, IDictionary<string, PropertyNode>
-{
+public sealed class DictionaryNode : PropertyNode, IDictionary<string, PropertyNode> {
     private readonly IDictionary<string, PropertyNode> _dictionary = new Dictionary<string, PropertyNode>();
 
     /// <summary>
@@ -62,21 +61,18 @@ public sealed class DictionaryNode : PropertyNode, IDictionary<string, PropertyN
     /// Gets the enumerator.
     /// </summary>
     /// <returns>The enumerator</returns>
-    IEnumerator IEnumerable.GetEnumerator()
-    {
+    IEnumerator IEnumerable.GetEnumerator() {
         return _dictionary.GetEnumerator();
     }
 
     /// <summary>
     /// Reads this element binary from the reader.
     /// </summary>
-    internal override void ReadBinary(Stream stream, int nodeLength)
-    {
+    internal override void ReadBinary(Stream stream, int nodeLength) {
         throw new NotImplementedException("This type of node does not do it's own reading, refer to the binary reader.");
     }
 
-    internal override Task ReadBinaryAsync(Stream stream, int nodeLength)
-    {
+    internal override Task ReadBinaryAsync(Stream stream, int nodeLength) {
         throw new NotImplementedException("This type of node does not do it's own reading, refer to the binary reader.");
     }
 
@@ -84,8 +80,7 @@ public sealed class DictionaryNode : PropertyNode, IDictionary<string, PropertyN
     /// Generates an object from its XML representation.
     /// </summary>
     /// <param name="reader">The <see cref="XmlReader"/> stream from which the object is deserialized.</param>
-    internal override void ReadXml(XmlReader reader)
-    {
+    internal override void ReadXml(XmlReader reader) {
         bool wasEmpty = reader.IsEmptyElement;
         reader.Read();
         if (wasEmpty) {
@@ -115,8 +110,7 @@ public sealed class DictionaryNode : PropertyNode, IDictionary<string, PropertyN
     /// Generates an object from its XML representation.
     /// </summary>
     /// <param name="reader">The <see cref="XmlReader"/> stream from which the object is deserialized.</param>
-    internal override async Task ReadXmlAsync(XmlReader reader)
-    {
+    internal override async Task ReadXmlAsync(XmlReader reader) {
         bool wasEmpty = reader.IsEmptyElement;
         await reader.ReadAsync();
         if (wasEmpty) {
@@ -145,13 +139,11 @@ public sealed class DictionaryNode : PropertyNode, IDictionary<string, PropertyN
     /// <summary>
     /// Writes this element binary to the writer.
     /// </summary>
-    internal override void WriteBinary(Stream stream)
-    {
+    internal override void WriteBinary(Stream stream) {
         throw new NotImplementedException("This type of node does not do it's own writing, refer to the binary writer.");
     }
 
-    internal override Task WriteBinaryAsync(Stream stream)
-    {
+    internal override Task WriteBinaryAsync(Stream stream) {
         throw new NotImplementedException("This type of node does not do it's own writing, refer to the binary writer.");
     }
 
@@ -159,25 +151,19 @@ public sealed class DictionaryNode : PropertyNode, IDictionary<string, PropertyN
     /// Converts an object into its XML representation.
     /// </summary>
     /// <param name="writer">The <see cref="T:System.Xml.XmlWriter"/> stream to which the object is serialized.</param>
-    internal override void WriteXml(XmlWriter writer)
-    {
+    internal override void WriteXml(XmlWriter writer) {
         writer.WriteStartElement(XmlTag);
         foreach (string key in Keys) {
-            writer.WriteStartElement("key");
-            writer.WriteValue(key);
-            writer.WriteEndElement();
+            writer.WriteElementString("key", key);
             this[key].WriteXml(writer);
         }
         writer.WriteEndElement();
     }
 
-    internal override async Task WriteXmlAsync(XmlWriter writer)
-    {
+    internal override async Task WriteXmlAsync(XmlWriter writer) {
         await writer.WriteStartElementAsync(null, XmlTag, null).ConfigureAwait(false);
         foreach (string key in Keys) {
-            await writer.WriteStartElementAsync(null, "key", null).ConfigureAwait(false);
-            await writer.WriteStringAsync(key).ConfigureAwait(false);
-            await writer.WriteEndElementAsync().ConfigureAwait(false);
+            await writer.WriteElementStringAsync(null, "key", null, key).ConfigureAwait(false);
             await this[key].WriteXmlAsync(writer).ConfigureAwait(false);
         }
         await writer.WriteEndElementAsync().ConfigureAwait(false);
@@ -187,8 +173,7 @@ public sealed class DictionaryNode : PropertyNode, IDictionary<string, PropertyN
     /// Add the specified key/value pair.
     /// </summary>
     /// <param name="item">Item.</param>
-    public void Add(KeyValuePair<string, PropertyNode> item)
-    {
+    public void Add(KeyValuePair<string, PropertyNode> item) {
         _dictionary.Add(item);
     }
 
@@ -197,16 +182,14 @@ public sealed class DictionaryNode : PropertyNode, IDictionary<string, PropertyN
     /// </summary>
     /// <param name="key">Key</param>
     /// <param name="value">Value</param>
-    public void Add(string key, PropertyNode value)
-    {
+    public void Add(string key, PropertyNode value) {
         _dictionary.Add(key, value);
     }
 
     /// <summary>
     /// Clear this instance.
     /// </summary>
-    public void Clear()
-    {
+    public void Clear() {
         _dictionary.Clear();
     }
 
@@ -214,8 +197,7 @@ public sealed class DictionaryNode : PropertyNode, IDictionary<string, PropertyN
     /// Contains the specified key/value pair.
     /// </summary>
     /// <param name="item">Item.</param>
-    public bool Contains(KeyValuePair<string, PropertyNode> item)
-    {
+    public bool Contains(KeyValuePair<string, PropertyNode> item) {
         return _dictionary.Contains(item);
     }
 
@@ -224,8 +206,7 @@ public sealed class DictionaryNode : PropertyNode, IDictionary<string, PropertyN
     /// </summary>
     /// <returns>true if the key exists, otherwise false</returns>
     /// <param name="key">Key</param>
-    public bool ContainsKey(string key)
-    {
+    public bool ContainsKey(string key) {
         return _dictionary.ContainsKey(key);
     }
 
@@ -234,8 +215,7 @@ public sealed class DictionaryNode : PropertyNode, IDictionary<string, PropertyN
     /// </summary>
     /// <param name="array">Array</param>
     /// <param name="arrayIndex">Array index</param>
-    public void CopyTo(KeyValuePair<string, PropertyNode>[] array, int arrayIndex)
-    {
+    public void CopyTo(KeyValuePair<string, PropertyNode>[] array, int arrayIndex) {
         _dictionary.CopyTo(array, arrayIndex);
     }
 
@@ -243,8 +223,7 @@ public sealed class DictionaryNode : PropertyNode, IDictionary<string, PropertyN
     /// Gets the enumerator.
     /// </summary>
     /// <returns>The enumerator</returns>
-    public IEnumerator<KeyValuePair<string, PropertyNode>> GetEnumerator()
-    {
+    public IEnumerator<KeyValuePair<string, PropertyNode>> GetEnumerator() {
         return _dictionary.GetEnumerator();
     }
 
@@ -252,8 +231,7 @@ public sealed class DictionaryNode : PropertyNode, IDictionary<string, PropertyN
     /// Remove value at the specified key.
     /// </summary>
     /// <param name="key">Key.</param>
-    public bool Remove(string key)
-    {
+    public bool Remove(string key) {
         return _dictionary.Remove(key);
     }
 
@@ -261,8 +239,7 @@ public sealed class DictionaryNode : PropertyNode, IDictionary<string, PropertyN
     /// Remove the specified key/value pair.
     /// </summary>
     /// <param name="item">Item.</param>
-    public bool Remove(KeyValuePair<string, PropertyNode> item)
-    {
+    public bool Remove(KeyValuePair<string, PropertyNode> item) {
         return _dictionary.Remove(item);
     }
 
@@ -272,8 +249,7 @@ public sealed class DictionaryNode : PropertyNode, IDictionary<string, PropertyN
     /// <returns>true if the key exists, otherwise false</returns>
     /// <param name="key">Key</param>
     /// <param name="value">Value</param>
-    public bool TryGetValue(string key, [MaybeNullWhen(false)] out PropertyNode value)
-    {
+    public bool TryGetValue(string key, [MaybeNullWhen(false)] out PropertyNode value) {
         return _dictionary.TryGetValue(key, out value);
     }
 }

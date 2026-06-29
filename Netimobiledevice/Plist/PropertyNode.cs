@@ -27,6 +27,20 @@ public abstract class PropertyNode {
     /// <value>The xml tag.</value>
     internal string XmlTag => NodeType.GetXmlTag();
 
+    private T As<T>(PlistType expected) where T : PropertyNode {
+        if (NodeType != expected) {
+            throw new PlistException($"Invalid type. Expected {expected} but found {NodeType}");
+        }
+        return (T) this;
+    }
+
+    private T As<T>(params PlistType[] expected) where T : PropertyNode {
+        if (!expected.Contains(NodeType)) {
+            throw new PlistException($"Invalid type. Expected {string.Join(" or ", expected)} but found {NodeType}");
+        }
+        return (T) this;
+    }
+
     internal abstract void ReadBinary(Stream stream, int nodeLength);
 
     internal abstract Task ReadBinaryAsync(Stream stream, int nodeLength);
@@ -43,82 +57,27 @@ public abstract class PropertyNode {
 
     internal abstract Task WriteXmlAsync(XmlWriter writer);
 
-    public ArrayNode AsArrayNode() {
-        if (NodeType != PlistType.Array) {
-            throw new PlistException($"Invalid type expected {PlistType.Array} found {NodeType}");
-        }
-        return (ArrayNode) this;
-    }
+    public ArrayNode AsArrayNode() => As<ArrayNode>(PlistType.Array);
 
-    public BooleanNode AsBooleanNode() {
-        if (NodeType != PlistType.Boolean) {
-            throw new PlistException($"Invalid type expected {PlistType.Boolean} found {NodeType}");
-        }
-        return (BooleanNode) this;
-    }
+    public BooleanNode AsBooleanNode() => As<BooleanNode>(PlistType.Boolean);
 
-    public DataNode AsDataNode() {
-        if (NodeType != PlistType.Data) {
-            throw new PlistException($"Invalid type expected {PlistType.Data} found {NodeType}");
-        }
-        return (DataNode) this;
-    }
+    public DataNode AsDataNode() => As<DataNode>(PlistType.Data);
 
-    public DateNode AsDateNode() {
-        if (NodeType != PlistType.Date) {
-            throw new PlistException($"Invalid type expected {PlistType.Date} found {NodeType}");
-        }
-        return (DateNode) this;
-    }
+    public DateNode AsDateNode() => As<DateNode>(PlistType.Date);
 
-    public DictionaryNode AsDictionaryNode() {
-        if (NodeType != PlistType.Dict) {
-            throw new PlistException($"Invalid type expected {PlistType.Dict} found {NodeType}");
-        }
-        return (DictionaryNode) this;
-    }
+    public DictionaryNode AsDictionaryNode() => As<DictionaryNode>(PlistType.Dict);
 
-    public FillNode AsFillNode() {
-        if (NodeType != PlistType.Fill) {
-            throw new PlistException($"Invalid type expected {PlistType.Fill} found {NodeType}");
-        }
-        return (FillNode) this;
-    }
+    public FillNode AsFillNode() => As<FillNode>(PlistType.Fill);
 
-    public IntegerNode AsIntegerNode() {
-        if (NodeType != PlistType.Integer) {
-            throw new PlistException($"Invalid type expected {PlistType.Integer} found {NodeType}");
-        }
-        return (IntegerNode) this;
-    }
+    public IntegerNode AsIntegerNode() => As<IntegerNode>(PlistType.Integer);
 
-    public NullNode AsNullNode() {
-        if (NodeType != PlistType.Null) {
-            throw new PlistException($"Invalid type expected {PlistType.Null} found {NodeType}");
-        }
-        return (NullNode) this;
-    }
+    public NullNode AsNullNode() => As<NullNode>(PlistType.Null);
 
-    public RealNode AsRealNode() {
-        if (NodeType != PlistType.Real) {
-            throw new PlistException($"Invalid type expected {PlistType.Real} found {NodeType}");
-        }
-        return (RealNode) this;
-    }
+    public RealNode AsRealNode() => As<RealNode>(PlistType.Real);
 
-    public StringNode AsStringNode() {
-        if (NodeType != PlistType.String && NodeType != PlistType.UString) {
-            throw new PlistException($"Invalid type expected {PlistType.String} or {PlistType.UString} found {NodeType}");
-        }
-        return (StringNode) this;
-    }
+    public StringNode AsStringNode() => As<StringNode>(PlistType.String, PlistType.UString);
 
-    public UidNode AsUidNode() {
-        if (NodeType != PlistType.Uid) {
-            throw new PlistException($"Invalid type expected {PlistType.Uid} found {NodeType}");
-        }
-        return (UidNode) this;
-    }
+    public UidNode AsUidNode() => As<UidNode>(PlistType.Uid);
 }
 
 public abstract class PropertyNode<T>(T value) : PropertyNode, IEquatable<PropertyNode> {
@@ -166,7 +125,7 @@ public abstract class PropertyNode<T>(T value) : PropertyNode, IEquatable<Proper
     /// <param name="writer">The <see cref="XmlWriter"/> stream to which the object is serialized.</param>
     internal override void WriteXml(XmlWriter writer) {
         writer.WriteStartElement(XmlTag);
-        writer.WriteValue(ToXmlString());
+        writer.WriteString(ToXmlString());
         writer.WriteEndElement();
     }
 
@@ -188,10 +147,16 @@ public abstract class PropertyNode<T>(T value) : PropertyNode, IEquatable<Proper
     /// true if the current object is equal to the <paramref name="other"/> parameter, otherwise false.
     /// </returns>
     public bool Equals(PropertyNode? other) {
-        if (other is PropertyNode<T> node && Value != null) {
-            return Value.Equals(node.Value);
+        if (other is not PropertyNode<T> node) {
+            return false;
         }
-        return false;
+        if (NodeType != other.NodeType) {
+            return false;
+        }
+        if (Value is null) {
+            return node.Value is null;
+        }
+        return Value.Equals(node.Value);
     }
 
     /// <summary>
@@ -208,9 +173,7 @@ public abstract class PropertyNode<T>(T value) : PropertyNode, IEquatable<Proper
     /// Serves as a hash function for a PropertyNode object.
     /// </summary>
     /// <returns>A hash code for this instance that is suitable for use in hashing algorithms and data structures such as a hash table.</returns>
-    public override int GetHashCode() {
-        return Value?.GetHashCode() ?? -1;
-    }
+    public override int GetHashCode() => HashCode.Combine(NodeType, Value);
 
     /// <summary>
     /// Returns a <see cref="string"/> that represents the current PropertyNode

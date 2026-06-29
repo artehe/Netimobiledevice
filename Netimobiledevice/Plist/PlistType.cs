@@ -1,8 +1,9 @@
-﻿namespace Netimobiledevice.Plist;
+﻿using System;
+
+namespace Netimobiledevice.Plist;
 
 /// <summary>
 /// Plist node types, where the value is the binary plist tag
-/// and the EnumMember value is the xml plist tag
 /// </summary>
 internal enum PlistType : byte {
     /// <summary>
@@ -59,7 +60,7 @@ internal enum PlistType : byte {
     Dict = 0xD0,
 }
 
-public static class PlistTypeExtensions {
+internal static class PlistTypeExtensions {
     /// <summary>
     /// Returns the xml plist tag for a given <see cref="PlistType"/>.
     /// </summary>
@@ -76,6 +77,6 @@ public static class PlistTypeExtensions {
         PlistType.Uid => "uid",
         PlistType.Array => "array",
         PlistType.Dict => "dict",
-        _ => value.ToString()
+        _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
     };
 }

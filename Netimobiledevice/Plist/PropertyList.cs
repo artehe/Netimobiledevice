@@ -9,42 +9,41 @@ namespace Netimobiledevice.Plist;
 /// <summary>
 /// Parses, saves, and creates a Plist file
 /// </summary>
-public static class PropertyList
-{
-    private static bool IsFormatBinary(Stream stream)
-    {
-        byte[] buf = new byte[8];
-        // Read in first 8 bytes
-        stream.ReadExactly(buf);
+public static class PropertyList {
+    private static readonly BinaryFormatReader _binaryReader = new();
+    private static readonly BinaryFormatWriter _binaryWriter = new();
+
+    private static bool IsFormatBinary(Stream stream) {
+        Span<byte> header = stackalloc byte[8];
+        stream.ReadExactly(header);
+
         // Rewind
         stream.Seek(0, SeekOrigin.Begin);
-        return ValidateBinaryHeader(buf);
+
+        return ValidateBinaryHeader(header);
     }
 
-    private static async Task<bool> IsFormatBinaryAsync(Stream stream)
-    {
-        byte[] buf = new byte[8];
-        // Read in first 8 bytes
-        await stream.ReadExactlyAsync(buf);
+    private static async Task<bool> IsFormatBinaryAsync(Stream stream) {
+        byte[] header = new byte[8];
+        await stream.ReadExactlyAsync(header);
+
         // Rewind
         stream.Seek(0, SeekOrigin.Begin);
-        return ValidateBinaryHeader(buf);
+
+        return ValidateBinaryHeader(header);
     }
 
-    private static PropertyNode LoadAsBinary(Stream stream)
-    {
+    private static PropertyNode LoadAsBinary(Stream stream) {
         BinaryFormatReader reader = new BinaryFormatReader();
         return reader.Read(stream);
     }
 
-    private static async Task<PropertyNode> LoadAsBinaryAsync(Stream stream)
-    {
+    private static async Task<PropertyNode> LoadAsBinaryAsync(Stream stream) {
         BinaryFormatReader reader = new BinaryFormatReader();
         return await reader.ReadAsync(stream).ConfigureAwait(false);
     }
 
-    private static PropertyNode LoadAsXml(Stream stream)
-    {
+    private static PropertyNode LoadAsXml(Stream stream) {
         // Set resolver to null in order to avoid calls to apple.com to resolve DTD
         XmlReaderSettings settings = new XmlReaderSettings {
             DtdProcessing = DtdProcessing.Ignore,
@@ -64,8 +63,7 @@ public static class PropertyList
         }
     }
 
-    private static async Task<PropertyNode> LoadAsXmlAsync(Stream stream)
-    {
+    private static async Task<PropertyNode> LoadAsXmlAsync(Stream stream) {
         // Set resolver to null in order to avoid calls to apple.com to resolve DTD
         XmlReaderSettings settings = new XmlReaderSettings {
             Async = true,
@@ -86,17 +84,14 @@ public static class PropertyList
         }
     }
 
-    private static bool ValidateBinaryHeader(byte[] buf)
-    {
-        if (Encoding.UTF8.GetString(buf, 0, 6) != "bplist") {
+    private static bool ValidateBinaryHeader(ReadOnlySpan<byte> header) {
+        if (!header[..6].SequenceEqual("bplist"u8)) {
             return false;
         }
-
-        string versionString = Encoding.UTF8.GetString(buf, 6, 2);
-        return versionString switch {
-            "00" => true,
-            _ => throw new NotImplementedException($"The binary plist version {versionString} is not implemented yet"),
-        };
+        if (header[6..8].SequenceEqual("00"u8)) {
+            return true;
+        }
+        throw new NotSupportedException($"This binary plist version is not implemented yet: {header[6]}, {header[7]}");
     }
 
     /// <summary>
@@ -105,8 +100,7 @@ public static class PropertyList
     /// <param name="rootNode">Root node of the Plist structure.</param>
     /// <param name="stream">The stream in which the PList is saves.</param>
     /// <param name="format">The format of the Plist (Binary/Xml).</param>
-    internal static void Save(PropertyNode rootNode, Stream stream, PlistFormat format)
-    {
+    internal static void Save(PropertyNode rootNode, Stream stream, PlistFormat format) {
         if (format == PlistFormat.Xml) {
             const string newLine = "\n";
 
@@ -135,17 +129,11 @@ public static class PropertyList
                 tmpStream.Seek(0, SeekOrigin.Begin);
                 using (StreamReader reader = new StreamReader(tmpStream)) {
                     // Prevent the output of the BOM by creating a UTF8Encoding that doesn't emit the UTF8 identifier at the start
-                    using (StreamWriter writer = new StreamWriter(stream, new UTF8Encoding(false), 4096, true)) {
-                        writer.NewLine = newLine;
-                        for (string? line = reader.ReadLine(); line != null; line = reader.ReadLine()) {
-                            if (line.Trim() == "<true />") {
-                                line = line.Replace("<true />", "<true/>");
-                            }
-                            if (line.Trim() == "<false />") {
-                                line = line.Replace("<false />", "<false/>");
-                            }
-                            writer.WriteLine(line);
-                        }
+                    using (StreamWriter writer = new StreamWriter(stream, new UTF8Encoding(false), 32768, true)) {
+                        string xml = reader.ReadToEnd();
+                        xml = xml.Replace("<true />", "<true/>")
+                            .Replace("<false />", "<false/>");
+                        writer.Write(xml);
                     }
                 }
             }
@@ -162,8 +150,7 @@ public static class PropertyList
     /// <param name="rootNode">Root node of the Plist structure.</param>
     /// <param name="stream">The stream in which the PList is saves.</param>
     /// <param name="format">The format of the Plist (Binary/Xml).</param>
-    internal static async Task SaveAsync(PropertyNode rootNode, Stream stream, PlistFormat format)
-    {
+    internal static async Task SaveAsync(PropertyNode rootNode, Stream stream, PlistFormat format) {
         if (format == PlistFormat.Xml) {
             const string newLine = "\n";
 
@@ -219,8 +206,7 @@ public static class PropertyList
     /// </summary>
     /// <param name="stream">The stream containing the Plist.</param>
     /// <returns>A <see cref="PropertyNode"/> object loaded from the stream</returns>
-    public static PropertyNode Load(Stream stream)
-    {
+    public static PropertyNode Load(Stream stream) {
         bool isBinary = IsFormatBinary(stream);
         // Detect binary format, and read using the appropriate method
         return isBinary ? LoadAsBinary(stream) : LoadAsXml(stream);
@@ -231,8 +217,7 @@ public static class PropertyList
     /// </summary>
     /// <param name="stream">The stream containing the Plist.</param>
     /// <returns>A <see cref="PropertyNode"/> object loaded from the stream</returns>
-    public static async Task<PropertyNode> LoadAsync(Stream stream)
-    {
+    public static async Task<PropertyNode> LoadAsync(Stream stream) {
         bool isBinary = await IsFormatBinaryAsync(stream);
         // Detect binary format, and read using the appropriate method
         return isBinary ? await LoadAsBinaryAsync(stream) : await LoadAsXmlAsync(stream);
@@ -243,20 +228,18 @@ public static class PropertyList
     /// </summary>
     /// <param name="data">The byte array containing the Plist.</param>
     /// <returns>A <see cref="PropertyNode"/> object loaded from the stream</returns>
-    public static PropertyNode LoadFromByteArray(byte[] data)
-    {
+    public static PropertyNode LoadFromByteArray(byte[] data) {
         using (MemoryStream ms = new MemoryStream(data)) {
             return Load(ms);
         }
     }
 
     /// <summary>
-    /// Loads the Plist from the specified byte array asyncronously
+    /// Loads the Plist from the specified byte array asynchronously
     /// </summary>
     /// <param name="data">The byte array containing the Plist.</param>
     /// <returns>A <see cref="PropertyNode"/> object loaded from the stream</returns>
-    public static async Task<PropertyNode> LoadFromByteArrayAsync(byte[] data)
-    {
+    public static async Task<PropertyNode> LoadFromByteArrayAsync(byte[] data) {
         using (MemoryStream ms = new MemoryStream(data)) {
             return await LoadAsync(ms);
         }
@@ -268,11 +251,9 @@ public static class PropertyList
     /// <param name="rootNode">Root node of the Plist structure.</param>
     /// <param name="format">The format of the Plist (Binary/Xml).</param>
     /// <returns>The byte array representation of the plist</returns>
-    public static byte[] SaveAsByteArray(PropertyNode rootNode, PlistFormat format)
-    {
+    public static byte[] SaveAsByteArray(PropertyNode rootNode, PlistFormat format) {
         using (MemoryStream ms = new MemoryStream()) {
             Save(rootNode, ms, format);
-            ms.Seek(0, SeekOrigin.Begin);
             return ms.ToArray();
         }
     }
@@ -283,29 +264,23 @@ public static class PropertyList
     /// <param name="rootNode">Root node of the Plist structure.</param>
     /// <param name="format">The format of the Plist (Binary/Xml).</param>
     /// <returns>The byte array representation of the plist</returns>
-    public static async Task<byte[]> SaveAsByteArrayAsync(PropertyNode rootNode, PlistFormat format)
-    {
+    public static async Task<byte[]> SaveAsByteArrayAsync(PropertyNode rootNode, PlistFormat format) {
         using (MemoryStream ms = new MemoryStream()) {
             await SaveAsync(rootNode, ms, format).ConfigureAwait(false);
-            ms.Seek(0, SeekOrigin.Begin);
             return ms.ToArray();
         }
     }
 
-    public static string SaveAsString(PropertyNode rootNode, PlistFormat format)
-    {
+    public static string SaveAsString(PropertyNode rootNode, PlistFormat format) {
         using (MemoryStream ms = new MemoryStream()) {
             Save(rootNode, ms, format);
-            ms.Seek(0, SeekOrigin.Begin);
-            return Encoding.UTF8.GetString(ms.ToArray());
+            return Encoding.UTF8.GetString(ms.GetBuffer(), 0, (int) ms.Length);
         }
     }
-    public static async Task<string> SaveAsStringAsync(PropertyNode rootNode, PlistFormat format)
-    {
+    public static async Task<string> SaveAsStringAsync(PropertyNode rootNode, PlistFormat format) {
         using (MemoryStream ms = new MemoryStream()) {
             await SaveAsync(rootNode, ms, format).ConfigureAwait(false);
-            ms.Seek(0, SeekOrigin.Begin);
-            return Encoding.UTF8.GetString(ms.ToArray());
+            return Encoding.UTF8.GetString(ms.GetBuffer(), 0, (int) ms.Length);
         }
     }
 }

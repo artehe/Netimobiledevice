@@ -1,7 +1,8 @@
 ﻿using Netimobiledevice.EndianBitConversion;
 using System;
+using System.Buffers.Binary;
 using System.IO;
-using System.Text;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Plist;
@@ -9,29 +10,16 @@ namespace Netimobiledevice.Plist;
 /// <summary>
 /// A class, used to read binary formated <see cref="PropertyNode"/> from a stream
 /// </summary>
-internal class BinaryFormatReader
-{
-    private class ReaderState(Stream stream, int[] nodeOffsets, int indexSize, int objectRefSize)
-    {
-        public Stream Stream { get; } = stream;
-        public int[] NodeOffsets { get; } = nodeOffsets;
-        public int OffsetIntSize { get; } = indexSize;
-        public int ObjectRefSize { get; } = objectRefSize;
-    }
+internal sealed class BinaryFormatReader {
+    private static ulong GetNodeOffset(BinaryReaderState readerState, byte[] bufKeys, int index) => readerState.ObjectRefSize switch {
+        1 => bufKeys[index],
+        2 => EndianBitConverter.BigEndian.ToUInt16(bufKeys, readerState.ObjectRefSize * index),
+        4 => EndianBitConverter.BigEndian.ToUInt32(bufKeys, readerState.ObjectRefSize * index),
+        8 => EndianBitConverter.BigEndian.ToUInt64(bufKeys, readerState.ObjectRefSize * index),
+        _ => throw new PlistFormatException($"Unexpected index size: {readerState.ObjectRefSize}."),
+    };
 
-    private static ulong GetNodeOffset(ReaderState readerState, byte[] bufKeys, int index)
-    {
-        return readerState.ObjectRefSize switch {
-            1 => bufKeys[index],
-            2 => EndianBitConverter.BigEndian.ToUInt16(bufKeys, readerState.ObjectRefSize * index),
-            4 => EndianBitConverter.BigEndian.ToUInt32(bufKeys, readerState.ObjectRefSize * index),
-            8 => EndianBitConverter.BigEndian.ToUInt64(bufKeys, readerState.ObjectRefSize * index),
-            _ => throw new PlistFormatException("$Unexpected index size: {readerState.IndexSize}."),
-        };
-    }
-
-    private static NodeTagAndLength GetObjectLengthAndTag(Stream stream)
-    {
+    private static NodeTagAndLength GetObjectLengthAndTag(Stream stream) {
         // Read the marker byte
         // left 4 bits represent the tag, which indicates the node type
         // right 4 bits indicate the length
@@ -40,80 +28,75 @@ internal class BinaryFormatReader
         //      - 4 left bits are 0001
         //      - 4 right bits is the power of 2 required to represent the length
         //      - the following pow(2, x) bytes give us the length (big-endian)
-        byte[] buf = new byte[1];
-        if (stream.Read(buf, 0, buf.Length) != buf.Length) {
-            throw new PlistFormatException("Couldn't read node tag byte.");
-        }
 
-        byte tag = buf[0];
-        int length = buf[0] & 0x0F;
+        Span<byte> markerBuf = stackalloc byte[1];
+        stream.ReadExactly(markerBuf);
+
+        byte tag = markerBuf[0];
+        int length = markerBuf[0] & 0x0F;
 
         // Length fits in 4 bits, return
         if (length != 0xF) {
             return new NodeTagAndLength(tag, length);
         }
+        return new NodeTagAndLength(tag, ReadExtendedLength(stream));
+    }
 
+    private static int ReadExtendedLength(Stream stream) {
         // Read next byte to determine the length (in bytes) of actual length value
-        if (stream.Read(buf, 0, buf.Length) != buf.Length) {
-            throw new PlistFormatException("Couldn't read node length byte.");
-        }
+        Span<byte> headerBuf = stackalloc byte[1];
+        stream.ReadExactly(headerBuf);
 
         // Verify that leftmost bits are 0001
-        if (((buf[0] >> 4) & 0x0F) != 0x1) {
+        if ((headerBuf[0] & 0xF0) != 0x10) {
             throw new PlistFormatException("Invalid node length byte header.");
         }
 
-        // Get the rightmost bits, giving us the number of bytes (power of 2) that we need
-        int byteCount = (int) Math.Pow(2, buf[0] & 0x0F);
+        // Guard against absurd/malicious encodings before allocating or reading.
+        // 2^2 = 4 bytes covers any realistic plist length; allow up to 2^3 = 8
+        // bytes for safety margin, but reject anything larger.
+        int powerOfTwo = headerBuf[0] & 0x0F;
+        if (powerOfTwo > 3) {
+            throw new PlistFormatException($"Unsupported node length encoding: 2^{powerOfTwo} bytes.");
+        }
 
         // Now get the length
-        byte[] lengthBuffer = new byte[byteCount];
-        if (stream.Read(lengthBuffer, 0, lengthBuffer.Length) != lengthBuffer.Length) {
-            throw new PlistFormatException("Couldn't read node length byte(s).");
-        }
-        length = ReadNumber(lengthBuffer, EndianBitConverter.BigEndian);
+        int byteCount = 1 << powerOfTwo;
+        Span<byte> lengthBuffer = stackalloc byte[byteCount];
+        stream.ReadExactly(lengthBuffer);
 
-        return new NodeTagAndLength(tag, length);
+        long length = ReadNumber(lengthBuffer);
+        if (length is < 0 or > int.MaxValue) {
+            throw new PlistFormatException($"Node length {length} is out of supported range.");
+        }
+        return (int) length;
     }
 
-    private void ReadInArray(ArrayNode node, int nodeLength, ReaderState readerState)
-    {
-        byte[] buf = new byte[nodeLength * readerState.ObjectRefSize];
-        if (readerState.Stream.Read(buf, 0, buf.Length) != buf.Length) {
-            throw new PlistFormatException();
-        }
 
+    private void ReadInArray(ArrayNode node, int nodeLength, BinaryReaderState readerState) {
+        byte[] buf = new byte[nodeLength * readerState.ObjectRefSize];
+        readerState.Stream.ReadExactly(buf);
         for (int i = 0; i < nodeLength; i++) {
             ulong topNode = GetNodeOffset(readerState, buf, i);
             node.Add(ReadInternal(readerState, topNode));
         }
     }
 
-    private async Task ReadInArrayAsync(ArrayNode node, int nodeLength, ReaderState readerState)
-    {
+    private async Task ReadInArrayAsync(ArrayNode node, int nodeLength, BinaryReaderState readerState) {
         byte[] buf = new byte[nodeLength * readerState.ObjectRefSize];
-        if (await readerState.Stream.ReadAsync(buf).ConfigureAwait(false) != buf.Length) {
-            throw new PlistFormatException();
-        }
-
+        await readerState.Stream.ReadExactlyAsync(buf);
         for (int i = 0; i < nodeLength; i++) {
             ulong topNode = GetNodeOffset(readerState, buf, i);
             node.Add(await ReadInternalAsync(readerState, topNode).ConfigureAwait(false));
         }
     }
 
-    private void ReadInDictionary(DictionaryNode node, int nodeLength, ReaderState readerState)
-    {
+    private void ReadInDictionary(DictionaryNode node, int nodeLength, BinaryReaderState readerState) {
         byte[] bufKeys = new byte[nodeLength * readerState.ObjectRefSize];
+        readerState.Stream.ReadExactly(bufKeys);
+
         byte[] bufVals = new byte[nodeLength * readerState.ObjectRefSize];
-
-        if (readerState.Stream.Read(bufKeys, 0, bufKeys.Length) != bufKeys.Length) {
-            throw new PlistFormatException();
-        }
-
-        if (readerState.Stream.Read(bufVals, 0, bufVals.Length) != bufVals.Length) {
-            throw new PlistFormatException();
-        }
+        readerState.Stream.ReadExactly(bufVals);
 
         for (int i = 0; i < nodeLength; i++) {
             ulong topNode = GetNodeOffset(readerState, bufKeys, i);
@@ -130,18 +113,12 @@ internal class BinaryFormatReader
         }
     }
 
-    private async Task ReadInDictionaryAsync(DictionaryNode node, int nodeLength, ReaderState readerState)
-    {
+    private async Task ReadInDictionaryAsync(DictionaryNode node, int nodeLength, BinaryReaderState readerState) {
         byte[] bufKeys = new byte[nodeLength * readerState.ObjectRefSize];
+        await readerState.Stream.ReadExactlyAsync(bufKeys).ConfigureAwait(false);
+
         byte[] bufVals = new byte[nodeLength * readerState.ObjectRefSize];
-
-        if (await readerState.Stream.ReadAsync(bufKeys).ConfigureAwait(false) != bufKeys.Length) {
-            throw new PlistFormatException();
-        }
-
-        if (await readerState.Stream.ReadAsync(bufVals).ConfigureAwait(false) != bufVals.Length) {
-            throw new PlistFormatException();
-        }
+        await readerState.Stream.ReadExactlyAsync(bufVals).ConfigureAwait(false);
 
         for (int i = 0; i < nodeLength; i++) {
             ulong topNode = GetNodeOffset(readerState, bufKeys, i);
@@ -164,8 +141,7 @@ internal class BinaryFormatReader
     /// <param name="readerState">Reader state.</param>
     /// <param name="elemIdx">The elem idx.</param>
     /// <returns>The <see cref="PropertyNode"/> at the specified idx.</returns>
-    private PropertyNode ReadInternal(ReaderState readerState, ulong elemIdx)
-    {
+    private PropertyNode ReadInternal(BinaryReaderState readerState, ulong elemIdx) {
         readerState.Stream.Seek(readerState.NodeOffsets[elemIdx], SeekOrigin.Begin);
         return ReadInternal(readerState);
     }
@@ -175,8 +151,7 @@ internal class BinaryFormatReader
     /// </summary>
     /// <param name="readerState">Reader state.</param>
     /// <returns>The <see cref="PropertyNode"/> at the current stream position.</returns>
-    private PropertyNode ReadInternal(ReaderState readerState)
-    {
+    private PropertyNode ReadInternal(BinaryReaderState readerState) {
         NodeTagAndLength tagAndLength = GetObjectLengthAndTag(readerState.Stream);
 
         byte tag = tagAndLength.Tag;
@@ -207,8 +182,7 @@ internal class BinaryFormatReader
     /// <param name="readerState">Reader state.</param>
     /// <param name="elemIdx">The elem idx.</param>
     /// <returns>The <see cref="PropertyNode"/> at the specified idx.</returns>
-    private Task<PropertyNode> ReadInternalAsync(ReaderState readerState, ulong elemIdx)
-    {
+    private Task<PropertyNode> ReadInternalAsync(BinaryReaderState readerState, ulong elemIdx) {
         readerState.Stream.Seek(readerState.NodeOffsets[elemIdx], SeekOrigin.Begin);
         return ReadInternalAsync(readerState);
     }
@@ -218,8 +192,7 @@ internal class BinaryFormatReader
     /// </summary>
     /// <param name="readerState">Reader state.</param>
     /// <returns>The <see cref="PropertyNode"/> at the current stream position.</returns>
-    private async Task<PropertyNode> ReadInternalAsync(ReaderState readerState)
-    {
+    private async Task<PropertyNode> ReadInternalAsync(BinaryReaderState readerState) {
         NodeTagAndLength tagAndLength = GetObjectLengthAndTag(readerState.Stream);
 
         byte tag = tagAndLength.Tag;
@@ -250,14 +223,11 @@ internal class BinaryFormatReader
     /// <param name="stream"></param>
     /// <param name="trailer"></param>
     /// <returns></returns>
-    private static int[] ReadNodeOffsets(Stream stream, PlistTrailer trailer)
-    {
+    private static int[] ReadNodeOffsets(Stream stream, PlistTrailer trailer) {
         // The bitconverter library we use only knows how to deal with integer offsets
         if (trailer.NumObjects > int.MaxValue) {
             throw new PlistFormatException($"Offset table contains too many entries: {trailer.NumObjects}.");
         }
-
-        EndianBitConverter converter = EndianBitConverter.BigEndian;
 
         // Position the stream at the start of the offset table
         if (stream.Seek((long) trailer.OffsetTableOffset, SeekOrigin.Begin) != (long) trailer.OffsetTableOffset) {
@@ -269,11 +239,9 @@ internal class BinaryFormatReader
         int[] nodeOffsets = new int[trailer.NumObjects];
 
         for (ulong i = 0; i < trailer.NumObjects; i++) {
-            if (stream.Read(buffer, 0, buffer.Length) != buffer.Length) {
-                throw new PlistFormatException($"Invalid plist file: unable to read value {i} in the offset table.");
-            }
-
-            nodeOffsets[i] = ReadNumber(buffer, converter);
+            // Read's value {i} of the offset table
+            stream.ReadExactly(buffer);
+            nodeOffsets[i] = ReadNumber(buffer);
         }
 
         return nodeOffsets;
@@ -285,14 +253,11 @@ internal class BinaryFormatReader
     /// <param name="stream"></param>
     /// <param name="trailer"></param>
     /// <returns></returns>
-    private static async Task<int[]> ReadNodeOffsetsAsync(Stream stream, PlistTrailer trailer)
-    {
+    private static async Task<int[]> ReadNodeOffsetsAsync(Stream stream, PlistTrailer trailer) {
         // The bitconverter library we use only knows how to deal with integer offsets
         if (trailer.NumObjects > int.MaxValue) {
             throw new PlistFormatException($"Offset table contains too many entries: {trailer.NumObjects}.");
         }
-
-        EndianBitConverter converter = EndianBitConverter.BigEndian;
 
         // Position the stream at the start of the offset table
         if (stream.Seek((long) trailer.OffsetTableOffset, SeekOrigin.Begin) != (long) trailer.OffsetTableOffset) {
@@ -304,45 +269,48 @@ internal class BinaryFormatReader
         int[] nodeOffsets = new int[trailer.NumObjects];
 
         for (ulong i = 0; i < trailer.NumObjects; i++) {
-            if (await stream.ReadAsync(buffer).ConfigureAwait(false) != buffer.Length) {
-                throw new PlistFormatException($"Invalid plist file: unable to read value {i} in the offset table.");
-            }
-
-            nodeOffsets[i] = ReadNumber(buffer, converter);
+            // Read value {i} in the offset table
+            await stream.ReadExactlyAsync(buffer).ConfigureAwait(false);
+            nodeOffsets[i] = ReadNumber(buffer);
         }
 
         return nodeOffsets;
     }
 
-    private static int ReadNumber(byte[] buffer, EndianBitConverter converter)
-    {
-        switch (buffer.Length) {
-            case 1: {
-                return buffer[0];
-            }
-            case 2: {
-                return converter.ToUInt16(buffer, 0);
-            }
-            case 4: {
-                return (int) converter.ToUInt32(buffer, 0);
-            }
-            case 8: {
-                return (int) converter.ToUInt64(buffer, 0);
-            }
-            default: {
-                throw new PlistFormatException($"Unexpected offset int size: {buffer.Length}.");
-            }
-        }
-    }
+    private static int ReadNumber(ReadOnlySpan<byte> buffer) => buffer.Length switch {
+        1 => buffer[0],
+        2 => BinaryPrimitives.ReadUInt16BigEndian(buffer),
+        4 => (int) BinaryPrimitives.ReadUInt32BigEndian(buffer),
+        8 => (int) BinaryPrimitives.ReadUInt64BigEndian(buffer),
+        _ => throw new PlistFormatException($"Unexpected offset int size: {buffer.Length}."),
+    };
 
-    private static PlistTrailer ReadTrailer(Stream stream)
-    {
+    private static PlistTrailer ReadTrailer(Stream stream) {
         // Trailer is 32 bytes long, at the end of the file
         byte[] buffer = new byte[32];
         stream.Seek(-32, SeekOrigin.End);
-        if (stream.Read(buffer, 0, buffer.Length) != buffer.Length) {
-            throw new PlistFormatException("Invalid plist file: unable to read trailer.");
-        }
+        stream.ReadExactly(buffer);
+
+        // all data in a binary plist file is big-endian
+        EndianBitConverter converter = EndianBitConverter.BigEndian;
+        var trailer = new PlistTrailer {
+            Unused = [.. buffer[..5]],
+            SortVersionl = buffer[5],
+            OffsetIntSize = buffer[6],
+            ObjectRefSize = buffer[7],
+            NumObjects = converter.ToUInt64(buffer, 8),
+            TopObject = converter.ToUInt64(buffer, 16),
+            OffsetTableOffset = converter.ToUInt64(buffer, 24)
+        };
+
+        return trailer;
+    }
+
+    private static async Task<PlistTrailer> ReadTrailerAsync(Stream stream) {
+        // Trailer is 32 bytes long, at the end of the file
+        byte[] buffer = new byte[32];
+        stream.Seek(-32, SeekOrigin.End);
+        await stream.ReadExactlyAsync(buffer).ConfigureAwait(false);
 
         // all data in a binary plist file is big-endian
         EndianBitConverter converter = EndianBitConverter.BigEndian;
@@ -359,58 +327,28 @@ internal class BinaryFormatReader
         return trailer;
     }
 
-    private static async Task<PlistTrailer> ReadTrailerAsync(Stream stream)
-    {
-        // Trailer is 32 bytes long, at the end of the file
-        byte[] buffer = new byte[32];
-        stream.Seek(-32, SeekOrigin.End);
-        if (await stream.ReadAsync(buffer).ConfigureAwait(false) != buffer.Length) {
-            throw new PlistFormatException("Invalid plist file: unable to read trailer.");
-        }
-
-        // all data in a binary plist file is big-endian
-        EndianBitConverter converter = EndianBitConverter.BigEndian;
-        var trailer = new PlistTrailer {
-            Unused = new byte[5],
-            SortVersionl = buffer[5],
-            OffsetIntSize = buffer[6],
-            ObjectRefSize = buffer[7],
-            NumObjects = converter.ToUInt64(buffer, 8),
-            TopObject = converter.ToUInt64(buffer, 16),
-            OffsetTableOffset = converter.ToUInt64(buffer, 24)
-        };
-
-        return trailer;
-    }
-
-    private static void ValidatePlistFileHeader(Stream stream)
-    {
+    private static void ValidatePlistFileHeader(Stream stream) {
         stream.Seek(0, SeekOrigin.Begin);
 
+        // File must start with an 8-byte header.
         byte[] buffer = new byte[8];
-        if (stream.Read(buffer, 0, buffer.Length) != buffer.Length) {
-            throw new PlistFormatException("Invalid plist file: must start with 8-byte header.");
-        }
+        stream.ReadExactly(buffer);
 
         // Get first 6 bytes and match to expected text, "bplist"
-        string text = Encoding.UTF8.GetString(buffer, 0, 6);
-        if (text != "bplist") {
+        if (!buffer.AsSpan(0, 6).SequenceEqual("bplist"u8)) {
             throw new PlistFormatException("Invalid plist file: must start with string \"bplist\".");
         }
     }
 
-    private static async Task ValidatePlistFileHeaderAsync(Stream stream)
-    {
+    private static async Task ValidatePlistFileHeaderAsync(Stream stream) {
         stream.Seek(0, SeekOrigin.Begin);
 
+        // File must start with an 8-byte header.
         byte[] buffer = new byte[8];
-        if (await stream.ReadAsync(buffer).ConfigureAwait(false) != buffer.Length) {
-            throw new PlistFormatException("Invalid plist file: must start with 8-byte header.");
-        }
+        await stream.ReadExactlyAsync(buffer).ConfigureAwait(false);
 
         // Get first 6 bytes and match to expected text, "bplist"
-        string text = Encoding.UTF8.GetString(buffer, 0, 6);
-        if (text != "bplist") {
+        if (!buffer.AsSpan(0, 6).SequenceEqual("bplist"u8)) {
             throw new PlistFormatException("Invalid plist file: must start with string \"bplist\".");
         }
     }
@@ -420,8 +358,7 @@ internal class BinaryFormatReader
     /// </summary>
     /// <param name="stream">The stream.</param>
     /// <returns>The <see cref="PropertyNode"/>, read from the specified stream</returns>
-    public PropertyNode Read(Stream stream)
-    {
+    public PropertyNode Read(Stream stream) {
         // reference material: https://medium.com/@karaiskc/understanding-apples-binary-property-list-format-281e6da00dbd
 
         // Read in file header and verify expected bits are found
@@ -432,7 +369,7 @@ internal class BinaryFormatReader
 
         // Read in node offsets
         int[] nodeOffsets = ReadNodeOffsets(stream, trailer);
-        var readerState = new ReaderState(stream, nodeOffsets, trailer.OffsetIntSize, trailer.ObjectRefSize);
+        BinaryReaderState readerState = new BinaryReaderState(stream, nodeOffsets, trailer.OffsetIntSize, trailer.ObjectRefSize);
 
         return ReadInternal(readerState, trailer.TopObject);
     }
@@ -442,8 +379,7 @@ internal class BinaryFormatReader
     /// </summary>
     /// <param name="stream">The stream.</param>
     /// <returns>The <see cref="PropertyNode"/>, read from the specified stream</returns>
-    public async Task<PropertyNode> ReadAsync(Stream stream)
-    {
+    public async Task<PropertyNode> ReadAsync(Stream stream) {
         // reference material: https://medium.com/@karaiskc/understanding-apples-binary-property-list-format-281e6da00dbd
 
         // Read in file header and verify expected bits are found
@@ -454,7 +390,7 @@ internal class BinaryFormatReader
 
         // Read in node offsets
         int[] nodeOffsets = await ReadNodeOffsetsAsync(stream, trailer).ConfigureAwait(false);
-        var readerState = new ReaderState(stream, nodeOffsets, trailer.OffsetIntSize, trailer.ObjectRefSize);
+        BinaryReaderState readerState = new BinaryReaderState(stream, nodeOffsets, trailer.OffsetIntSize, trailer.ObjectRefSize);
 
         return await ReadInternalAsync(readerState, trailer.TopObject).ConfigureAwait(false);
     }
