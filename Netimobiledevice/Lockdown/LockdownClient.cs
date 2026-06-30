@@ -30,7 +30,6 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
     /// The internal logger
     /// </summary>
     private readonly ILogger _logger;
-    private readonly ConnectionMedium _medium;
     private readonly ushort _port;
     private readonly string _sessionId;
     private string _systemBuid;
@@ -41,6 +40,11 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
     /// </summary>
     protected DictionaryNode? _pairRecord;
     protected readonly ServiceConnection? _service;
+
+    /// <summary>
+    /// The connection medium for this client. Defaults to Usbmux 
+    /// </summary>
+    protected ConnectionMedium Medium { get; set; } = ConnectionMedium.Tcp;
 
     public UsbmuxdConnectionType ConnectionType { get; protected set; }
 
@@ -260,7 +264,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
         _pairRecord = newPairRecord;
         WriteStorageFile($"{Udid}.plist", PropertyList.SaveAsByteArray(_pairRecord, PlistFormat.Xml));
 
-        if (_medium == ConnectionMedium.Usbmux) {
+        if (Medium == ConnectionMedium.Usbmux) {
             byte[] recordData = PropertyList.SaveAsByteArray(_pairRecord, PlistFormat.Xml);
             using (UsbmuxConnection mux = UsbmuxConnection.Create(logger: Logger)) {
                 if (mux is PlistMuxConnection plistMuxConnection) {

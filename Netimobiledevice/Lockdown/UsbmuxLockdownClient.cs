@@ -15,6 +15,7 @@ public class UsbmuxLockdownClient : LockdownClient {
         : base(service, hostId, identifier, label, systemBuid, pairRecord, pairingRecordsCacheDirectory, port, logger) {
         _usbmuxAddress = usbmuxAddress;
         ConnectionType = UsbmuxdConnectionType.Usb;
+        Medium = ConnectionMedium.Usbmux;
     }
 
     public override ServiceConnection CreateServiceConnection(ushort port) {
