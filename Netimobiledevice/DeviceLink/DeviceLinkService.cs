@@ -464,6 +464,17 @@ internal sealed class DeviceLinkService : IDisposable {
     }
 
     /// <summary>
+    /// Removes any pre-existing file at the given local path so the upcoming whole-file transfer 
+    /// replaces it instead of potentially appending onto an expired file left by an interrupted 
+    /// prior backup session.
+    /// </summary>
+    private static void RemoveExpiredFile(string path) {
+        if (!string.IsNullOrEmpty(path) && File.Exists(path)) {
+            File.Delete(path);
+        }
+    }
+
+    /// <summary>
     /// Manages the RemoveItems device message.
     /// </summary>
     /// <param name="msg">The message received from the device.</param>
@@ -578,10 +589,10 @@ internal sealed class DeviceLinkService : IDisposable {
                 ResultCode code = await ReadCode(cancellationToken).ConfigureAwait(false);
                 size -= sizeof(ResultCode);
 
-                if (backupFile.LocalPath.Contains("Status.plist") && File.Exists(backupFile.LocalPath)) {
-                    File.Delete(backupFile.LocalPath);
+                if (_fileStream is null) {
+                    RemoveExpiredFile(backupFile.LocalPath);
+                    _fileStream ??= File.OpenWrite(backupFile.LocalPath);
                 }
-                _fileStream ??= File.OpenWrite(backupFile.LocalPath);
                 _fileStream.Seek(0, SeekOrigin.End);
 
                 while (size > 0 && code == ResultCode.FileData) {
@@ -623,7 +634,6 @@ internal sealed class DeviceLinkService : IDisposable {
         }
     }
 
-
     public void Dispose() {
         Disconnect();
         _service.Close();
@@ -632,7 +642,7 @@ internal sealed class DeviceLinkService : IDisposable {
     }
 
     public async Task<ResultCode> DlLoop(CancellationToken cancellationToken = default) {
-        Started?.Invoke(this, new BackupStartedEventArgs(this._iosVersion));
+        Started?.Invoke(this, new BackupStartedEventArgs(_iosVersion));
         FailedFiles.Clear();
 
         _internalCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
