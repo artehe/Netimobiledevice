@@ -274,17 +274,15 @@ internal abstract class UsbmuxConnection(UsbmuxdSocket socket, UsbmuxdVersion pr
         conn.Send(msg);
         PlistResponse response = conn.ReceivePlist(tag);
 
-        // If we sent a bad request, we should re-create the socket in the correct version this time
-        sock.Close();
+        if (response.Header.Version == UsbmuxdVersion.Plist) {
+            // We know things are as they should be so return using this connection.
+            return conn;
+        }
 
+        // We sent a bad request, we should re-create the socket in the correct version (binary) this time
+        sock.Close();
         sock = new UsbmuxdSocket(usbmuxAddress: usbmuxAddress);
-        if (response.Header.Version == UsbmuxdVersion.Binary) {
-            return new BinaryUsbmuxConnection(sock, logger);
-        }
-        else if (response.Header.Version == UsbmuxdVersion.Plist) {
-            return new PlistMuxConnection(sock, logger);
-        }
-        throw new UsbmuxVersionException($"Usbmuxd returned unsupported version: {response.Header.Version}");
+        return new BinaryUsbmuxConnection(sock, logger);
     }
 
     /// <summary>
