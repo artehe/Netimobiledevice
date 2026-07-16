@@ -70,8 +70,7 @@ internal class PlistMuxConnection(UsbmuxdSocket sock, ILogger? logger = null) : 
 
         UsbmuxdResult result = (UsbmuxdResult) respPlist["Number"].AsIntegerNode().Value;
         if (result != UsbmuxdResult.Ok) {
-            string formattedPlistResponse = PropertyList.SaveAsString(response.Plist, PlistFormat.Xml);
-            throw new UsbmuxException($"Got an error message: {formattedPlistResponse}");
+            throw new UsbmuxException($"Got an error message: {PropertyList.SaveAsString(respPlist, PlistFormat.Xml)}");
         }
         return result;
     }
@@ -89,7 +88,7 @@ internal class PlistMuxConnection(UsbmuxdSocket sock, ILogger? logger = null) : 
 
         UsbmuxdResult result = (UsbmuxdResult) respPlist["Number"].AsIntegerNode().Value;
         if (result != UsbmuxdResult.Ok) {
-            throw new UsbmuxException($"Got an error message: {response}");
+            throw new UsbmuxException($"Got an error message: {PropertyList.SaveAsString(respPlist, PlistFormat.Xml)}");
         }
         return result;
     }
