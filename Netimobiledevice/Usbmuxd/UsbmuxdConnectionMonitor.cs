@@ -55,7 +55,15 @@ public sealed class UsbmuxdConnectionMonitor(Action<Exception>? errorCallback = 
                 }
 
                 while (!ct.IsCancellationRequested) {
-                    UsbmuxdResult result = await GetAndProcessNextEvent(muxConnection, ct).ConfigureAwait(false);
+                    UsbmuxdResult result;
+                    try {
+                        result = await GetAndProcessNextEvent(muxConnection, ct).ConfigureAwait(false);
+                    }
+                    catch (Exception ex) {
+                        _logger?.LogError("Issue processing event: {exception}", ex);
+                        result = UsbmuxdResult.UnknownError;
+                    }
+
                     if (result != UsbmuxdResult.Ok) {
                         break;
                     }
