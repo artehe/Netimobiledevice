@@ -657,4 +657,7 @@
   <data name="iPhone18,4" xml:space="preserve">
     <value>iPhone Air</value>
   </data>
+  <data name="iPhone18,5" xml:space="preserve">
+    <value>iPhone 17e</value>
+  </data>
 </root>

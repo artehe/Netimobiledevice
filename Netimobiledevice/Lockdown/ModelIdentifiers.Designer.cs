@@ -1411,6 +1411,15 @@ namespace Netimobiledevice.Lockdown {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to iPhone 17e.
+        /// </summary>
+        internal static string iPhone18_5 {
+            get {
+                return ResourceManager.GetString("iPhone18,5", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to iPhone 3GS.
         /// </summary>
         internal static string iPhone2_1 {
