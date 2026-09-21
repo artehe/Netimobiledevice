@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Netimobiledevice.Bonjour;
 using Netimobiledevice.Plist;
-using Netimobiledevice.Remoted.Bonjour;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -64,8 +64,7 @@ public abstract class LockdownService : IDisposable {
     public static async IAsyncEnumerable<(string, TcpLockdownClient)> GetMobdev2Lockdowns(
         string? udid = null,
         string? pairRecordsPath = null,
-        bool onlyPaired = false,
-        int timeout = BonjourService.DEFAULT_BONJOUR_TIMEOUT
+        bool onlyPaired = false
     ) {
         Dictionary<string, DictionaryNode> records = [];
         DirectoryInfo pairRecordsDirectory = new DirectoryInfo(pairRecordsPath ?? "");
@@ -85,7 +84,7 @@ public abstract class LockdownService : IDisposable {
             records.Add(wiFiMACAddress, record);
         }
 
-        foreach (ServiceInstance answer in await BonjourService.BrowseMobdev2Async(timeout).ConfigureAwait(false)) {
+        foreach (ServiceInstance answer in await MdnsBrowser.BrowseMobdev2Async(TimeSpan.FromSeconds(2)).ConfigureAwait(false)) {
             if (!answer.Instance.Contains('@')) {
                 continue;
             }

@@ -1,6 +1,6 @@
-﻿using Netimobiledevice.Remoted.Bonjour;
+﻿using Netimobiledevice.Bonjour;
 
-namespace NetimobiledeviceTest.Remoted.Bonjour;
+namespace NetimobiledeviceTest.Bonjour;
 
 [TestClass]
 public class AddressTests {

@@ -1,5 +1,5 @@
-﻿using Netimobiledevice.Lockdown.Pairing;
-using Netimobiledevice.Remoted.Bonjour;
+﻿using Netimobiledevice.Bonjour;
+using Netimobiledevice.Lockdown.Pairing;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -70,12 +70,9 @@ public static class TunnelService {
     /// </summary>
     /// <param name="bonjourTimeout">Timeout for Bonjour browsing.</param>
     /// <param name="udid">Optional device identifier filter.</param>
-    public static async Task<List<RemotePairingTunnelService>> GetRemotePairingTunnelServicesAsync(
-        int bonjourTimeout = BonjourService.DEFAULT_BONJOUR_TIMEOUT,
-        string? udid = null
-    ) {
+    public static async Task<List<RemotePairingTunnelService>> GetRemotePairingTunnelServicesAsync(string? udid = null) {
         List<RemotePairingTunnelService> result = [];
-        foreach (ServiceInstance answer in await BonjourService.BrowseRemotePairingAsync(bonjourTimeout)) {
+        foreach (ServiceInstance answer in await MdnsBrowser.BrowseRemotepairingAsync(TimeSpan.FromSeconds(2))) {
             foreach (Address address in answer.Addresses) {
                 foreach (string identifier in PairRecords.IterateRemotePairedIdentifiers()) {
                     if (udid != null && identifier != udid) {
@@ -93,8 +90,7 @@ public static class TunnelService {
                             await conn.CloseAsync().ConfigureAwait(false);
                         }
                     }
-                    catch (IOException)
-                    {
+                    catch (IOException) {
                         if (conn != null) {
                             await conn.CloseAsync().ConfigureAwait(false);
                         }

@@ -1,9 +1,8 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.VisualBasic;
 using Microsoft.VisualStudio.Threading;
+using Netimobiledevice.Bonjour;
 using Netimobiledevice.Lockdown;
-using Netimobiledevice.Remoted.Bonjour;
 using Netimobiledevice.Usbmuxd;
 using System;
 using System.Collections.Concurrent;
@@ -208,7 +207,7 @@ public class Tunneld(
 
             if (added.Any()) {
                 // A new interface was attached
-                foreach (ServiceInstance answer in await BonjourService.BrowseRemotedAsync()) {
+                foreach (ServiceInstance answer in await MdnsBrowser.BrowseRemotedAsync()) {
                     foreach (Address address in answer.Addresses) {
                         if (address.Interface.StartsWith("utun", StringComparison.InvariantCulture)) {
                             // Skip already established tunnels
