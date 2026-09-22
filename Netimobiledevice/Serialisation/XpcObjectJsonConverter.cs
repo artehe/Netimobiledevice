@@ -1,4 +1,4 @@
-﻿using Netimobiledevice.Remoted.Xpc;
+using Netimobiledevice.Remoted.Xpc;
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
@@ -48,6 +48,32 @@ internal class XpcObjectJsonConverter : JsonConverter<XpcObject> {
 
             case XpcUuid uuid:
                 writer.WriteStringValue(uuid.Data.ToString());
+                break;
+
+            case XpcData data:
+                writer.WriteBase64StringValue(data.Data ?? []);
+                break;
+
+            case XpcDate date:
+                writer.WriteStringValue(date.Data);
+                break;
+
+            case XpcFd fd:
+                writer.WriteNumberValue(fd.Data);
+                break;
+
+            case XpcShmem shmem:
+                writer.WriteStartObject();
+                writer.WriteNumber("length", shmem.Data);
+                writer.WriteNumber("reserved", shmem.Reserved);
+                writer.WriteEndObject();
+                break;
+
+            case XpcFileTransfer fileTransfer:
+                writer.WriteStartObject();
+                writer.WriteNumber("transferSize", fileTransfer.TransferSize);
+                writer.WriteNumber("transferId", fileTransfer.TransferId);
+                writer.WriteEndObject();
                 break;
 
             case XpcNull:

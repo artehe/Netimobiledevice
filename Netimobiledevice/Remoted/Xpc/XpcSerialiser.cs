@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -35,10 +35,15 @@ public static class XpcSerialiser
         XpcObject xpcObject = type switch {
             XpcMessageType.Array => XpcArray.Deserialise(data),
             XpcMessageType.Bool => XpcBool.Deserialise(data),
+            XpcMessageType.Data => XpcData.Deserialise(data),
+            XpcMessageType.Date => XpcDate.Deserialise(data),
             XpcMessageType.Dictionary => XpcDictionary.Deserialise(data),
             XpcMessageType.Double => XpcDouble.Deserialise(data),
+            XpcMessageType.Fd => XpcFd.Deserialise(data),
+            XpcMessageType.FileTransfer => XpcFileTransfer.Deserialise(data),
             XpcMessageType.Int64 => XpcInt64.Deserialise(data),
             XpcMessageType.Null => XpcNull.Deserialise(data),
+            XpcMessageType.Shmem => XpcShmem.Deserialise(data),
             XpcMessageType.String => XpcString.Deserialise(data),
             XpcMessageType.Uint64 => XpcUInt64.Deserialise(data),
             XpcMessageType.Uuid => XpcUuid.Deserialise(data),

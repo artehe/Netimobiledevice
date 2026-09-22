@@ -1,15 +1,23 @@
-﻿namespace Netimobiledevice.Remoted.Xpc;
+using System;
 
-public class XpcFd : XpcObject
+namespace Netimobiledevice.Remoted.Xpc;
+
+public class XpcFd(uint data) : XpcObject<uint>(data)
 {
-    public override bool IsAligned => throw new System.NotImplementedException();
+    public override bool IsAligned => false;
 
-    public override bool IsPrefixed => throw new System.NotImplementedException();
+    public override bool IsPrefixed => false;
 
-    public override XpcMessageType Type => throw new System.NotImplementedException();
+    public override XpcMessageType Type => XpcMessageType.Fd;
+
+    public static XpcFd Deserialise(byte[] data)
+    {
+        uint value = BitConverter.ToUInt32(data, 0);
+        return new XpcFd(value);
+    }
 
     public override byte[] Serialise()
     {
-        throw new System.NotImplementedException();
+        return BitConverter.GetBytes(Data);
     }
 }
