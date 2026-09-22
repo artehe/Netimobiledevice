@@ -2,7 +2,6 @@
 
 namespace Netimobiledevice.Bonjour;
 
-internal sealed record MdnsBrowserRecievedPacket(
+public sealed record MdnsPacket(
     byte[] Data,
-    EndPoint Remote
-);
+    EndPoint RemoteEndPoint);

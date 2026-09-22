@@ -8,57 +8,50 @@ public class MdnsResponderTests {
     [TestMethod]
     public void Constructor_AddsTrailingDotToServiceType() {
         MdnsResponder responder = new MdnsResponder(
-                "_demo._tcp.local",
-                "MyDevice",
-                12345,
-                new Dictionary<string, string>());
-
-        Assert.AreEqual(
-            "_demo._tcp.local.",
-            responder.ServiceType);
+            new FakeMdnsSocketFactory(),
+            "_demo._tcp.local",
+            "MyDevice",
+            12345,
+            new Dictionary<string, string>()
+        );
+        Assert.AreEqual("_demo._tcp.local.", responder.ServiceType);
     }
 
     [TestMethod]
     public void Constructor_CreatesInstanceFqdn() {
-        MdnsResponder responder =
-            new MdnsResponder(
-                "_demo._tcp.local.",
-                "MyDevice",
-                12345,
-                new Dictionary<string, string>());
-
-        Assert.AreEqual(
-            "MyDevice._demo._tcp.local.",
-            responder.InstanceFqdn);
+        MdnsResponder responder = new MdnsResponder(
+            new FakeMdnsSocketFactory(),
+            "_demo._tcp.local.",
+            "MyDevice",
+            12345,
+            new Dictionary<string, string>()
+        );
+        Assert.AreEqual("MyDevice._demo._tcp.local.", responder.InstanceFqdn);
     }
 
     [TestMethod]
     public void Constructor_CreatesDefaultHostname() {
-        MdnsResponder responder =
-            new MdnsResponder(
-                "_demo._tcp.local.",
-                "MyDevice",
-                12345,
-                new Dictionary<string, string>());
-
-        Assert.AreEqual(
-            "MyDevice.local.",
-            responder.Hostname);
+        MdnsResponder responder = new MdnsResponder(
+            new FakeMdnsSocketFactory(),
+            "_demo._tcp.local.",
+            "MyDevice",
+            12345,
+            new Dictionary<string, string>()
+        );
+        Assert.AreEqual("MyDevice.local.", responder.Hostname);
     }
 
     [TestMethod]
     public void Constructor_AddsTrailingDotToExplicitHostname() {
-        MdnsResponder responder =
-            new MdnsResponder(
-                "_demo._tcp.local.",
-                "MyDevice",
-                12345,
-                new Dictionary<string, string>(),
-                hostname: "host.local");
-
-        Assert.AreEqual(
-            "host.local.",
-            responder.Hostname);
+        MdnsResponder responder = new MdnsResponder(
+            new FakeMdnsSocketFactory(),
+            "_demo._tcp.local.",
+            "MyDevice",
+            12345,
+            new Dictionary<string, string>(),
+            hostname: "host.local"
+        );
+        Assert.AreEqual("host.local.", responder.Hostname);
     }
 
     [TestMethod]
@@ -140,22 +133,19 @@ public class MdnsResponderTests {
 
     [TestMethod]
     public void AllRecords_ProducesPtrSrvAndTxt() {
-        MdnsResponder responder =
-            new MdnsResponder(
-                "_demo._tcp.local.",
-                "Device",
-                62000,
-                new Dictionary<string, string> {
-                    ["foo"] = "bar"
-                },
-                hostname: "device.local.",
-                addresses:
-                [
-                    (
-                        AddressFamily.InterNetwork,
-                        "192.168.1.10"
-                    )
-                ]);
+        MdnsResponder responder = new MdnsResponder(
+            new FakeMdnsSocketFactory(),
+            "_demo._tcp.local.",
+            "Device",
+            62000,
+            new Dictionary<string, string> {
+                ["foo"] = "bar"
+            },
+            hostname: "device.local.",
+            addresses: [
+                (AddressFamily.InterNetwork, "192.168.1.10")
+            ]
+        );
 
         (List<byte[]> Answers, List<byte[]> Additionals) = responder.AllRecords();
         Assert.HasCount(3, Answers);
@@ -164,19 +154,16 @@ public class MdnsResponderTests {
 
     [TestMethod]
     public void AllRecords_TtlZeroOmitsAdditionals() {
-        MdnsResponder responder =
-            new MdnsResponder(
-                "_demo._tcp.local.",
-                "Device",
-                62000,
-                new Dictionary<string, string>(),
-                addresses:
-                [
-                    (
-                        AddressFamily.InterNetwork,
-                        "192.168.1.10"
-                    )
-                ]);
+        MdnsResponder responder = new MdnsResponder(
+            new FakeMdnsSocketFactory(),
+            "_demo._tcp.local.",
+            "Device",
+            62000,
+            new Dictionary<string, string>(),
+            addresses: [
+                (AddressFamily.InterNetwork, "192.168.1.10")
+            ]
+        );
 
         (List<byte[]> Answers, List<byte[]> Additionals) = responder.AllRecords(0);
         Assert.HasCount(3, Answers);
@@ -209,31 +196,21 @@ public class MdnsResponderTests {
 
     [TestMethod]
     public void AddressRecords_ContainsIpv4AndIpv6() {
-        MdnsResponder responder =
-            new MdnsResponder(
-                "_demo._tcp.local.",
-                "Device",
-                62000,
-                new Dictionary<string, string>(),
-                hostname: "device.local.",
-                addresses:
-                [
-                    (
-                        AddressFamily.InterNetwork,
-                        "192.168.1.10"
-                    ),
-                    (
-                        AddressFamily.InterNetworkV6,
-                        "2001:db8::10"
-                    )
-                ]);
+        MdnsResponder responder = new MdnsResponder(
+            new FakeMdnsSocketFactory(),
+            "_demo._tcp.local.",
+            "Device",
+            62000,
+            new Dictionary<string, string>(),
+            hostname: "device.local.",
+            addresses: [
+                (AddressFamily.InterNetwork, "192.168.1.10"),
+                (AddressFamily.InterNetworkV6, "2001:db8::10")
+            ]
+        );
 
-        IReadOnlyList<byte[]> records =
-            responder.AddressRecords();
-
-        Assert.HasCount(
-            2,
-            records);
+        IReadOnlyList<byte[]> records = responder.AddressRecords();
+        Assert.HasCount(2, records);
 
         List<DnsRecord> parsed = [.. records.Select(bytes => {
             int offset = 0;
@@ -248,6 +225,7 @@ public class MdnsResponderTests {
 
     private static MdnsResponder CreateResponder() {
         return new MdnsResponder(
+            new FakeMdnsSocketFactory(),
             "_demo._tcp.local.",
             "Device",
             12345,

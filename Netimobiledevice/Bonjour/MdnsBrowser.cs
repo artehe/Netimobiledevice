@@ -4,7 +4,6 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Bonjour;
@@ -13,13 +12,58 @@ namespace Netimobiledevice.Bonjour;
 /// mDNS browser returning data classes with per-address interface names.
 /// Works for any DNS-SD type, e.g. "_remoted._tcp.local."
 /// </summary>
-public static class MdnsBrowser {
+public sealed class MdnsBrowser(IMdnsSocketFactory socketFactory, IMdnsInterfaceResolver interfaceResolver) {
+    private readonly IMdnsInterfaceResolver _interfaceResolver = interfaceResolver;
+    private readonly IMdnsSocketFactory _socketFactory = socketFactory;
+
+    private static void AddAddress(DnsRecord rr, EndPoint packetEndPoint, IMdnsInterfaceResolver resolver, Dictionary<string, List<Address>> hostAddresses) {
+        if (rr.Address is null) {
+            return;
+        }
+
+        AddressFamily family = rr.Type switch {
+            MdnsConstants.QTypeA =>
+                AddressFamily.InterNetwork,
+
+            MdnsConstants.QTypeAaaa =>
+                AddressFamily.InterNetworkV6,
+
+            _ => throw new ArgumentException(
+                $"Record is not an address record: {rr.Type}")
+        };
+
+        long? scopeId = null;
+        if (packetEndPoint is IPEndPoint ipEndPoint &&
+            family == AddressFamily.InterNetworkV6) {
+            scopeId = ipEndPoint.Address.ScopeId;
+        }
+
+        string? iface = resolver.PickInterface(rr.Address, family, scopeId);
+        if (iface is null) {
+            return;
+        }
+
+        if (!hostAddresses.TryGetValue(rr.Name, out List<Address>? addresses)) {
+            addresses = [];
+            hostAddresses[rr.Name] = addresses;
+        }
+
+        if (addresses.Any(a => a.Ip == rr.Address)) {
+            return;
+        }
+
+        addresses.Add(
+            new Address(
+                rr.Address,
+                iface));
+    }
+
     private static List<ServiceInstance> AssembleResults(
         HashSet<string> ptrTargets,
         Dictionary<string, List<DnsRecord>> srvMap,
         Dictionary<string, Dictionary<string, string>> txtMap,
         Dictionary<string, List<Address>> hostAddresses) {
-        var results = new List<ServiceInstance>();
+        List<ServiceInstance> results = [];
 
         foreach (string? instance in ptrTargets.OrderBy(x => x)) {
             if (!srvMap.TryGetValue(
@@ -72,84 +116,55 @@ public static class MdnsBrowser {
         return results;
     }
 
-    private static void ProcessPacket(
-        byte[] data,
-        EndPoint remote,
+    private void ProcessPacket(
+        MdnsPacket packet,
         string serviceType,
-        MdnsNetworkAdapters adapters,
         HashSet<string> ptrTargets,
         Dictionary<string, List<DnsRecord>> srvMap,
         Dictionary<string, Dictionary<string, string>> txtMap,
-        Dictionary<string, List<Address>> hostAddresses) {
-        foreach (DnsRecord rr in DnsProtocol.ParseMdnsMessage(data)) {
-            if (rr.Type == MdnsConstants.QTypePtr &&
-                string.Equals(
-                    rr.Name,
-                    serviceType,
-                    StringComparison.Ordinal)) {
-                if (rr.PtrdName is not null) {
-                    ptrTargets.Add(rr.PtrdName);
-                }
-            }
-            else if (rr.Type == MdnsConstants.QTypeSrv) {
-                if (!srvMap.TryGetValue(
-                        rr.Name,
-                        out List<DnsRecord>? list)) {
-                    list = [];
-                    srvMap[rr.Name] = list;
-                }
+        Dictionary<string, List<Address>> hostAddresses
+    ) {
+        foreach (DnsRecord rr in DnsProtocol.ParseMdnsMessage(packet.Data)) {
+            switch (rr.Type) {
+                case MdnsConstants.QTypePtr
+                    when rr.Name == serviceType:
 
-                list.Add(rr);
-            }
-            else if (rr.Type == MdnsConstants.QTypeTxt) {
-                txtMap[rr.Name] =
-                    rr.Txt ?? [];
-            }
-            else if (
-                (rr.Type == MdnsConstants.QTypeA ||
-                 rr.Type == MdnsConstants.QTypeAaaa) &&
-                rr.Address is not null) {
-                AddressFamily family =
-                    rr.Type == MdnsConstants.QTypeA
-                        ? AddressFamily.InterNetwork
-                        : AddressFamily.InterNetworkV6;
+                    if (rr.PtrdName is not null) {
+                        ptrTargets.Add(rr.PtrdName);
+                    }
 
-                int? scopeId =
-                    remote is IPEndPoint ep &&
-                    ep.AddressFamily ==
-                    AddressFamily.InterNetworkV6
-                        ? (int?) ep.Address.ScopeId
-                        : null;
+                    break;
 
-                string? iface =
-                    adapters.PickInterface(
-                        rr.Address,
-                        family,
-                        scopeId);
+                case MdnsConstants.QTypeSrv:
 
-                if (iface is null) {
-                    continue;
-                }
+                    if (!srvMap.TryGetValue(rr.Name, out List<DnsRecord>? srvList)) {
+                        srvList = [];
+                        srvMap[rr.Name] = srvList;
+                    }
 
-                if (!hostAddresses.TryGetValue(
-                        rr.Name,
-                        out List<Address>? addresses)) {
-                    addresses = [];
-                    hostAddresses[rr.Name] = addresses;
-                }
+                    srvList.Add(rr);
+                    break;
 
-                if (!addresses.Any(
-                        a => a.Ip == rr.Address)) {
-                    addresses.Add(
-                        new Address(
-                            rr.Address,
-                            iface));
-                }
+                case MdnsConstants.QTypeTxt:
+
+                    txtMap[rr.Name] =
+                        rr.Txt ?? [];
+
+                    break;
+
+                case MdnsConstants.QTypeA or MdnsConstants.QTypeAaaa when rr.Address is not null:
+                    AddAddress(
+                        rr,
+                        packet.RemoteEndPoint,
+                        _interfaceResolver,
+                        hostAddresses);
+
+                    break;
             }
         }
     }
 
-    public static Task<List<ServiceInstance>> BrowseRemotedAsync(
+    public Task<List<ServiceInstance>> BrowseRemotedAsync(
         TimeSpan? timeout = null,
         CancellationToken cancellationToken = default) =>
         BrowseServiceAsync(
@@ -157,7 +172,7 @@ public static class MdnsBrowser {
             timeout,
             cancellationToken);
 
-    public static Task<List<ServiceInstance>> BrowseRemotepairingAsync(
+    public Task<List<ServiceInstance>> BrowseRemotepairingAsync(
         TimeSpan? timeout = null,
         CancellationToken cancellationToken = default) =>
         BrowseServiceAsync(
@@ -165,7 +180,7 @@ public static class MdnsBrowser {
             timeout,
             cancellationToken);
 
-    public static Task<List<ServiceInstance>>
+    public Task<List<ServiceInstance>>
         BrowseRemotepairingManualPairingAsync(
             TimeSpan? timeout = null,
             CancellationToken cancellationToken = default) =>
@@ -174,115 +189,61 @@ public static class MdnsBrowser {
             timeout,
             cancellationToken);
 
-    public static Task<List<ServiceInstance>> BrowseMobdev2Async(
+    public Task<List<ServiceInstance>> BrowseMobdev2Async(
         TimeSpan? timeout = null,
-        CancellationToken cancellationToken = default) =>
-        BrowseServiceAsync(
-            MdnsConstants.Mobdev2ServiceName,
-            timeout,
-            cancellationToken);
+        CancellationToken cancellationToken = default
+    ) => BrowseServiceAsync(
+        MdnsConstants.Mobdev2ServiceName,
+        timeout,
+        cancellationToken
+    );
 
-    public static async Task<List<ServiceInstance>> BrowseServiceAsync(
+    public async Task<List<ServiceInstance>> BrowseServiceAsync(
         string serviceType,
         TimeSpan? timeout = null,
-        CancellationToken cancellationToken = default) {
+        CancellationToken cancellationToken = default
+    ) {
         if (!serviceType.EndsWith('.')) {
             serviceType += ".";
         }
 
         timeout ??= TimeSpan.FromSeconds(4);
 
-        using var sockets = MdnsSocketSet.Open();
+        using (IMdnsSocketSet sockets = _socketFactory.Open()) {
+            HashSet<string> ptrTargets = new HashSet<string>(StringComparer.Ordinal);
+            Dictionary<string, List<DnsRecord>> srvMap = new Dictionary<string, List<DnsRecord>>(StringComparer.Ordinal);
+            Dictionary<string, Dictionary<string, string>> txtMap = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
+            Dictionary<string, List<Address>> hostAddresses = new Dictionary<string, List<Address>>(StringComparer.Ordinal);
+            byte[] query = DnsProtocol.BuildQuery(serviceType, MdnsConstants.QTypePtr);
 
-        var adapters = new MdnsNetworkAdapters();
+            await sockets.SendQueryAsync(query, cancellationToken);
 
-        var ptrTargets = new HashSet<string>(
-            StringComparer.Ordinal);
+            using (CancellationTokenSource timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)) {
+                timeoutCts.CancelAfter(timeout.Value);
 
-        var srvMap =
-            new Dictionary<string, List<DnsRecord>>(
-                StringComparer.Ordinal);
-
-        var txtMap =
-            new Dictionary<string, Dictionary<string, string>>(
-                StringComparer.Ordinal);
-
-        var hostAddresses =
-            new Dictionary<string, List<Address>>(
-                StringComparer.Ordinal);
-
-        await sockets.SendQueryAsync(
-            DnsProtocol.BuildQuery(
-                serviceType,
-                MdnsConstants.QTypePtr),
-            cancellationToken);
-
-        using var timeoutCts =
-            CancellationTokenSource.CreateLinkedTokenSource(
-                cancellationToken);
-
-        timeoutCts.CancelAfter(timeout.Value);
-
-        var channel = Channel.CreateUnbounded<MdnsBrowserRecievedPacket>();
-
-        Task[] receiveTasks = [.. sockets.Sockets
-            .Select(socket =>
-                Task.Run(async () => {
-                    while (!timeoutCts.IsCancellationRequested) {
-                        try {
-                            (byte[] Data, EndPoint Remote) = await MdnsSocketSet.ReceiveAsync(socket, timeoutCts.Token);
-
-                            await channel.Writer.WriteAsync(
-                                new MdnsBrowserRecievedPacket(
-                                    Data,
-                                    Remote
-                                ),
-                                timeoutCts.Token);
-                        }
-                        catch (OperationCanceledException) {
-                            break;
-                        }
-                        catch (ObjectDisposedException) {
-                            break;
-                        }
+                try {
+                    await foreach (MdnsPacket packet in sockets.ReceiveAsync(timeoutCts.Token)) {
+                        ProcessPacket(
+                            packet,
+                            serviceType,
+                            ptrTargets,
+                            srvMap,
+                            txtMap,
+                            hostAddresses);
                     }
-                },
-                timeoutCts.Token)
-            )];
+                }
+                catch (OperationCanceledException) {
+                    if (cancellationToken.IsCancellationRequested) {
+                        throw;
+                    }
+                }
 
-
-        try {
-            await foreach (MdnsBrowserRecievedPacket packet in channel.Reader.ReadAllAsync(timeoutCts.Token)) {
-                ProcessPacket(
-                    packet.Data,
-                    packet.Remote,
-                    serviceType,
-                    adapters,
+                return AssembleResults(
                     ptrTargets,
                     srvMap,
                     txtMap,
                     hostAddresses);
             }
         }
-        catch (OperationCanceledException) {
-            if (cancellationToken.IsCancellationRequested) {
-                throw;
-            }
-        }
-        finally {
-            timeoutCts.Cancel();
-
-            try {
-                await Task.WhenAll(receiveTasks);
-            }
-            catch (OperationCanceledException) {
-            }
-        }
-
-        return AssembleResults(
-            ptrTargets,
-            srvMap,
-            txtMap,
-            hostAddresses);
     }
 }

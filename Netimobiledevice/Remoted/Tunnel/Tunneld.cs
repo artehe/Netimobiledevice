@@ -207,7 +207,8 @@ public class Tunneld(
 
             if (added.Any()) {
                 // A new interface was attached
-                foreach (ServiceInstance answer in await MdnsBrowser.BrowseRemotedAsync()) {
+                MdnsBrowser mdnsBrowser = new MdnsBrowser(new MdnsSocketFactory(), new MdnsInterfaceResolver());
+                foreach (ServiceInstance answer in await mdnsBrowser.BrowseRemotedAsync(TimeSpan.FromSeconds(2), cancellationToken)) {
                     foreach (Address address in answer.Addresses) {
                         if (address.Interface.StartsWith("utun", StringComparison.InvariantCulture)) {
                             // Skip already established tunnels

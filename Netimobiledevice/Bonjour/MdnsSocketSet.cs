@@ -1,36 +1,28 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Bonjour;
 
-internal sealed class MdnsSocketSet : IDisposable {
+internal sealed class MdnsSocketSet : IMdnsSocketSet {
     private readonly List<Socket> _sockets = [];
 
-    public IReadOnlyList<Socket> Sockets => _sockets;
+    public List<Socket> Sockets => _sockets;
 
-    public static MdnsSocketSet Open() {
-        MdnsSocketSet result = new MdnsSocketSet();
-
+    private static async Task CompleteWhenDoneAsync(Task[] receivers, ChannelWriter<MdnsPacket> writer) {
         try {
-            result.OpenIpv4();
-            result.OpenIpv6();
+            await Task.WhenAll(receivers);
+            writer.TryComplete();
         }
-        catch {
-            result.Dispose();
-            throw;
+        catch (Exception ex) {
+            writer.TryComplete(ex);
         }
-
-        if (result._sockets.Count == 0) {
-            throw new InvalidOperationException(
-                "Failed to open mDNS sockets (UDP/5353)");
-        }
-
-        return result;
     }
 
     private void OpenIpv4() {
@@ -118,12 +110,97 @@ internal sealed class MdnsSocketSet : IDisposable {
         }
     }
 
+    private static async Task ReceiveSocketAsync(Socket socket, ChannelWriter<MdnsPacket> writer, CancellationToken cancellationToken) {
+        byte[] buffer = new byte[65535];
+        EndPoint endpoint = socket.AddressFamily == AddressFamily.InterNetwork ? new IPEndPoint(IPAddress.Any, 0) : new IPEndPoint(IPAddress.IPv6Any, 0);
+        try {
+            while (!cancellationToken.IsCancellationRequested) {
+                SocketReceiveFromResult result = await socket.ReceiveFromAsync(buffer.AsMemory(), SocketFlags.None, endpoint, cancellationToken);
+
+                // ReceiveFromAsync reuses the supplied buffer, so copy the 
+                // received bytes before the next receive overwrites it.
+                byte[] data = [.. buffer[..result.ReceivedBytes]];
+
+                await writer.WriteAsync(new MdnsPacket(data, result.RemoteEndPoint), cancellationToken);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) {
+            // Normal shutdown.
+        }
+        catch (ObjectDisposedException) {
+            // Socket was disposed while ReceiveFromAsync was pending.
+        }
+        catch (SocketException) when (cancellationToken.IsCancellationRequested) {
+            // Normal cancellation on some platforms.
+        }
+    }
+
+    public void Dispose() {
+        foreach (Socket socket in _sockets) {
+            try {
+                socket.Dispose();
+            }
+            catch {
+            }
+        }
+
+        _sockets.Clear();
+    }
+
+    public static IEnumerable<int> GetInterfaceIndexes() {
+        foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces()) {
+            IPv6InterfaceProperties? properties = ni.GetIPProperties()
+                .GetIPv6Properties();
+
+            if (properties is not null) {
+                yield return properties.Index;
+            }
+        }
+    }
+
+    public static MdnsSocketSet Open() {
+        MdnsSocketSet result = new MdnsSocketSet();
+
+        try {
+            result.OpenIpv4();
+            result.OpenIpv6();
+        }
+        catch {
+            result.Dispose();
+            throw;
+        }
+
+        if (result._sockets.Count == 0) {
+            result.Dispose();
+            throw new InvalidOperationException("Failed to open mDNS sockets.");
+        }
+
+        return result;
+    }
+
+    public async IAsyncEnumerable<MdnsPacket> ReceiveAsync([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default) {
+        Channel<MdnsPacket> channel = Channel.CreateUnbounded<MdnsPacket>(
+            new UnboundedChannelOptions {
+                SingleReader = true,
+                SingleWriter = false,
+                AllowSynchronousContinuations = false
+            }
+        );
+
+        Task[] receivers = [.. _sockets.Select(socket => ReceiveSocketAsync(socket, channel.Writer, cancellationToken))];
+
+        // Complete the channel once all socket receive loops have finished.
+        _ = CompleteWhenDoneAsync(receivers, channel.Writer);
+        await foreach (MdnsPacket packet in channel.Reader.ReadAllAsync(cancellationToken)) {
+            yield return packet;
+        }
+    }
+
     public async Task SendQueryAsync(
         byte[] packet,
         CancellationToken cancellationToken = default) {
         foreach (Socket socket in _sockets) {
-            if (socket.AddressFamily ==
-                AddressFamily.InterNetwork) {
+            if (socket.AddressFamily == AddressFamily.InterNetwork) {
                 await socket.SendToAsync(
                     packet,
                     SocketFlags.None,
@@ -232,50 +309,5 @@ internal sealed class MdnsSocketSet : IDisposable {
             catch (SocketException) {
             }
         }
-    }
-
-    public static IEnumerable<int> GetInterfaceIndexes() {
-        foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces()) {
-            IPv6InterfaceProperties? properties = ni.GetIPProperties()
-                .GetIPv6Properties();
-
-            if (properties is not null) {
-                yield return properties.Index;
-            }
-        }
-    }
-
-    public static async Task<(byte[] Data, EndPoint Remote)> ReceiveAsync(
-        Socket socket,
-        CancellationToken cancellationToken) {
-        byte[] buffer = new byte[65535];
-
-        EndPoint endpoint =
-            socket.AddressFamily ==
-            AddressFamily.InterNetwork
-                ? new IPEndPoint(IPAddress.Any, 0)
-                : new IPEndPoint(IPAddress.IPv6Any, 0);
-
-        SocketReceiveFromResult result = await socket.ReceiveFromAsync(
-            buffer,
-            SocketFlags.None,
-            endpoint,
-            cancellationToken);
-
-        return (
-            buffer[..result.ReceivedBytes],
-            result.RemoteEndPoint);
-    }
-
-    public void Dispose() {
-        foreach (Socket socket in _sockets) {
-            try {
-                socket.Dispose();
-            }
-            catch {
-            }
-        }
-
-        _sockets.Clear();
     }
 }

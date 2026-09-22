@@ -84,7 +84,8 @@ public abstract class LockdownService : IDisposable {
             records.Add(wiFiMACAddress, record);
         }
 
-        foreach (ServiceInstance answer in await MdnsBrowser.BrowseMobdev2Async(TimeSpan.FromSeconds(2)).ConfigureAwait(false)) {
+        MdnsBrowser mdnsBrowser = new MdnsBrowser(new MdnsSocketFactory(), new MdnsInterfaceResolver());
+        foreach (ServiceInstance answer in await mdnsBrowser.BrowseMobdev2Async(TimeSpan.FromSeconds(2)).ConfigureAwait(false)) {
             if (!answer.Instance.Contains('@')) {
                 continue;
             }

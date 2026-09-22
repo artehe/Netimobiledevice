@@ -71,8 +71,10 @@ public static class TunnelService {
     /// <param name="bonjourTimeout">Timeout for Bonjour browsing.</param>
     /// <param name="udid">Optional device identifier filter.</param>
     public static async Task<List<RemotePairingTunnelService>> GetRemotePairingTunnelServicesAsync(string? udid = null) {
+        MdnsBrowser mdnsBrowser = new MdnsBrowser(new MdnsSocketFactory(), new MdnsInterfaceResolver());
+
         List<RemotePairingTunnelService> result = [];
-        foreach (ServiceInstance answer in await MdnsBrowser.BrowseRemotepairingAsync(TimeSpan.FromSeconds(2))) {
+        foreach (ServiceInstance answer in await mdnsBrowser.BrowseRemotepairingAsync(TimeSpan.FromSeconds(2))) {
             foreach (Address address in answer.Addresses) {
                 foreach (string identifier in PairRecords.IterateRemotePairedIdentifiers()) {
                     if (udid != null && identifier != udid) {

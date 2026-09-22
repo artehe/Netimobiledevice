@@ -30,7 +30,8 @@ internal sealed class MdnsNetworkAdapters {
     private static bool IsInSameSubnet(
         IPAddress address,
         IPAddress local,
-        int prefixLength) {
+        int prefixLength
+    ) {
         byte[] a = address.GetAddressBytes();
         byte[] b = local.GetAddressBytes();
 
@@ -60,7 +61,7 @@ internal sealed class MdnsNetworkAdapters {
     public string? PickInterface(
         string ipString,
         AddressFamily family,
-        int? scopeId) {
+        long? scopeId) {
         if (family == AddressFamily.InterNetworkV6 &&
             ipString.StartsWith(
                 "fe80:",
