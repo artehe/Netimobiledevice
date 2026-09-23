@@ -1,222 +1,128 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
+using Netimobiledevice.Remoted;
 using System;
-using System.Diagnostics.CodeAnalysis;
-using System.IO;
+using System.Collections.Generic;
+using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.NotificationProxy;
 
 /// <summary>
-/// Send and receive notifications from the device for example informing a backup sync is about to occur.
+/// Post and observe Darwin notifications on the device via the notification proxy lockdown service.
 /// </summary>
-public sealed class NotificationProxyService(
-    LockdownServiceProvider lockdown,
-    bool useInsecureService = false,
-    ILogger? logger = null
-) : LockdownService(lockdown, ServiceNameUsed, GetNotificationProxyServiceConnection(lockdown, useInsecureService), logger: logger) {
-    private const string LOCKDOWN_SERVICE_NAME = "com.apple.mobile.notification_proxy";
-    private const string RSD_SERVICE_NAME = "com.apple.mobile.notification_proxy.shim.remote";
+/// <remarks>
+/// Allows sending notifications to the device, registering interest in notifications so the device
+/// relays them back, and iterating over the relayed notifications. A secure or insecure variant of
+/// the service is selected by the <c>insecure</c> flag, and the RSD/tunnel variant is chosen
+/// automatically for <see cref="RemoteServiceDiscoveryService"/> providers. This is a lockdown
+/// service and is used with <c>await using</c>.
+/// </remarks>
+public sealed class NotificationProxyService : LockdownService {
+    public const string InsecureServiceName = "com.apple.mobile.insecure_notification_proxy";
+    public const string LockdownServiceName = "com.apple.mobile.notification_proxy";
+    public const string RsdInsecureServiceName = "com.apple.mobile.insecure_notification_proxy.shim.remote";
+    public const string RsdServiceName = "com.apple.mobile.notification_proxy.shim.remote";
 
-    private const string INSECURE_LOCKDOWN_SERVICE_NAME = "com.apple.mobile.insecure_notification_proxy";
-    private const string RSD_INSECURE_SERVICE_NAME = "com.apple.mobile.insecure_notification_proxy.shim.remote";
+    private readonly TimeSpan? _timeout;
 
-    private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
-    private Task? _notificationListenerTask;
-
-    private static string ServiceNameUsed { get; set; } = LOCKDOWN_SERVICE_NAME;
-
-    public event EventHandler<ReceivedNotificationEventArgs>? ReceivedNotification;
-
-    private static ServiceConnection? GetNotificationProxyServiceConnection(LockdownServiceProvider lockdown, bool useInsecureService) {
-        if (lockdown is LockdownClient) {
-            if (useInsecureService) {
-                ServiceNameUsed = INSECURE_LOCKDOWN_SERVICE_NAME;
-            }
-            else {
-                ServiceNameUsed = LOCKDOWN_SERVICE_NAME;
-            }
+    /// <param name="lockdown">Service provider used to start the service and reach the device.</param>
+    /// <param name="insecure">When true, use the insecure notification proxy service instead of the secure one.</param>
+    /// <param name="timeout">Optional receive timeout applied to each read from the service connection.</param>
+    public NotificationProxyService(
+        LockdownServiceProvider lockdown,
+        bool insecure = false,
+        TimeSpan? timeout = null,
+        ILogger? logger = null
+    ) : base(lockdown, ResolveServiceName(lockdown, insecure), logger: logger) {
+        if (timeout is { } t) {
+            // Applies to synchronous reads; async reads are bounded in ReceiveNotificationAsync.
+            Service.SetTimeout((int) t.TotalMilliseconds);
+            _timeout = t;
         }
-        else {
-            if (useInsecureService) {
-                ServiceNameUsed = RSD_INSECURE_SERVICE_NAME;
-            }
-            else {
-                ServiceNameUsed = RSD_SERVICE_NAME;
-            }
-        }
-        return lockdown.StartLockdownService(ServiceNameUsed, useTrustedConnection: !useInsecureService);
     }
 
-    public override void Dispose() {
-        Stop();
-        base.Dispose();
+    private static string ResolveServiceName(
+        LockdownServiceProvider lockdown,
+        bool insecure
+    ) => (lockdown is RemoteServiceDiscoveryService, insecure) switch {
+        (true, true) => RsdInsecureServiceName,
+        (true, false) => RsdServiceName,
+        (false, true) => InsecureServiceName,
+        (false, false) => LockdownServiceName,
+    };
+
+    /// <summary>
+    /// Register interest in a notification so the device relays it back. Once registered, the
+    /// device sends a message whenever the named notification fires, which can be read via
+    /// <see cref="ReceiveNotificationAsync"/>.
+    /// </summary>
+    /// <param name="name">Notification name to observe.</param>
+    public Task NotifyRegisterDispatchAsync(
+        string name,
+        CancellationToken cancellationToken = default
+    ) {
+        Logger.LogDebug("Observing {Name}", name);
+        return Service.SendPlistAsync(
+            new DictionaryNode {
+                ["Command"] = new StringNode("ObserveNotification"),
+                ["Name"] = new StringNode(name)
+            },
+            PlistFormat.Xml,
+            cancellationToken
+        );
     }
 
-    private async Task<string?> GetNotificationAsync(CancellationToken cancellationToken) {
-        try {
-            PropertyNode? plist = await Service.ReceivePlistAsync(cancellationToken).ConfigureAwait(false);
-            if (plist != null) {
-                DictionaryNode dict = plist.AsDictionaryNode();
-                if (dict.TryGetValue("Command", out PropertyNode? commandNode)) {
-                    if (commandNode.AsStringNode().Value == "RelayNotification") {
-                        if (dict.TryGetValue("Name", out PropertyNode? notificationNameNode)) {
-                            string notificationName = notificationNameNode.AsStringNode().Value;
-                            Logger.LogDebug("Got notification {notificationName}", notificationName);
-                            return notificationName;
-                        }
-                    }
-                    else if (commandNode.AsStringNode().Value == "ProxyDeath") {
-                        Logger.LogError("NotificationProxy died");
-                        throw new NotificationProxyException("Notification proxy died, can't listen to notifications anymore");
-                    }
-                    else {
-                        Logger.LogWarning("Unknown NotificationProxy command {command}", commandNode.AsStringNode().Value);
-                    }
+    /// <summary>
+    /// Post a notification on the device. Sends a <c>PostNotification</c> command, causing the
+    /// device to broadcast the named notification.
+    /// </summary>
+    /// <param name="name">Notification name to post (e.g. a Darwin notification name).</param>
+    public Task NotifyPostAsync(
+        string name,
+        CancellationToken cancellationToken = default
+    ) => Service.SendPlistAsync(
+        new DictionaryNode {
+            ["Command"] = new StringNode("PostNotification"),
+            ["Name"] = new StringNode(name)
+        },
+        PlistFormat.Xml,
+        cancellationToken
+    );
+
+    /// <summary>
+    /// Yield notifications relayed from the device for previously observed names. Continuously
+    /// reads from the service and yields each received message until the connection is closed.
+    /// </summary>
+    /// <exception cref="NotificationTimeoutException">
+    /// No notification arrived within the configured timeout.
+    /// </exception>
+    public async IAsyncEnumerable<DictionaryNode> ReceiveNotificationAsync(
+        [EnumeratorCancellation] CancellationToken cancellationToken = default
+    ) {
+        while (true) {
+            DictionaryNode message;
+            using (CancellationTokenSource readCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)) {
+                if (_timeout is { } t) {
+                    readCts.CancelAfter(t);
                 }
-            }
-        }
-        catch (ArgumentException ex) {
-            Logger.LogError(ex, "Error");
-        }
-        return null;
-    }
 
-    private async Task NotificationListener() {
-        Service.SetTimeout(5000);
-        CancellationToken ct = _cancellationTokenSource.Token;
-        do {
-            using (CancellationTokenSource localCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(ct)) {
                 try {
-                    string? notification = await GetNotificationAsync(localCancellationTokenSource.Token).ConfigureAwait(false);
-                    if (!string.IsNullOrEmpty(notification)) {
-                        ReceivedNotification?.Invoke(this, new ReceivedNotificationEventArgs(notification, this.Lockdown.Udid));
-                    }
+                    PropertyNode? propertyNode = await Service.ReceivePlistAsync(readCts.Token).ConfigureAwait(false);
+                    message = propertyNode?.AsDictionaryNode() ?? [];
                 }
-                catch (IOException ex) {
-                    Logger.LogDebug(ex, "Recieved IO exception");
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) {
+                    throw new NotificationProxyTimeoutException();
                 }
-                catch (ObjectDisposedException) {
-                    // If the object is disposed the most likely reason is that the service is closed
-                    break;
+                catch (SocketException e) when (e.SocketErrorCode == SocketError.TimedOut) {
+                    throw new NotificationProxyTimeoutException();
                 }
-                catch (TimeoutException) {
-                    Logger.LogDebug("No notifications received yet, trying again");
-                }
-                catch (Exception ex) {
-                    if (!localCancellationTokenSource.Token.IsCancellationRequested) {
-                        Logger.LogError(ex, "Notification proxy listener has an error");
-                        throw;
-                    }
-                }
-                await Task.Delay(200, localCancellationTokenSource.Token).ConfigureAwait(false);
+
+                yield return message;
             }
-        } while (!ct.IsCancellationRequested);
-    }
-
-    /// <summary>
-    /// Posts the specified notification.
-    /// </summary>
-    /// <param name="notification">The notification to post.</param>
-    public void Post(string notification) {
-        DictionaryNode msg = new DictionaryNode() {
-            { "Command", new StringNode("PostNotification") },
-            { "Name", new StringNode(notification) }
-        };
-        Service.SendPlist(msg);
-    }
-
-    /// <summary>
-    /// Posts the specified notification.
-    /// </summary>
-    /// <param name="notification">The notification to post.</param>
-    public async Task PostAsync(string notification) {
-        DictionaryNode msg = new DictionaryNode() {
-            { "Command", new StringNode("PostNotification") },
-            { "Name", new StringNode(notification) }
-        };
-        await Service.SendPlistAsync(msg).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Attempts to observe all known builtin receivable notifications.
-    /// </summary>
-    public void ObserveAll() {
-        foreach (string notification in ReceivableNotification.All) {
-            ObserveNotification(notification);
         }
-    }
-
-    /// <summary>
-    /// Attempts to observe all builtin including experimental options receivable notifications.
-    /// </summary>
-    [Experimental("NETIMOBILE001")]
-    public void ObserveAllExperimental() {
-        foreach (string notification in ReceivableNotification.AllExperimental) {
-            ObserveNotification(notification);
-        }
-    }
-
-    /// <summary>
-    /// Attempts to observe all known builtin receivable notifications.
-    /// </summary>
-    public async Task ObserveAllAsync() {
-        foreach (string notification in ReceivableNotification.All) {
-            await ObserveNotificationAsync(notification).ConfigureAwait(false);
-        }
-    }
-
-    /// <summary>
-    /// Attempts to observe all builtin including experimental options receivable notifications.
-    /// </summary>
-    [Experimental("NETIMOBILE001")]
-    public async Task ObserveAllExperimentalAsynx() {
-        foreach (string notification in ReceivableNotification.AllExperimental) {
-            await ObserveNotificationAsync(notification).ConfigureAwait(false);
-        }
-    }
-
-    /// <summary>
-    /// Inform the device of the notification we want to observe.
-    /// </summary>
-    /// <param name="notification"></param>
-    public void ObserveNotification(string notification) {
-        DictionaryNode request = new DictionaryNode() {
-            { "Command", new StringNode("ObserveNotification") },
-            { "Name", new StringNode(notification) }
-        };
-        Service.SendPlist(request);
-    }
-
-    /// <summary>
-    /// Inform the device of the notification we want to observe.
-    /// </summary>
-    /// <param name="notification"></param>
-    public async Task ObserveNotificationAsync(string notification) {
-        DictionaryNode request = new DictionaryNode() {
-            { "Command", new StringNode("ObserveNotification") },
-            { "Name", new StringNode(notification) }
-        };
-        await Service.SendPlistAsync(request).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Starts observing any notifications from the device if it is not doing so already
-    /// </summary>
-    public void Start() {
-        if (_notificationListenerTask == null) {
-            _cancellationTokenSource = new CancellationTokenSource();
-            _notificationListenerTask = Task.Run(NotificationListener, _cancellationTokenSource.Token);
-        }
-    }
-
-    /// <summary>
-    /// Stops observing any notifications from the device
-    /// </summary>
-    public void Stop() {
-        _cancellationTokenSource.Cancel();
-        _notificationListenerTask = null;
     }
 }

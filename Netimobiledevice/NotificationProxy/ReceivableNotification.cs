@@ -768,12 +768,12 @@ public static class ReceivableNotification {
     public static string HostDetached => "com.apple.mobile.lockdown.host_detached";
     public static string ItdbprepDidEnd => "com.apple.itdbprep.notification.didEnd";
     public static string LanguageChanged => "com.apple.language.changed";
-    public static string LocalAuthenticationUiDismissed => "com.apple.LocalAuthentication.ui.dismissed";
-    public static string LocalAuthenticationUiPresented => "com.apple.LocalAuthentication.ui.presented";
+    public const string LocalAuthenticationUiDismissed = "com.apple.LocalAuthentication.ui.dismissed";
+    public const string LocalAuthenticationUiPresented = "com.apple.LocalAuthentication.ui.presented";
     public static string PhoneNumberChanged => "com.apple.mobile.lockdown.phone_number_changed";
     public static string RegistrationFailed => "com.apple.mobile.lockdown.registration_failed";
     public static string RequestPair => "com.apple.mobile.lockdown.request_pair";
-    public static string SyncCancelRequest => "com.apple.itunes-client.syncCancelRequest";
+    public const string SyncCancelRequest = "com.apple.itunes-client.syncCancelRequest";
     public static string SyncResumeRequst => "com.apple.itunes-client.syncResumeRequest";
     public static string SyncSuspendRequst => "com.apple.itunes-client.syncSuspendRequest";
     public static string TimezoneChanged => "com.apple.mobile.lockdown.timezone_changed";

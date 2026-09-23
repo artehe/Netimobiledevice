@@ -38,6 +38,7 @@ public sealed class Mobilebackup2Service(
 
     private CancellationTokenSource _internalCts = new CancellationTokenSource();
     private bool _passcodeRequired;
+    private Task? _npListenerTask;
 
     /// <summary>
     /// iTunes files to be inserted into the Info.plist file.
@@ -371,11 +372,10 @@ public sealed class Mobilebackup2Service(
                 dl.Started += DeviceLink_Started;
 
                 using (NotificationProxyService np = new NotificationProxyService(this.Lockdown)) {
-                    np.ReceivedNotification += NotificationProxy_ReceivedNotification;
-                    await np.ObserveNotificationAsync(ReceivableNotification.SyncCancelRequest).ConfigureAwait(false);
-                    await np.ObserveNotificationAsync(ReceivableNotification.LocalAuthenticationUiPresented).ConfigureAwait(false);
-                    await np.ObserveNotificationAsync(ReceivableNotification.LocalAuthenticationUiDismissed).ConfigureAwait(false);
-                    np.Start();
+                    await np.NotifyRegisterDispatchAsync(ReceivableNotification.SyncCancelRequest, cancellationToken).ConfigureAwait(false);
+                    await np.NotifyRegisterDispatchAsync(ReceivableNotification.LocalAuthenticationUiPresented, cancellationToken).ConfigureAwait(false);
+                    await np.NotifyRegisterDispatchAsync(ReceivableNotification.LocalAuthenticationUiDismissed, cancellationToken).ConfigureAwait(false);
+                    _npListenerTask = NotificationProxyListener(np, cancellationToken);
 
                     using (AfcService afc = new AfcService(this.Lockdown)) {
                         using (BackupLock backupLock = new BackupLock(afc, np)) {
@@ -441,21 +441,45 @@ public sealed class Mobilebackup2Service(
         }
     }
 
-    private void NotificationProxy_ReceivedNotification(object? sender, ReceivedNotificationEventArgs e) {
-        if (e.Event == ReceivableNotification.LocalAuthenticationUiPresented) {
-            // iOS versions 15.7.1 and anything 16.1 or newer will require you to input a passcode before
-            // it can start a backup so we make sure to notify the user about this.
-            if ((Lockdown.OsVersion >= new Version(15, 7, 1) && Lockdown.OsVersion < new Version(16, 0)) ||
-                Lockdown.OsVersion >= new Version(16, 1)) {
-                _passcodeRequired = true;
-                PasscodeRequiredForBackup?.Invoke(this, EventArgs.Empty);
+    private async Task NotificationProxyListener(NotificationProxyService np, CancellationToken ct) {
+        await foreach (DictionaryNode notification in np.ReceiveNotificationAsync(ct)) {
+            if (notification.TryGetValue("Command", out PropertyNode? commandNode)) {
+                if (commandNode.AsStringNode().Value == "RelayNotification") {
+                    if (notification.TryGetValue("Name", out PropertyNode? notificationNameNode)) {
+                        string notificationName = notificationNameNode.AsStringNode().Value;
+                        Logger.LogDebug("Got notification {notificationName}", notificationName);
+                        switch (notificationName) {
+                            case ReceivableNotification.LocalAuthenticationUiPresented: {
+                                // iOS versions 15.7.1 and anything 16.1 or newer will require you to input a passcode before
+                                // it can start a backup so we make sure to notify the user about this.
+                                if ((Lockdown.OsVersion >= new Version(15, 7, 1) && Lockdown.OsVersion < new Version(16, 0)) ||
+                                    Lockdown.OsVersion >= new Version(16, 1)) {
+                                    _passcodeRequired = true;
+                                    PasscodeRequiredForBackup?.Invoke(this, EventArgs.Empty);
+                                }
+                                break;
+                            }
+
+                            case ReceivableNotification.LocalAuthenticationUiDismissed: {
+                                _passcodeRequired = false;
+                                break;
+                            }
+
+                            case ReceivableNotification.SyncCancelRequest: {
+                                _internalCts.Cancel();
+                                break;
+                            }
+                        }
+                    }
+                }
+                else if (commandNode.AsStringNode().Value == "ProxyDeath") {
+                    Logger.LogError("NotificationProxy died");
+                    throw new NotificationProxyException("Notification proxy died, can't listen to notifications anymore");
+                }
+                else {
+                    Logger.LogWarning("Unknown NotificationProxy command {command}", commandNode.AsStringNode().Value);
+                }
             }
-        }
-        else if (e.Event == ReceivableNotification.LocalAuthenticationUiDismissed) {
-            _passcodeRequired = false;
-        }
-        else if (e.Event == ReceivableNotification.SyncCancelRequest) {
-            _internalCts.Cancel();
         }
     }
 

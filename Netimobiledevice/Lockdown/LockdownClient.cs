@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Netimobiledevice.Lockdown.Pairing;
-using Netimobiledevice.NotificationProxy;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd;
 using System;
@@ -501,44 +500,38 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
     /// <param name="cancellationToken">A cancelation token used to cancel stop the operation</param>
     /// <returns>Return <see langword="true"/> if the user accept pairing else <see langword="false"/>.</returns>
     public virtual async Task<bool> PairAsync(IProgress<PairingState> progress, CancellationToken cancellationToken) {
-        using (NotificationProxyService np = new NotificationProxyService(this, true, Logger)) {
-            await np.ObserveNotificationAsync(ReceivableNotification.RequestPair).ConfigureAwait(false);
-
-            LockdownError? err = null;
-            PairingState? lastPairingReport = null;
-            while (!cancellationToken.IsCancellationRequested) {
-                err = Pair();
-                switch (err) {
-                    case LockdownError.Success: {
-                        np.Stop();
-                        progress.Report(PairingState.Paired);
-                        return IsPaired = true;
-                    }
-                    case LockdownError.UserDeniedPairing: {
-                        progress.Report(PairingState.UserDeniedPairing);
-                        return IsPaired = false;
-                    }
-                    case LockdownError.PasswordProtected: {
-                        if (lastPairingReport != PairingState.PasswordProtected) {
-                            progress.Report(PairingState.PasswordProtected);
-                            lastPairingReport = PairingState.PasswordProtected;
-                        }
-                        break;
-                    }
-                    case LockdownError.PairingDialogResponsePending: {
-                        if (lastPairingReport != PairingState.PairingDialogResponsePending) {
-                            progress.Report(PairingState.PairingDialogResponsePending);
-                            lastPairingReport = PairingState.PairingDialogResponsePending;
-                        }
-                        break;
-                    }
-                    default: {
-                        IsPaired = false;
-                        throw ((LockdownError) err).GetException() ?? new LockdownException(LockdownError.UnknownError);
-                    }
+        PairingState? lastPairingReport = null;
+        while (!cancellationToken.IsCancellationRequested) {
+            LockdownError? err = Pair();
+            switch (err) {
+                case LockdownError.Success: {
+                    progress.Report(PairingState.Paired);
+                    return IsPaired = true;
                 }
-                await Task.Delay(200, cancellationToken).ConfigureAwait(false);
+                case LockdownError.UserDeniedPairing: {
+                    progress.Report(PairingState.UserDeniedPairing);
+                    return IsPaired = false;
+                }
+                case LockdownError.PasswordProtected: {
+                    if (lastPairingReport != PairingState.PasswordProtected) {
+                        progress.Report(PairingState.PasswordProtected);
+                        lastPairingReport = PairingState.PasswordProtected;
+                    }
+                    break;
+                }
+                case LockdownError.PairingDialogResponsePending: {
+                    if (lastPairingReport != PairingState.PairingDialogResponsePending) {
+                        progress.Report(PairingState.PairingDialogResponsePending);
+                        lastPairingReport = PairingState.PairingDialogResponsePending;
+                    }
+                    break;
+                }
+                default: {
+                    IsPaired = false;
+                    throw ((LockdownError) err).GetException() ?? new LockdownException(LockdownError.UnknownError);
+                }
             }
+            await Task.Delay(200, cancellationToken).ConfigureAwait(false);
         }
 
         if (IsPaired) {

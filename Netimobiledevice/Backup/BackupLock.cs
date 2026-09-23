@@ -6,8 +6,7 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Backup;
 
-internal sealed class BackupLock(AfcService afc, NotificationProxyService np) : IDisposable
-{
+internal sealed class BackupLock(AfcService afc, NotificationProxyService np) : IDisposable {
     private const string SYNC_LOCK_FILE_PATH = "/com.apple.itunes.lock_sync";
 
     private readonly AfcService _afc = afc;
@@ -15,21 +14,19 @@ internal sealed class BackupLock(AfcService afc, NotificationProxyService np) : 
 
     private ulong _syncLockFileHandle;
 
-    public void Dispose()
-    {
+    public void Dispose() {
         Task.Run(async () => {
             await _afc.Lock(_syncLockFileHandle, AfcLockModes.Unlock, CancellationToken.None).ConfigureAwait(false);
             await _afc.FileClose(_syncLockFileHandle, CancellationToken.None).ConfigureAwait(false);
         }).GetAwaiter().GetResult();
-        _np.Post(SendableNotificaton.SyncDidFinish);
+        _np.NotifyPostAsync(SendableNotificaton.SyncDidFinish);
     }
 
-    public async Task AquireBackupLock(CancellationToken cancellationToken)
-    {
-        await _np.PostAsync(SendableNotificaton.SyncWillStart).ConfigureAwait(false);
+    public async Task AquireBackupLock(CancellationToken cancellationToken) {
+        await _np.NotifyPostAsync(SendableNotificaton.SyncWillStart, cancellationToken).ConfigureAwait(false);
         _syncLockFileHandle = await _afc.FileOpen(SYNC_LOCK_FILE_PATH, cancellationToken, AfcFileOpenMode.ReadWrite).ConfigureAwait(false);
         if (_syncLockFileHandle > 0) {
-            await _np.PostAsync(SendableNotificaton.SyncLockRequest).ConfigureAwait(false);
+            await _np.NotifyPostAsync(SendableNotificaton.SyncLockRequest, cancellationToken).ConfigureAwait(false);
 
             bool lockAquired = false;
             for (int i = 0; i < 50; i++) {
@@ -53,7 +50,7 @@ internal sealed class BackupLock(AfcService afc, NotificationProxyService np) : 
             }
 
             if (lockAquired) {
-                await _np.PostAsync(SendableNotificaton.SyncDidStart).ConfigureAwait(false);
+                await _np.NotifyPostAsync(SendableNotificaton.SyncDidStart, cancellationToken).ConfigureAwait(false);
             }
         }
         else {
