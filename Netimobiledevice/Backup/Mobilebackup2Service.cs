@@ -354,95 +354,118 @@ public sealed class Mobilebackup2Service(
         string backupDirectory = ".",
         CancellationToken cancellationToken = default
     ) {
-        _internalCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        using (_internalCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)) {
+            string deviceDirectory = Path.Combine(backupDirectory, Lockdown.Udid);
+            Directory.CreateDirectory(deviceDirectory);
 
-        string deviceDirectory = Path.Combine(backupDirectory, Lockdown.Udid);
-        Directory.CreateDirectory(deviceDirectory);
+            ResultCode result = ResultCode.Success;
+            bool success = false;
+            using (DeviceLinkService dl = await GetDeviceLink(backupDirectory, ignoreTransferErrors, performBackupSizeCheck, _internalCts.Token).ConfigureAwait(false)) {
+                try {
+                    dl.BeforeReceivingFile += DeviceLink_BeforeReceivingFile;
+                    dl.Completed += DeviceLink_Completed;
+                    dl.FileReceived += DeviceLink_FileReceived;
+                    dl.FileReceiving += DeviceLink_FileReceiving;
+                    dl.FileTransferError += DeviceLink_FileTransferError;
+                    dl.Progress += DeviceLink_Progress;
+                    dl.Status += DeviceLink_Status;
+                    dl.Started += DeviceLink_Started;
 
-        ResultCode result = ResultCode.Success;
-        using (DeviceLinkService dl = await GetDeviceLink(backupDirectory, ignoreTransferErrors, performBackupSizeCheck, _internalCts.Token).ConfigureAwait(false)) {
-            try {
-                dl.BeforeReceivingFile += DeviceLink_BeforeReceivingFile;
-                dl.Completed += DeviceLink_Completed;
-                dl.FileReceived += DeviceLink_FileReceived;
-                dl.FileReceiving += DeviceLink_FileReceiving;
-                dl.FileTransferError += DeviceLink_FileTransferError;
-                dl.Progress += DeviceLink_Progress;
-                dl.Status += DeviceLink_Status;
-                dl.Started += DeviceLink_Started;
+                    using (NotificationProxyService np = new NotificationProxyService(this.Lockdown)) {
+                        await np.NotifyRegisterDispatchAsync(ReceivableNotification.SyncCancelRequest, cancellationToken).ConfigureAwait(false);
+                        await np.NotifyRegisterDispatchAsync(ReceivableNotification.LocalAuthenticationUiPresented, cancellationToken).ConfigureAwait(false);
+                        await np.NotifyRegisterDispatchAsync(ReceivableNotification.LocalAuthenticationUiDismissed, cancellationToken).ConfigureAwait(false);
 
-                using (NotificationProxyService np = new NotificationProxyService(this.Lockdown)) {
-                    await np.NotifyRegisterDispatchAsync(ReceivableNotification.SyncCancelRequest, cancellationToken).ConfigureAwait(false);
-                    await np.NotifyRegisterDispatchAsync(ReceivableNotification.LocalAuthenticationUiPresented, cancellationToken).ConfigureAwait(false);
-                    await np.NotifyRegisterDispatchAsync(ReceivableNotification.LocalAuthenticationUiDismissed, cancellationToken).ConfigureAwait(false);
-                    _npListenerTask = NotificationProxyListener(np, cancellationToken);
+                        using (CancellationTokenSource listenerCts = CancellationTokenSource.CreateLinkedTokenSource(_internalCts.Token)) {
+                            _npListenerTask = NotificationProxyListener(np, listenerCts.Token);
 
-                    using (AfcService afc = new AfcService(this.Lockdown)) {
-                        using (BackupLock backupLock = new BackupLock(afc, np)) {
-                            await backupLock.AquireBackupLock(_internalCts.Token).ConfigureAwait(false);
+                            try {
+                                using (AfcService afc = new AfcService(this.Lockdown)) {
+                                    using (BackupLock backupLock = new BackupLock(afc, np)) {
+                                        await backupLock.AquireBackupLock(_internalCts.Token).ConfigureAwait(false);
 
-                            // Create Info.plist
-                            string infoPlistPath = Path.Combine(deviceDirectory, "Info.plist");
-                            DictionaryNode infoPlist = await CreateInfoPlist(afc, _internalCts.Token).ConfigureAwait(false);
-                            using (FileStream fs = File.OpenWrite(infoPlistPath)) {
-                                byte[] infoPlistData = PropertyList.SaveAsByteArray(infoPlist, PlistFormat.Xml);
-                                await fs.WriteAsync(infoPlistData, _internalCts.Token).ConfigureAwait(false);
-                                FileReceived?.Invoke(this, new BackupFileEventArgs(new BackupFile(string.Empty, infoPlistPath, deviceDirectory)));
+                                        // Create Info.plist
+                                        string infoPlistPath = Path.Combine(deviceDirectory, "Info.plist");
+                                        DictionaryNode infoPlist = await CreateInfoPlist(afc, _internalCts.Token).ConfigureAwait(false);
+                                        using (FileStream fs = File.OpenWrite(infoPlistPath)) {
+                                            byte[] infoPlistData = PropertyList.SaveAsByteArray(infoPlist, PlistFormat.Xml);
+                                            await fs.WriteAsync(infoPlistData, _internalCts.Token).ConfigureAwait(false);
+                                            FileReceived?.Invoke(this, new BackupFileEventArgs(new BackupFile(string.Empty, infoPlistPath, deviceDirectory)));
+                                        }
+
+                                        // Create Manifest.plist if doesn't exist.
+                                        string manifestPlistPath = Path.Combine(deviceDirectory, "Manifest.plist");
+                                        if (fullBackup && File.Exists(manifestPlistPath)) {
+                                            File.Delete(manifestPlistPath);
+                                        }
+                                        else if (!fullBackup && !File.Exists(manifestPlistPath)) {
+                                            fullBackup = true;
+                                        }
+
+                                        // Create Status.plist file if doesn't exist.
+                                        string statusPlistPath = Path.Combine(deviceDirectory, "Status.plist");
+                                        if (fullBackup || !File.Exists(statusPlistPath)) {
+                                            BackupStatus status = new BackupStatus() { IsFullBackup = fullBackup };
+                                            await File.WriteAllBytesAsync(statusPlistPath, PropertyList.SaveAsByteArray(status.ToPlist(), PlistFormat.Binary), _internalCts.Token).ConfigureAwait(false);
+                                        }
+
+                                        DictionaryNode message = new DictionaryNode() {
+                                        { "MessageName", new StringNode("Backup") },
+                                        { "TargetIdentifier", new StringNode(Lockdown.Udid) }
+                                    };
+                                        await dl.SendProcessMessage(message, cancellationToken).ConfigureAwait(false);
+
+                                        // Wait for 3 seconds to see if the device passcode is requested and then keep waiting till the passcode has been entered
+                                        do {
+                                            await Task.Delay(3000, _internalCts.Token).ConfigureAwait(false);
+                                        } while (_passcodeRequired);
+
+                                        result = await dl.DlLoop(_internalCts.Token).ConfigureAwait(false);
+                                        success = true;
+                                    }
+                                }
                             }
-
-                            // Create Manifest.plist if doesn't exist.
-                            string manifestPlistPath = Path.Combine(deviceDirectory, "Manifest.plist");
-                            if (fullBackup && File.Exists(manifestPlistPath)) {
-                                File.Delete(manifestPlistPath);
+                            finally {
+                                listenerCts.Cancel();
+                                if (_npListenerTask is not null) {
+                                    try {
+                                        await _npListenerTask.ConfigureAwait(false);
+                                    }
+                                    catch (OperationCanceledException) {
+                                        // Expected: we just requested this via listenerCts.Cancel().
+                                    }
+                                    catch (Exception ex) {
+                                        Logger.LogWarning(ex, "Notification proxy listener task ended with an error");
+                                    }
+                                }
                             }
-                            else if (!fullBackup && !File.Exists(manifestPlistPath)) {
-                                fullBackup = true;
-                            }
-
-                            // Create Status.plist file if doesn't exist.
-                            string statusPlistPath = Path.Combine(deviceDirectory, "Status.plist");
-                            if (fullBackup || !File.Exists(statusPlistPath)) {
-                                BackupStatus status = new BackupStatus() { IsFullBackup = fullBackup };
-                                await File.WriteAllBytesAsync(statusPlistPath, PropertyList.SaveAsByteArray(status.ToPlist(), PlistFormat.Binary), _internalCts.Token).ConfigureAwait(false);
-                            }
-
+                        }
+                    }
+                }
+                catch (Exception ex) {
+                    Logger.LogWarning(ex, "Ran into an issue with running backup that wasn't handled");
+                }
+                finally {
+                    if (!success) {
+                        try {
                             DictionaryNode message = new DictionaryNode() {
-                                { "MessageName", new StringNode("Backup") },
+                                { "MessageName", new StringNode("CancelBackup") },
                                 { "TargetIdentifier", new StringNode(Lockdown.Udid) }
                             };
                             await dl.SendProcessMessage(message, cancellationToken).ConfigureAwait(false);
-
-                            // Wait for 3 seconds to see if the device passcode is requested and then keep waiting till the passcode has been entered
-                            do {
-                                await Task.Delay(3000, _internalCts.Token).ConfigureAwait(false);
-                            } while (_passcodeRequired);
-
-                            result = await dl.DlLoop(_internalCts.Token).ConfigureAwait(false);
+                        }
+                        catch {
+                            // Do nothing for these exceptions
                         }
                     }
                 }
             }
-            finally {
-                if (result != ResultCode.Success) {
-                    try {
-                        DictionaryNode message = new DictionaryNode() {
-                            { "MessageName", new StringNode("CancelBackup") },
-                            { "TargetIdentifier", new StringNode(Lockdown.Udid) }
-                        };
-                        await dl.SendProcessMessage(message, cancellationToken).ConfigureAwait(false);
-                    }
-                    catch {
-                        // Do nothing for these exceptions
-                    }
-                }
-            }
-
             return result;
         }
     }
 
     private async Task NotificationProxyListener(NotificationProxyService np, CancellationToken ct) {
-        await foreach (DictionaryNode notification in np.ReceiveNotificationAsync(ct)) {
+        await foreach (DictionaryNode notification in np.ReceiveNotificationAsync(ct).ConfigureAwait(false)) {
             if (notification.TryGetValue("Command", out PropertyNode? commandNode)) {
                 if (commandNode.AsStringNode().Value == "RelayNotification") {
                     if (notification.TryGetValue("Name", out PropertyNode? notificationNameNode)) {
