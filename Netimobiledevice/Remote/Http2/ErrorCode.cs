@@ -1,7 +1,6 @@
-namespace Netimobiledevice.Remoted.Frames;
+namespace Netimobiledevice.Remote.Http2;
 
-internal enum ErrorCode : byte
-{
+internal enum ErrorCode : byte {
     /// <summary>
     /// The associated condition is not a result of an error. For example, a GOAWAY might include this code to indicate graceful shutdown of a connection.
     /// </summary>

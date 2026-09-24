@@ -1,7 +1,6 @@
-namespace Netimobiledevice.Remoted.Frames;
+namespace Netimobiledevice.Remote.Http2;
 
-internal enum FrameType
-{
+internal enum FrameType {
     Data = 0x0,
     Headers = 0x1,
     Priority = 0x2,

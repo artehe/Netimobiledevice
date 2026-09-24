@@ -1,3 +1,4 @@
+using Netimobiledevice.Remote.Http2;
 using Netimobiledevice.Remoted.Frames;
 using System;
 using System.Collections.Generic;
@@ -101,7 +102,7 @@ public class RemoteXPCConnection {
     }
 
     private async Task<Frame> ReceiveFrame() {
-        byte[] headerBuffer = new byte[FrameHeader.FrameHeaderLength];
+        byte[] headerBuffer = new byte[Frame.HeaderLength];
         await _stream.ReadAsync(headerBuffer).ConfigureAwait(false);
         FrameHeader frameHeader = Frame.ParseFrameHeader(headerBuffer);
 

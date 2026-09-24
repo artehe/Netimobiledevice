@@ -103,10 +103,10 @@ public sealed class NotificationProxyService : LockdownService {
     public async IAsyncEnumerable<DictionaryNode> ReceiveNotificationAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken = default
     ) {
-        while (true) {
+        while (!cancellationToken.IsCancellationRequested) {
             DictionaryNode message;
             using (CancellationTokenSource readCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken)) {
-                if (_timeout is { } t) {
+                if (_timeout is TimeSpan t) {
                     readCts.CancelAfter(t);
                 }
 
