@@ -117,4 +117,13 @@ public class CertificateGeneratorTests {
             CertificateGenerator.LoadCertificate(certPem, keyPem);
         });
     }
+
+    [TestMethod]
+    public void EveryPemBlock_EndsWithANewline() {
+        byte[] devicePublicKey = System.Text.Encoding.UTF8.GetBytes(RSA.Create(2048).ExportRSAPublicKeyPem());
+        PairingCertificates certs = CertificateGenerator.GeneratePairingCertificates(devicePublicKey);
+        foreach (string pem in new[] { certs.RootCertificatePem, certs.DeviceCertificatePem, certs.PrivateKeyPem }) {
+            Assert.EndsWith("-----\n", pem);
+        }
+    }
 }

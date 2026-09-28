@@ -36,10 +36,11 @@ public static class CertificateGenerator {
             X509Certificate2 rootCert = CreateRootCertificate(rsa);
             X509Certificate2 deviceCert = CreateDeviceCertificate(rootCert, devicePublicKey);
 
+            // Without a trailing newline, the device stores the pairing but can't use the DeviceCertificate so would drop every lockdown TLS handshake.
             return new PairingCertificates(
-                rootCert.ExportCertificatePem(),
-                deviceCert.ExportCertificatePem(),
-                rsa.ExportPkcs8PrivateKeyPem()
+                $"{rootCert.ExportCertificatePem()}\n",
+                $"{deviceCert.ExportCertificatePem()}\n",
+                $"{rsa.ExportPkcs8PrivateKeyPem()}\n"
             );
         }
     }
