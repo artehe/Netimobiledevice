@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
 
-namespace Netimobiledevice.Remoted.Xpc;
+namespace Netimobiledevice.Remote.Xpc;
 
 public class XpcPayload
 {

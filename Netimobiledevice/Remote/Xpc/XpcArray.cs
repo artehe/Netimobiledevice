@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Netimobiledevice.Remoted.Xpc;
+namespace Netimobiledevice.Remote.Xpc;
 
 public class XpcArray : XpcObject, IList<XpcObject>
 {

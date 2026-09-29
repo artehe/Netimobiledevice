@@ -72,7 +72,7 @@ public class Tunneld(
 
             using (RemotedProcessStopper stopper = new RemotedProcessStopper()) {
                 try {
-                    await rsd.ConnectAsync().ConfigureAwait(false);
+                    await rsd.ConnectAsync(CancellationToken.None).ConfigureAwait(false);
                 }
                 catch (Exception) {
                     throw new TaskCanceledException();
@@ -422,7 +422,7 @@ public class Tunneld(
         foreach (KeyValuePair<string, TunnelDefinition> tunnel in tunnels) {
             RemoteServiceDiscoveryService rsd = new RemoteServiceDiscoveryService(tunnel.Value.TunnelAddres, tunnel.Value.TunnelPort, tunnel.Value.InterfaceId);
             try {
-                await rsd.ConnectAsync();
+                await rsd.ConnectAsync(CancellationToken.None);
                 rsds.Add(rsd);
             }
             catch (Exception ex) {

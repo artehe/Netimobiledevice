@@ -1,6 +1,6 @@
 using System;
 
-namespace Netimobiledevice.Remoted.Xpc;
+namespace Netimobiledevice.Remote.Xpc;
 
 public class XpcFd(uint data) : XpcObject<uint>(data)
 {

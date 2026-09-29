@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
+using Netimobiledevice.Remote;
+using Netimobiledevice.Remote.Xpc;
 using Netimobiledevice.Remoted;
-using Netimobiledevice.Remoted.Xpc;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -20,7 +21,15 @@ namespace Netimobiledevice.NotificationProxy;
 /// </remarks>
 /// <param name="rsd">RSD provider used to open the RemoteXPC service.</param>
 /// <param name="insecure">When true, use the insecure relay meant for untrusted clients.</param>
-public sealed class RemoteNotificationProxyService(RemoteServiceDiscoveryService rsd, bool insecure = false) : RemoteService(rsd, insecure ? InsecureServiceName : ServiceName) {
+public sealed class RemoteNotificationProxyService(
+    RemoteServiceDiscoveryService rsd,
+    bool insecure = false,
+    ILogger? logger = null
+) : RemoteService(
+    rsd,
+    insecure ? InsecureServiceName : ServiceName,
+    logger
+) {
     public const string InsecureServiceName = "com.apple.mobile.insecure_notification_proxy.remote";
     public const string ServiceName = "com.apple.mobile.notification_proxy.remote";
 
@@ -55,9 +64,7 @@ public sealed class RemoteNotificationProxyService(RemoteServiceDiscoveryService
     /// Yield notifications relayed from the device for previously observed names. Each yielded
     /// message has the form <c>{ "Command": "RelayNotification", "Name": &lt;notification name&gt; }</c>.
     /// </summary>
-    public async IAsyncEnumerable<XpcDictionary> ReceiveNotificationAsync(
-        [EnumeratorCancellation] CancellationToken cancellationToken = default
-    ) {
+    public async IAsyncEnumerable<XpcDictionary> ReceiveNotificationAsync([EnumeratorCancellation] CancellationToken cancellationToken = default) {
         while (!cancellationToken.IsCancellationRequested) {
             yield return await Service.ReceiveResponseAsync(cancellationToken).ConfigureAwait(false);
         }

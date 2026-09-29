@@ -3,7 +3,7 @@ using System;
 using System.Linq;
 using System.Text.Json.Serialization;
 
-namespace Netimobiledevice.Remoted.Xpc;
+namespace Netimobiledevice.Remote.Xpc;
 
 [JsonConverter(typeof(XpcObjectJsonConverter))]
 public abstract class XpcObject {

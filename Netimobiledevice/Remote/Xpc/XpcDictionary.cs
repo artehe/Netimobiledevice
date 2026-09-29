@@ -5,7 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 
-namespace Netimobiledevice.Remoted.Xpc;
+namespace Netimobiledevice.Remote.Xpc;
 
 public class XpcDictionary : XpcObject, IDictionary<string, XpcObject> {
     private readonly IDictionary<string, XpcObject> _dictionary = new Dictionary<string, XpcObject>();

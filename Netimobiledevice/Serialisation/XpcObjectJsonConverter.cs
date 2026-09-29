@@ -1,4 +1,4 @@
-using Netimobiledevice.Remoted.Xpc;
+using Netimobiledevice.Remote.Xpc;
 using System;
 using System.Collections.Generic;
 using System.Text.Json;

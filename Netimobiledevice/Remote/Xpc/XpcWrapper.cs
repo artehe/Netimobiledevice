@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
 
-namespace Netimobiledevice.Remoted.Xpc;
+namespace Netimobiledevice.Remote.Xpc;
 
 public class XpcWrapper {
     public const uint MAGIC = 0x29b00b92;

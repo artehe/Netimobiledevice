@@ -1,5 +1,5 @@
 ﻿using Netimobiledevice.EndianBitConversion;
-using Netimobiledevice.Remoted.Xpc;
+using Netimobiledevice.Remote.Xpc;
 using Netimobiledevice.Serialisation;
 using System;
 using System.Buffers.Binary;

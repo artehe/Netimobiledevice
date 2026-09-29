@@ -1,4 +1,4 @@
-namespace Netimobiledevice.Remoted.Xpc;
+namespace Netimobiledevice.Remote.Xpc;
 
 public class XpcData(byte[]? data) : XpcObject<byte[]>(data)
 {

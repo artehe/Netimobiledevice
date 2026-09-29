@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Pairing;
 using Netimobiledevice.Plist;
-using Netimobiledevice.Remoted.Xpc;
+using Netimobiledevice.Remote.Xpc;
 using System;
 using System.Globalization;
 using System.Threading;
@@ -10,8 +10,7 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Remoted;
 
-public class RemoteServiceDiscoveryService : LockdownServiceProvider
-{
+public class RemoteServiceDiscoveryService : LockdownServiceProvider {
     private const string TRUSTED_SERVICE_NAME = "com.apple.mobile.lockdown.remote.trusted";
     private const string UNTRUSTED_SERVICE_NAME = "com.apple.mobile.lockdown.remote.untrusted";
 
@@ -29,22 +28,19 @@ public class RemoteServiceDiscoveryService : LockdownServiceProvider
 
     public string? Name { get; private set; }
 
-    public RemoteServiceDiscoveryService(string ip, int port, string? name = null) : base()
-    {
+    public RemoteServiceDiscoveryService(string ip, int port, string? name = null) : base() {
         Service = new RemoteXPCConnection(ip, port);
         Name = name;
     }
 
-    public void Close()
-    {
+    public void Close() {
         Lockdown?.Close();
         Service.Close();
     }
 
-    public async Task ConnectAsync()
-    {
-        await Service.Connect();
-        peerInfo = await Service.ReceiveResponse().ConfigureAwait(false);
+    public async Task ConnectAsync(CancellationToken ct) {
+        await Service.Connect(ct);
+        peerInfo = await Service.ReceiveResponse(ct).ConfigureAwait(false);
         Udid = peerInfo["Properties"].AsXpcDictionary()["UniqueDeviceID"].AsXpcString().Data ?? string.Empty;
         ProductType = peerInfo["Properties"].AsXpcDictionary()["ProductType"].AsXpcString().Data ?? string.Empty;
 
@@ -62,8 +58,7 @@ public class RemoteServiceDiscoveryService : LockdownServiceProvider
     /// </summary>
     /// <param name="name">Service to look for</param>
     /// <returns>Port discovered service runs on</returns>
-    public ushort GetServicePort(string name)
-    {
+    public ushort GetServicePort(string name) {
         if (peerInfo == null) {
             throw new NetimobiledeviceException("peerInfo not set");
         }
@@ -76,13 +71,11 @@ public class RemoteServiceDiscoveryService : LockdownServiceProvider
         throw new NetimobiledeviceException($"No such service {name}");
     }
 
-    public override PropertyNode? GetValue(string? domain, string? key)
-    {
+    public override PropertyNode? GetValue(string? domain, string? key) {
         return Lockdown?.GetValue(domain, key);
     }
 
-    public override async Task<PropertyNode?> GetValueAsync(string? domain, string? key)
-    {
+    public override async Task<PropertyNode?> GetValueAsync(string? domain, string? key) {
         if (Lockdown is not null) {
             PropertyNode? value = await Lockdown.GetValueAsync(domain, key).ConfigureAwait(false);
             return value;
@@ -90,8 +83,7 @@ public class RemoteServiceDiscoveryService : LockdownServiceProvider
         return null;
     }
 
-    public override ServiceConnection StartLockdownService(string name, bool useEscrowBag = false, bool useTrustedConnection = true)
-    {
+    public override ServiceConnection StartLockdownService(string name, bool useEscrowBag = false, bool useTrustedConnection = true) {
         ServiceConnection serviceConnection = StartLockdownServiceWithoutCheckin(name);
 
         DictionaryNode checkin = new DictionaryNode() {
@@ -118,8 +110,7 @@ public class RemoteServiceDiscoveryService : LockdownServiceProvider
         return serviceConnection;
     }
 
-    public override async Task<ServiceConnection> StartLockdownServiceAsync(string name, bool useEscrowBag = false, bool useTrustedConnection = true)
-    {
+    public override async Task<ServiceConnection> StartLockdownServiceAsync(string name, bool useEscrowBag = false, bool useTrustedConnection = true) {
         ServiceConnection serviceConnection = StartLockdownServiceWithoutCheckin(name);
 
         DictionaryNode checkin = new DictionaryNode() {
@@ -148,13 +139,11 @@ public class RemoteServiceDiscoveryService : LockdownServiceProvider
         return serviceConnection;
     }
 
-    public ServiceConnection StartLockdownServiceWithoutCheckin(string name)
-    {
+    public ServiceConnection StartLockdownServiceWithoutCheckin(string name) {
         return ServiceConnection.CreateUsingTcp(Service.Address, GetServicePort(name));
     }
 
-    public RemoteXPCConnection StartRemoteService(string name)
-    {
+    public RemoteXPCConnection StartRemoteService(string name) {
         return new RemoteXPCConnection(Service.Address, GetServicePort(name));
     }
 }

@@ -1,7 +1,7 @@
 ﻿using Netimobiledevice.Afc;
 using System.Text;
 
-namespace Netimobiledevice.Remoted.Xpc;
+namespace Netimobiledevice.Remote.Xpc;
 
 public class XpcString(string? data) : XpcObject<string>(data?.TrimEnd('\0')) {
     public override bool IsAligned => true;

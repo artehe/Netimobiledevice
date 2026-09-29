@@ -1,6 +1,6 @@
 using System;
 
-namespace Netimobiledevice.Remoted.Xpc;
+namespace Netimobiledevice.Remote.Xpc;
 
 [Flags]
 public enum XpcFlags : uint

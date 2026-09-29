@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Netimobiledevice.Remoted.Xpc;
+namespace Netimobiledevice.Remote.Xpc;
 
 public class XpcBool(bool data) : XpcObject<bool>(data)
 {

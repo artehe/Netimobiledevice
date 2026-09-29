@@ -1,4 +1,5 @@
-﻿using Netimobiledevice.Remoted.Xpc;
+﻿using Netimobiledevice.Remote;
+using Netimobiledevice.Remote.Xpc;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -23,7 +24,7 @@ public class CoreDeviceTunnelService : RemotePairingProtocol {
             throw new NetimobiledeviceException("Service is null");
         }
 
-        XpcDictionary response = await _remoteService.Service.ReceiveResponse();
+        XpcDictionary response = await _remoteService.Service.ReceiveResponse(CancellationToken.None);
         return response["value"].AsXpcDictionary();
     }
 

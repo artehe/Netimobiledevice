@@ -1,5 +1,5 @@
-﻿using Netimobiledevice.Remoted.Tunnel;
-using Netimobiledevice.Remoted.Xpc;
+﻿using Netimobiledevice.Remote.Xpc;
+using Netimobiledevice.Remoted.Tunnel;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 

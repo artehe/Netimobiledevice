@@ -1,6 +1,6 @@
-﻿using Netimobiledevice.Remoted.Xpc;
+﻿using Netimobiledevice.Remote.Xpc;
 
-namespace NetimobiledeviceTest.Remoted.Xpc;
+namespace NetimobiledeviceTest.Remote.Xpc;
 
 [TestClass]
 public class XpcWrapperTests {

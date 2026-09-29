@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
 
-namespace Netimobiledevice.Remoted.Xpc;
+namespace Netimobiledevice.Remote.Xpc;
 
 /// <summary>
 /// An XPC file-transfer object: the payload itself travels on its own HTTP/2 stream.

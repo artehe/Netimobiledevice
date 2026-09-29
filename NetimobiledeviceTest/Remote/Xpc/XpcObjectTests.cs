@@ -1,6 +1,6 @@
-using Netimobiledevice.Remoted.Xpc;
+using Netimobiledevice.Remote.Xpc;
 
-namespace NetimobiledeviceTest.Remoted.Xpc;
+namespace NetimobiledeviceTest.Remote.Xpc;
 
 /// <summary>
 /// Round-trip tests for the previously-stubbed XPC wire types (Data, Date, Fd, Shmem,

@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Netimobiledevice.Remoted.Xpc;
+namespace Netimobiledevice.Remote.Xpc;
 
 public class RemoteXPCConnection {
     private const uint DEFAULT_SETTINGS_MAX_CONCURRENT_STREAMS = 100;
@@ -38,39 +38,51 @@ public class RemoteXPCConnection {
         };
     }
 
-    private async Task DoHandshake() {
-        await _stream.WriteAsync(HTTP2_MAGIC).ConfigureAwait(false);
-        await _stream.FlushAsync().ConfigureAwait(false);
+    private async Task DoHandshake(CancellationToken ct) {
+        await _stream.WriteAsync(HTTP2_MAGIC, ct).ConfigureAwait(false);
+        await _stream.FlushAsync(ct).ConfigureAwait(false);
 
         // Send h2 headers
-        await SendFrameAsync(new SettingsFrame {
-            MaxConcurrentStreams = DEFAULT_SETTINGS_MAX_CONCURRENT_STREAMS,
-            InitialWindowSize = DEFAULT_SETTINGS_INITIAL_WINDOW_SIZE
-        }).ConfigureAwait(false);
-        await SendFrameAsync(new WindowUpdateFrame {
-            WindowSizeIncrement = DEFAULT_WIN_SIZE_INCR,
-            StreamIdentifier = 0
-        }).ConfigureAwait(false);
-        await SendFrameAsync(new HeadersFrame() {
-            StreamIdentifier = ROOT_CHANNEL,
-            EndHeaders = true
-        }).ConfigureAwait(false);
+        await SendFrameAsync(
+            new SettingsFrame {
+                MaxConcurrentStreams = DEFAULT_SETTINGS_MAX_CONCURRENT_STREAMS,
+                InitialWindowSize = DEFAULT_SETTINGS_INITIAL_WINDOW_SIZE
+            },
+            ct
+        ).ConfigureAwait(false);
+        await SendFrameAsync(
+            new WindowUpdateFrame {
+                WindowSizeIncrement = DEFAULT_WIN_SIZE_INCR,
+                StreamIdentifier = 0
+            },
+            ct
+        ).ConfigureAwait(false);
+        await SendFrameAsync(
+            new HeadersFrame() {
+                StreamIdentifier = ROOT_CHANNEL,
+                EndHeaders = true
+            },
+            ct
+        ).ConfigureAwait(false);
 
         // Send first actual requests
-        await SendRequestAsync([], CancellationToken.None).ConfigureAwait(false);
-        await SendFrameAsync(new DataFrame() {
-            StreamIdentifier = ROOT_CHANNEL,
-            Data = new XpcWrapper {
-                Flags = (XpcFlags) 0x0201,
-                Message = new XpcMessage() {
-                    Payload = null
-                }
-            }.Serialise()
-        }).ConfigureAwait(false);
+        await SendRequestAsync([], ct).ConfigureAwait(false);
+        await SendFrameAsync(
+            new DataFrame() {
+                StreamIdentifier = ROOT_CHANNEL,
+                Data = new XpcWrapper {
+                    Flags = (XpcFlags) 0x0201,
+                    Message = new XpcMessage() {
+                        Payload = null
+                    }
+                }.Serialise()
+            },
+            ct
+        ).ConfigureAwait(false);
         _nextMessageId[ROOT_CHANNEL]++;
 
         // Open reply channel
-        await OpenChannelAsync(REPLY_CHANNEL, XpcFlags.InitHandshake).ConfigureAwait(false);
+        await OpenChannelAsync(REPLY_CHANNEL, XpcFlags.InitHandshake, ct).ConfigureAwait(false);
         _nextMessageId[REPLY_CHANNEL]++;
 
         Frame reply = await ReceiveFrame().ConfigureAwait(false);
@@ -79,26 +91,35 @@ public class RemoteXPCConnection {
         }
 
         // Acknowledge settings
-        await SendFrameAsync(new SettingsFrame() {
-            Ack = true
-        }).ConfigureAwait(false);
+        await SendFrameAsync(
+            new SettingsFrame() {
+                Ack = true
+            },
+            ct
+        ).ConfigureAwait(false);
     }
 
-    private async Task OpenChannelAsync(uint streamId, XpcFlags flags) {
+    private async Task OpenChannelAsync(uint streamId, XpcFlags flags, CancellationToken ct) {
         flags |= XpcFlags.AlwaysSet;
-        await SendFrameAsync(new HeadersFrame() {
-            StreamIdentifier = streamId,
-            EndHeaders = true
-        }).ConfigureAwait(false);
-        await SendFrameAsync(new DataFrame() {
-            StreamIdentifier = streamId,
-            Data = new XpcWrapper {
-                Flags = flags,
-                Message = new XpcMessage() {
-                    Payload = null
-                }
-            }.Serialise()
-        });
+        await SendFrameAsync(
+            new HeadersFrame() {
+                StreamIdentifier = streamId,
+                EndHeaders = true
+            },
+            ct
+        ).ConfigureAwait(false);
+        await SendFrameAsync(
+            new DataFrame() {
+                StreamIdentifier = streamId,
+                Data = new XpcWrapper {
+                    Flags = flags,
+                    Message = new XpcMessage() {
+                        Payload = null
+                    }
+                }.Serialise()
+            },
+            ct
+        );
     }
 
     private async Task<Frame> ReceiveFrame() {
@@ -114,7 +135,7 @@ public class RemoteXPCConnection {
         return frame;
     }
 
-    private async Task<DataFrame> ReceiveNextDataFrame() {
+    private async Task<DataFrame> ReceiveNextDataFrame(CancellationToken ct) {
         while (true) {
             Frame frame = await ReceiveFrame().ConfigureAwait(false);
 
@@ -127,23 +148,29 @@ public class RemoteXPCConnection {
 
             if (frame is DataFrame dataFrame) {
                 if (dataFrame.StreamIdentifier % 2 == 0 && dataFrame.PayloadLength > 0) {
-                    await SendFrameAsync(new WindowUpdateFrame() {
-                        StreamIdentifier = 0,
-                        WindowSizeIncrement = dataFrame.PayloadLength
-                    }).ConfigureAwait(false);
-                    await SendFrameAsync(new WindowUpdateFrame() {
-                        StreamIdentifier = dataFrame.StreamIdentifier,
-                        WindowSizeIncrement = dataFrame.PayloadLength
-                    }).ConfigureAwait(false);
+                    await SendFrameAsync(
+                        new WindowUpdateFrame() {
+                            StreamIdentifier = 0,
+                            WindowSizeIncrement = dataFrame.PayloadLength
+                        },
+                        ct
+                    ).ConfigureAwait(false);
+                    await SendFrameAsync(
+                        new WindowUpdateFrame() {
+                            StreamIdentifier = dataFrame.StreamIdentifier,
+                            WindowSizeIncrement = dataFrame.PayloadLength
+                        },
+                        ct
+                    ).ConfigureAwait(false);
                 }
                 return dataFrame;
             }
         }
     }
 
-    private async Task SendFrameAsync(Frame frame) {
+    private async Task SendFrameAsync(Frame frame, CancellationToken cancellationToken) {
         IEnumerable<byte> data = frame.ToBytes();
-        await _stream.WriteAsync(data.ToArray()).ConfigureAwait(false);
+        await _stream.WriteAsync(data.ToArray(), cancellationToken).ConfigureAwait(false);
     }
 
     public void Close() {
@@ -151,13 +178,13 @@ public class RemoteXPCConnection {
         _client.Close();
     }
 
-    public async Task Connect() {
-        await DoHandshake().ConfigureAwait(false);
+    public async Task Connect(CancellationToken ct) {
+        await DoHandshake(ct).ConfigureAwait(false);
     }
 
-    public async Task<XpcDictionary> ReceiveResponse() {
+    public async Task<XpcDictionary> ReceiveResponse(CancellationToken ct) {
         while (true) {
-            DataFrame frame = await ReceiveNextDataFrame().ConfigureAwait(false);
+            DataFrame frame = await ReceiveNextDataFrame(ct).ConfigureAwait(false);
 
             XpcMessage? message;
             try {
@@ -186,7 +213,7 @@ public class RemoteXPCConnection {
 
     public async Task<XpcDictionary> ReceiveResponseAsync(CancellationToken ct) {
         while (true) {
-            DataFrame frame = await ReceiveNextDataFrame().ConfigureAwait(false);
+            DataFrame frame = await ReceiveNextDataFrame(ct).ConfigureAwait(false);
 
             XpcMessage? message;
             try {
@@ -215,9 +242,12 @@ public class RemoteXPCConnection {
 
     public async Task SendRequestAsync(XpcDictionary data, CancellationToken ct, bool wantingReply = false) {
         XpcWrapper xpcWrapper = XpcWrapper.Create(data, _nextMessageId[ROOT_CHANNEL], wantingReply);
-        await SendFrameAsync(new DataFrame() {
-            StreamIdentifier = ROOT_CHANNEL,
-            Data = xpcWrapper.Serialise()
-        }).ConfigureAwait(false);
+        await SendFrameAsync(
+            new DataFrame() {
+                StreamIdentifier = ROOT_CHANNEL,
+                Data = xpcWrapper.Serialise()
+            },
+            ct
+        ).ConfigureAwait(false);
     }
 }

@@ -1,6 +1,6 @@
 using System;
 
-namespace Netimobiledevice.Remoted.Xpc;
+namespace Netimobiledevice.Remote.Xpc;
 
 /// <summary>
 /// An XPC shared-memory region descriptor: a 4-byte length followed by an

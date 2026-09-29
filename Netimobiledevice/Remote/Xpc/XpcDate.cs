@@ -1,6 +1,6 @@
 using System;
 
-namespace Netimobiledevice.Remoted.Xpc;
+namespace Netimobiledevice.Remote.Xpc;
 
 /// <summary>
 /// An XPC date object. On the wire this is nanoseconds since the Unix epoch,

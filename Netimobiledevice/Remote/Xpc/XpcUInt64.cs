@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Netimobiledevice.Remoted.Xpc;
+namespace Netimobiledevice.Remote.Xpc;
 
 public class XpcUInt64(ulong data) : XpcObject<ulong>(data)
 {

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Netimobiledevice.Remoted.Xpc;
+namespace Netimobiledevice.Remote.Xpc;
 
 public class XpcInt64(long data) : XpcObject<long>(data)
 {
