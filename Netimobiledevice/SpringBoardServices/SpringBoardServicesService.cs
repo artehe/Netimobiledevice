@@ -11,21 +11,25 @@ namespace Netimobiledevice.SpringBoardServices;
 /// </summary>
 /// <param name="lockdown"></param>
 /// <param name="logger"></param>
-public sealed class SpringBoardServicesService(LockdownServiceProvider lockdown, ILogger? logger = null) : LockdownService(lockdown, LOCKDOWN_SERVICE_NAME, RSD_SERVICE_NAME, logger: logger)
-{
-    private const string LOCKDOWN_SERVICE_NAME = "com.apple.springboardservices";
-    private const string RSD_SERVICE_NAME = "com.apple.springboardservices.shim.remote";
+public sealed class SpringBoardServicesService(
+    LockdownServiceProvider lockdown,
+    ILogger? logger = null
+) : LockdownService(
+    lockdown,
+    lockdown is LockdownClient ? LockdownServiceName : RemoteServiceName,
+    logger: logger
+) {
+    private const string LockdownServiceName = "com.apple.springboardservices";
+    private const string RemoteServiceName = "com.apple.springboardservices.shim.remote";
 
-    private static DictionaryNode CreateCommand(string command)
-    {
+    private static DictionaryNode CreateCommand(string command) {
         DictionaryNode cmd = new DictionaryNode() {
             { "command", new StringNode(command) },
         };
         return cmd;
     }
 
-    private PropertyNode ExecuteCommand(DictionaryNode command, string responseNode)
-    {
+    private PropertyNode ExecuteCommand(DictionaryNode command, string responseNode) {
         DictionaryNode response = Service.SendReceivePlist(command)?.AsDictionaryNode() ?? [];
         if (response.TryGetValue(responseNode, out PropertyNode? node)) {
             return node;
@@ -33,8 +37,7 @@ public sealed class SpringBoardServicesService(LockdownServiceProvider lockdown,
         throw new SpringBoardServicessException($"Key {responseNode} not found doesn't exist in response");
     }
 
-    private async Task<PropertyNode> ExecuteCommandAsync(DictionaryNode command, string responseNode, CancellationToken cancellationToken)
-    {
+    private async Task<PropertyNode> ExecuteCommandAsync(DictionaryNode command, string responseNode, CancellationToken cancellationToken) {
         PropertyNode? response = await Service.SendReceivePlistAsync(command, cancellationToken).ConfigureAwait(false);
         DictionaryNode dict = response?.AsDictionaryNode() ?? [];
         if (dict.TryGetValue(responseNode, out PropertyNode? node)) {
@@ -48,8 +51,7 @@ public sealed class SpringBoardServicesService(LockdownServiceProvider lockdown,
     /// </summary>
     /// <param name="bundleId">The bundle identifier of the applicaition.</param>
     /// <returns>The byte array containing the PNG icon.</returns>
-    public DataNode GetIconPngData(string bundleId)
-    {
+    public DataNode GetIconPngData(string bundleId) {
         DictionaryNode command = CreateCommand("getIconPNGData");
         command.Add("bundleId", new StringNode(bundleId));
         return ExecuteCommand(command, "pngData").AsDataNode();
@@ -60,8 +62,7 @@ public sealed class SpringBoardServicesService(LockdownServiceProvider lockdown,
     /// </summary>
     /// <param name="bundleId">The bundle identifier of the applicaition.</param>
     /// <returns>The byte array containing the PNG icon.</returns>
-    public async Task<DataNode> GetIconPngDataAsync(string bundleId, CancellationToken cancellationToken = default)
-    {
+    public async Task<DataNode> GetIconPngDataAsync(string bundleId, CancellationToken cancellationToken = default) {
         DictionaryNode command = CreateCommand("getIconPNGData");
         command.Add("bundleId", new StringNode(bundleId));
         PropertyNode result = await ExecuteCommandAsync(command, "pngData", cancellationToken).ConfigureAwait(false);
@@ -71,8 +72,7 @@ public sealed class SpringBoardServicesService(LockdownServiceProvider lockdown,
     /// <summary>
     /// Get the orientation of the device's screen.
     /// </summary>
-    public ScreenOrientation GetScreenOrientation()
-    {
+    public ScreenOrientation GetScreenOrientation() {
         DictionaryNode command = CreateCommand("getInterfaceOrientation");
         return (ScreenOrientation) ExecuteCommand(command, "interfaceOrientation").AsIntegerNode().Value;
     }
@@ -80,8 +80,7 @@ public sealed class SpringBoardServicesService(LockdownServiceProvider lockdown,
     /// <summary>
     /// Get the orientation of the device's screen.
     /// </summary>
-    public async Task<ScreenOrientation> GetScreenOrientationAsync(CancellationToken cancellationToken = default)
-    {
+    public async Task<ScreenOrientation> GetScreenOrientationAsync(CancellationToken cancellationToken = default) {
         DictionaryNode command = CreateCommand("getInterfaceOrientation");
         PropertyNode result = await ExecuteCommandAsync(command, "interfaceOrientation", cancellationToken).ConfigureAwait(false);
         return (ScreenOrientation) result.AsIntegerNode().Value;
@@ -91,8 +90,7 @@ public sealed class SpringBoardServicesService(LockdownServiceProvider lockdown,
     /// Get the wallpaper image of the device.
     /// </summary>
     /// <returns>The byte array containing the PNG wallpaper.</returns>
-    public DataNode GetWallpaperPngData()
-    {
+    public DataNode GetWallpaperPngData() {
         DictionaryNode command = CreateCommand("getHomeScreenWallpaperPNGData");
         return ExecuteCommand(command, "pngData").AsDataNode();
     }
@@ -101,8 +99,7 @@ public sealed class SpringBoardServicesService(LockdownServiceProvider lockdown,
     /// Get the wallpaper image of the device.
     /// </summary>
     /// <returns>The byte array containing the PNG wallpaper.</returns>
-    public async Task<DataNode> GetWallpaperPngDataAsync(CancellationToken cancellationToken = default)
-    {
+    public async Task<DataNode> GetWallpaperPngDataAsync(CancellationToken cancellationToken = default) {
         DictionaryNode command = CreateCommand("getHomeScreenWallpaperPNGData");
         PropertyNode result = await ExecuteCommandAsync(command, "pngData", cancellationToken).ConfigureAwait(false);
         return result.AsDataNode();
@@ -112,8 +109,7 @@ public sealed class SpringBoardServicesService(LockdownServiceProvider lockdown,
     /// Sets the icon state of the connected device.
     /// </summary>
     /// <param name="newState">A plist containing the new iconstate.</param>
-    public DictionaryNode SetIconState(DictionaryNode? newState = null)
-    {
+    public DictionaryNode SetIconState(DictionaryNode? newState = null) {
         DictionaryNode command = CreateCommand("setIconState");
         newState ??= [];
         command.Add("iconState", newState);
@@ -124,8 +120,7 @@ public sealed class SpringBoardServicesService(LockdownServiceProvider lockdown,
     /// Sets the icon state of the connected device.
     /// </summary>
     /// <param name="newState">A plist containing the new iconstate.</param>
-    public async Task<DictionaryNode> SetIconStateAsync(DictionaryNode? newState = null, CancellationToken cancellationToken = default)
-    {
+    public async Task<DictionaryNode> SetIconStateAsync(DictionaryNode? newState = null, CancellationToken cancellationToken = default) {
         DictionaryNode command = CreateCommand("setIconState");
         newState ??= [];
         command.Add("iconState", newState);

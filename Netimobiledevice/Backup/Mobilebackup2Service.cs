@@ -25,16 +25,15 @@ public sealed class Mobilebackup2Service(
     ILogger? logger = null
 ) : LockdownService(
     lockdown,
-    LOCKDOWN_SERVICE_NAME,
-    RSD_SERVICE_NAME,
-    useEscrowBag: true,
+    lockdown is LockdownClient ? LockdownServiceName : RemoteServiceName,
+    includeEscrowBag: true,
     logger: logger
 ) {
     private const int MOBILEBACKUP2_VERSION_MAJOR = 400;
     private const int MOBILEBACKUP2_VERSION_MINOR = 0;
 
-    private const string LOCKDOWN_SERVICE_NAME = "com.apple.mobilebackup2";
-    private const string RSD_SERVICE_NAME = "com.apple.mobilebackup2.shim.remote";
+    private const string LockdownServiceName = "com.apple.mobilebackup2";
+    private const string RemoteServiceName = "com.apple.mobilebackup2.shim.remote";
 
     private CancellationTokenSource _internalCts = new CancellationTokenSource();
     private bool _passcodeRequired;
@@ -176,8 +175,10 @@ public sealed class Mobilebackup2Service(
 
         DictionaryNode appDict = [];
         ArrayNode installedApps = [];
-        using (InstallationProxyService installationProxyService = new InstallationProxyService(Lockdown)) {
-            using (SpringBoardServicesService springBoardServicesService = new SpringBoardServicesService(Lockdown)) {
+        await using (InstallationProxyService installationProxyService = new InstallationProxyService(Lockdown)) {
+            await installationProxyService.ConnectAsync(cancellationToken);
+            await using (SpringBoardServicesService springBoardServicesService = new SpringBoardServicesService(Lockdown)) {
+                await springBoardServicesService.ConnectAsync(cancellationToken);
                 try {
                     ArrayNode apps = await installationProxyService.Browse(
                         new DictionaryNode() { { "ApplicationType", new StringNode("User") } },
@@ -371,16 +372,18 @@ public sealed class Mobilebackup2Service(
                     dl.Status += DeviceLink_Status;
                     dl.Started += DeviceLink_Started;
 
-                    using (NotificationProxyService np = new NotificationProxyService(this.Lockdown)) {
+                    await using (NotificationProxyService np = new NotificationProxyService(this.Lockdown)) {
+                        await np.ConnectAsync(cancellationToken);
+
                         await np.NotifyRegisterDispatchAsync(ReceivableNotification.SyncCancelRequest, cancellationToken).ConfigureAwait(false);
                         await np.NotifyRegisterDispatchAsync(ReceivableNotification.LocalAuthenticationUiPresented, cancellationToken).ConfigureAwait(false);
                         await np.NotifyRegisterDispatchAsync(ReceivableNotification.LocalAuthenticationUiDismissed, cancellationToken).ConfigureAwait(false);
 
                         using (CancellationTokenSource listenerCts = CancellationTokenSource.CreateLinkedTokenSource(_internalCts.Token)) {
                             _npListenerTask = NotificationProxyListener(np, listenerCts.Token);
-
                             try {
-                                using (AfcService afc = new AfcService(this.Lockdown)) {
+                                await using (AfcService afc = new AfcService(this.Lockdown)) {
+                                    await afc.ConnectAsync(cancellationToken);
                                     using (BackupLock backupLock = new BackupLock(afc, np)) {
                                         await backupLock.AquireBackupLock(_internalCts.Token).ConfigureAwait(false);
 
@@ -547,8 +550,10 @@ public sealed class Mobilebackup2Service(
             dl.Status += DeviceLink_Status;
             dl.Started += DeviceLink_Started;
 
-            using (NotificationProxyService np = new NotificationProxyService(this.Lockdown)) {
-                using (AfcService afc = new AfcService(this.Lockdown)) {
+            await using (NotificationProxyService np = new NotificationProxyService(this.Lockdown)) {
+                await np.ConnectAsync(cancellationToken);
+                await using (AfcService afc = new AfcService(this.Lockdown)) {
+                    await afc.ConnectAsync(cancellationToken);
                     using (BackupLock backupLock = new BackupLock(afc, np)) {
                         await backupLock.AquireBackupLock(cancellationToken).ConfigureAwait(false);
 

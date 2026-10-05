@@ -52,13 +52,15 @@ public class Program {
         }
 
         using (LockdownClient lockdown = await MobileDevice.CreateUsingUsbmuxAsync(logger: logger)) {
-            using (HeartbeatService hb = new HeartbeatService(lockdown, logger)) {
+            await using (HeartbeatService hb = new HeartbeatService(lockdown, logger)) {
                 hb.Start();
             }
         }
 
         using (UsbmuxLockdownClient lockdown = await MobileDevice.CreateUsingUsbmuxAsync(logger: logger)) {
-            using (Mobilebackup2Service mb2 = new Mobilebackup2Service(lockdown, logger: logger)) {
+            await using (Mobilebackup2Service mb2 = new Mobilebackup2Service(lockdown, logger: logger)) {
+                await mb2.ConnectAsync(tokenSource.Token);
+
                 mb2.BeforeReceivingFile += BackupJob_BeforeReceivingFile;
                 mb2.Completed += BackupJob_Completed;
                 mb2.Error += BackupJob_Error;
@@ -134,7 +136,7 @@ public class Program {
         await Task.Delay(10 * 1000);
 
         RemoteServiceDiscoveryService rsd = await tunneld.GetDevice() ?? throw new LockdownException("No device found");
-        using (Mobilebackup2Service mb2 = new Mobilebackup2Service(rsd, logger: logger)) {
+        await using (Mobilebackup2Service mb2 = new Mobilebackup2Service(rsd, logger: logger)) {
             mb2.BeforeReceivingFile += BackupJob_BeforeReceivingFile;
             mb2.Completed += BackupJob_Completed;
             mb2.Error += BackupJob_Error;

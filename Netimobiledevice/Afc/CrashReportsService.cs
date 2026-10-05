@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Afc;
 
-public class CrashReportsService : IDisposable {
+public class CrashReportsService : IAsyncDisposable {
     private const string LOCKDOWN_COPY_MOBILE_NAME = "com.apple.crashreportcopymobile";
     private const string RSD_COPY_MOBILE_NAME = "com.apple.crashreportcopymobile.shim.remote";
 
@@ -55,12 +55,8 @@ public class CrashReportsService : IDisposable {
         }
     }
 
-    public void Close() {
-        _afcService.Close();
-    }
-
-    public void Dispose() {
-        Close();
+    public async ValueTask DisposeAsync() {
+        await _afcService.CloseAsync();
         GC.SuppressFinalize(this);
     }
 

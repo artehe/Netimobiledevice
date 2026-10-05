@@ -16,9 +16,16 @@ namespace Netimobiledevice.InstallationProxy;
 /// </summary>
 /// <param name="lockdown"></param>
 /// <param name="logger"></param>
-public sealed class InstallationProxyService(LockdownServiceProvider lockdown, ILogger? logger = null) : LockdownService(lockdown, LOCKDOWN_SERVICE_NAME, RSD_SERVICE_NAME, logger: logger) {
-    private const string LOCKDOWN_SERVICE_NAME = "com.apple.mobile.installation_proxy";
-    private const string RSD_SERVICE_NAME = "com.apple.mobile.installation_proxy.shim.remote";
+public sealed class InstallationProxyService(
+    LockdownServiceProvider lockdown,
+    ILogger? logger = null
+) : LockdownService(
+    lockdown,
+    lockdown is LockdownClient ? LockdownServiceName : RemoteServiceName,
+    logger: logger
+) {
+    private const string LockdownServiceName = "com.apple.mobile.installation_proxy";
+    private const string RemoteServiceName = "com.apple.mobile.installation_proxy.shim.remote";
 
     private const string TEMP_REMOTE_IPA_FILE = "/netimobiledevice.ipa";
 
@@ -77,7 +84,8 @@ public sealed class InstallationProxyService(LockdownServiceProvider lockdown, I
             ipaContents = await File.ReadAllBytesAsync(ipaPath, cancellationToken).ConfigureAwait(false);
         }
 
-        using (AfcService afc = new AfcService(Lockdown)) {
+        await using (AfcService afc = new AfcService(Lockdown)) {
+            await afc.ConnectAsync(cancellationToken);
             await afc.SetFileContents(TEMP_REMOTE_IPA_FILE, ipaContents, cancellationToken).ConfigureAwait(false);
         }
         Logger.LogInformation("IPA sent to device");

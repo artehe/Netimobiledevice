@@ -110,7 +110,12 @@ public class RemoteServiceDiscoveryService : LockdownServiceProvider {
         return serviceConnection;
     }
 
-    public override async Task<ServiceConnection> StartLockdownServiceAsync(string name, bool useEscrowBag = false, bool useTrustedConnection = true) {
+    public override async Task<ServiceConnection> StartLockdownServiceAsync(
+        string name,
+        bool useEscrowBag = false,
+        bool useTrustedConnection = true,
+        CancellationToken cancellationToken = default
+    ) {
         ServiceConnection serviceConnection = StartLockdownServiceWithoutCheckin(name);
 
         DictionaryNode checkin = new DictionaryNode() {

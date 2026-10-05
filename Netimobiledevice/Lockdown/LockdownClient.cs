@@ -633,7 +633,12 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
         return serviceConnection;
     }
 
-    public override async Task<ServiceConnection> StartLockdownServiceAsync(string name, bool useEscrowBag = false, bool useTrustedConnection = true) {
+    public override async Task<ServiceConnection> StartLockdownServiceAsync(
+        string name,
+        bool useEscrowBag = false,
+        bool useTrustedConnection = true,
+        CancellationToken cancellationToken = default
+    ) {
         DictionaryNode attr = GetServiceConnectionAttributes(name, useEscrowBag, useTrustedConnection).AsDictionaryNode();
         ServiceConnection serviceConnection = await CreateServiceConnectionAsync((ushort) attr["Port"].AsIntegerNode().Value).ConfigureAwait(false);
 

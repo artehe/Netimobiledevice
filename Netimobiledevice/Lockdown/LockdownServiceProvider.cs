@@ -1,12 +1,12 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice.Plist;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown;
 
-public abstract class LockdownServiceProvider
-{
+public abstract class LockdownServiceProvider {
     public abstract ILogger Logger { get; }
 
     /// <summary>
@@ -36,8 +36,7 @@ public abstract class LockdownServiceProvider
     /// </summary>
     /// <param name="key">The key of the property to obtain.</param>
     /// <returns>The string value obtained.</returns>
-    public PropertyNode? GetValue(string? key)
-    {
+    public PropertyNode? GetValue(string? key) {
         return GetValue(null, key);
     }
 
@@ -45,8 +44,7 @@ public abstract class LockdownServiceProvider
     /// Get every value for the specified in the root domain.
     /// </summary>
     /// <returns>The values obtained.</returns>
-    public PropertyNode? GetValue()
-    {
+    public PropertyNode? GetValue() {
         return GetValue(null, null);
     }
 
@@ -63,8 +61,7 @@ public abstract class LockdownServiceProvider
     /// </summary>
     /// <param name="key">The key of the property to obtain.</param>
     /// <returns>The string value obtained.</returns>
-    public async Task<PropertyNode?> GetValueAsync(string? key)
-    {
+    public async Task<PropertyNode?> GetValueAsync(string? key) {
         return await GetValueAsync(null, key).ConfigureAwait(false);
     }
 
@@ -72,12 +69,11 @@ public abstract class LockdownServiceProvider
     /// Get every value for the specified in the root domain.
     /// </summary>
     /// <returns>The values obtained.</returns>
-    public async Task<PropertyNode?> GetValueAsync()
-    {
+    public async Task<PropertyNode?> GetValueAsync() {
         return await GetValueAsync(null, null).ConfigureAwait(false);
     }
 
     public abstract ServiceConnection StartLockdownService(string name, bool useEscrowBag = false, bool useTrustedConnection = true);
 
-    public abstract Task<ServiceConnection> StartLockdownServiceAsync(string name, bool useEscrowBag = false, bool useTrustedConnection = true);
+    public abstract Task<ServiceConnection> StartLockdownServiceAsync(string name, bool useEscrowBag = false, bool useTrustedConnection = true, CancellationToken cancellationToken = default);
 }

@@ -6,8 +6,7 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Afc;
 
-public sealed class HouseArrestService : AfcService
-{
+public sealed class HouseArrestService : AfcService {
     private const string SERVICE_NAME = "com.apple.mobile.house_arrest";
     private const string RSD_SERVICE_NAME = "com.apple.mobile.house_arrest.shim.remote";
     private const string VEND_CONTAINER = "VendContainer";
@@ -15,34 +14,7 @@ public sealed class HouseArrestService : AfcService
 
     private HouseArrestService(LockdownServiceProvider lockdown, string serviceName, ILogger? logger = null) : base(lockdown, serviceName, logger) { }
 
-    public static HouseArrestService Create(LockdownServiceProvider lockdown, string bundleId, bool documentsOnly = false, ILogger? logger = null)
-    {
-        string serviceToUse = RSD_SERVICE_NAME;
-        if (lockdown is LockdownClient) {
-            serviceToUse = SERVICE_NAME;
-        }
-
-        HouseArrestService houseArrestService = new HouseArrestService(lockdown, serviceToUse, logger);
-
-        string cmd = VEND_CONTAINER;
-        if (documentsOnly) {
-            cmd = VEND_DOCUMENTS;
-        }
-
-        try {
-            houseArrestService.SendCommand(bundleId, cmd);
-        }
-        catch (AfcException ex) {
-            logger?.LogError(ex, "Error sending command to house arrest");
-            houseArrestService.Close();
-            throw;
-        }
-
-        return houseArrestService;
-    }
-
-    public static async Task<HouseArrestService> CreateAsync(LockdownServiceProvider lockdown, string bundleId, bool documentsOnly = false, ILogger? logger = null, CancellationToken cancellationToken = default)
-    {
+    public static async Task<HouseArrestService> CreateAsync(LockdownServiceProvider lockdown, string bundleId, bool documentsOnly = false, ILogger? logger = null, CancellationToken cancellationToken = default) {
         string serviceToUse = RSD_SERVICE_NAME;
         if (lockdown is LockdownClient) {
             serviceToUse = SERVICE_NAME;
@@ -60,15 +32,14 @@ public sealed class HouseArrestService : AfcService
         }
         catch (AfcException ex) {
             logger?.LogError(ex, "Error sending command to house arrest");
-            houseArrestService.Close();
+            await houseArrestService.CloseAsync();
             throw;
         }
 
         return houseArrestService;
     }
 
-    public DictionaryNode SendCommand(string bundleId, string cmd = VEND_CONTAINER)
-    {
+    public DictionaryNode SendCommand(string bundleId, string cmd = VEND_CONTAINER) {
         DictionaryNode request = new DictionaryNode() {
             { "Command", new StringNode(cmd) },
             { "Identifier", new StringNode(bundleId) }
@@ -89,14 +60,13 @@ public sealed class HouseArrestService : AfcService
         return responseDict;
     }
 
-    public async Task<DictionaryNode> SendCommandAsync(string bundleId, string cmd = VEND_CONTAINER, CancellationToken cancellationToken = default)
-    {
+    public async Task<DictionaryNode> SendCommandAsync(string bundleId, string cmd = VEND_CONTAINER, CancellationToken cancellationToken = default) {
         DictionaryNode request = new DictionaryNode() {
             { "Command", new StringNode(cmd) },
             { "Identifier", new StringNode(bundleId) }
         };
 
-        PropertyNode? response = await this.Service.SendReceivePlistAsync(request, cancellationToken).ConfigureAwait(false);
+        PropertyNode? response = await Service.SendReceivePlistAsync(request, cancellationToken).ConfigureAwait(false);
 
         DictionaryNode responseDict = response?.AsDictionaryNode() ?? [];
         if (responseDict.TryGetValue("Error", out PropertyNode? value)) {

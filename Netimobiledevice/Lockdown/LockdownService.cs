@@ -5,59 +5,157 @@ using Netimobiledevice.Plist;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown;
 
-public abstract class LockdownService : IDisposable {
+/// <summary>
+/// Base class for all services that wrap a single lockdown service on the device.
+/// </summary>
+public abstract class LockdownService : IAsyncDisposable {
+    private readonly Lock _lock = new();
+
+    /// <summary>
+    /// Shared in-flight connection attempt: the first ConnectAsync() call creates it; concurrent callers
+    /// join it instead of racing to call StartLockdownServiceAsync() multiple times.
+    /// </summary>
+    private TaskCompletionSource? _connectTcs;
+    private readonly bool _includeEscrowBag;
+    private ServiceConnection? _service;
+
+    /// <summary>Service provider used to start the service and reach the device.</summary>
     protected LockdownServiceProvider Lockdown { get; }
-    /// <summary>
-    /// The internal logger
-    /// </summary>
+    /// <summary>Logger for this service.</summary>
     protected ILogger Logger { get; }
-    protected ServiceConnection Service { get; }
-    protected string ServiceName { get; }
+    /// <summary>
+    /// The established service connection, or <see langword="null"/> if not connected yet.
+    /// Use <see cref="GetServiceAsync"/> to connect on demand.
+    /// </summary>
+    public ServiceConnection? Service {
+        get {
+            lock (_lock) {
+                return _service;
+            }
+        }
+    }
+    /// <summary>Name of the wrapped lockdown service.</summary>
+    public string ServiceName { get; }
 
     /// <summary>
     /// Create a new LockdownService instance
     /// </summary>
-    /// <param name="lockdown">Service provider</param>
-    /// <param name="serviceName">The service name to attempt to connect to</param>
-    /// <param name="service">An established service connection, if none we will attempt connecting to the provided serviceName</param>
-    /// <param name="useEscrowBag">Use the available lockdown escrow back to start the service</param>
-    public LockdownService(LockdownServiceProvider lockdown, string serviceName, ServiceConnection? service = null, bool useEscrowBag = false, ILogger? logger = null) {
+    /// <param name="lockdown">Service provider used to start the service and communicate with the device.</param>
+    /// <param name="serviceName">Name of the lockdown service to wrap; started lazily on first connection.</param>
+    /// <param name="service">
+    /// An already-established service connection. When provided, no connection is started; otherwise a
+    /// connection to <paramref name="serviceName"/> is opened lazily.
+    /// </param>
+    /// <param name="includeEscrowBag">When true, include the host escrow bag when starting the service.</param>
+    /// <param name="logger">Optional logger; defaults to a no-op logger.</param>
+    protected LockdownService(
+        LockdownServiceProvider lockdown,
+        string serviceName,
+        ServiceConnection? service = null,
+        bool includeEscrowBag = false,
+        ILogger? logger = null
+    ) {
+        ArgumentNullException.ThrowIfNull(lockdown);
+        ArgumentException.ThrowIfNullOrEmpty(serviceName);
+
         Lockdown = lockdown;
-        Logger = logger ?? NullLogger.Instance;
         ServiceName = serviceName;
-        Service = service ?? lockdown.StartLockdownService(ServiceName, useEscrowBag);
+        _includeEscrowBag = includeEscrowBag;
+        _service = service;
+        Logger = logger ?? NullLogger.Instance;
     }
 
     /// <summary>
-    /// Create a new LockdownService instance
+    /// Allow retry after a failed or cancelled attempt (only if it's still the current one).
     /// </summary>
-    /// <param name="lockdown">Service provider</param>
-    /// <param name="lockdownServiceName">The service name to attempt to connect to if we have a Lockdown connection</param>
-    /// <param name="rsdServiceName">The service name to attempt to connect to if we have an RSD connection</param>
-    /// <param name="service">An established service connection, if none we will attempt connecting to the provided serviceName</param>
-    /// <param name="useEscrowBag">Use the available lockdown escrow back to start the service</param>
-    public LockdownService(LockdownServiceProvider lockdown, string lockdownServiceName, string rsdServiceName, ServiceConnection? service = null, bool useEscrowBag = false, ILogger? logger = null) {
-        if (lockdown is LockdownClient) {
-            ServiceName = lockdownServiceName;
+    /// <param name="attempt"></param>
+    private void ResetConnectAttempt(TaskCompletionSource attempt) {
+        lock (_lock) {
+            if (ReferenceEquals(_connectTcs, attempt)) {
+                _connectTcs = null;
+            }
         }
-        else {
-            ServiceName = rsdServiceName;
-        }
-
-        Lockdown = lockdown;
-        Logger = logger ?? NullLogger.Instance;
-        Service = service ?? lockdown.StartLockdownService(ServiceName, useEscrowBag);
     }
 
-    public void Close() {
-        Service.Close();
+    /// <summary>Close the underlying service connection (if any) and reset connection state.</summary>
+    public async Task CloseAsync() {
+        ServiceConnection? service;
+
+        lock (_lock) {
+            service = _service;
+            _service = null;
+            _connectTcs = null;
+        }
+
+        if (service is not null) {
+            await service.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
-    public virtual void Dispose() {
-        Close();
+    /// <summary>
+    /// Start and connect the wrapped service if not already connected.
+    /// </summary>
+    /// <remarks>
+    /// Does nothing when a connection already exists. Concurrent callers share a single in-flight connection
+    /// attempt rather than starting the service multiple times; on failure the attempt is reset so it may be
+    /// retried. If the caller that owns the attempt is cancelled, callers joined to it observe the
+    /// cancellation as well.
+    /// </remarks>
+    /// <exception cref="StartServiceException">The service failed to start.</exception>
+    public async Task ConnectAsync(CancellationToken cancellationToken = default) {
+        bool shouldJoin = false;
+
+        TaskCompletionSource tcs;
+        lock (_lock) {
+            if (_service is not null) {
+                return;
+            }
+
+            if (_connectTcs is TaskCompletionSource inFlight) {
+                // Another caller owns the attempt: join it (our own token only cancels our wait).
+                tcs = inFlight;
+                shouldJoin = true;
+            }
+            else {
+                tcs = _connectTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+        }
+
+        if (!shouldJoin) {
+            // We own the connection attempt.
+            try {
+                ServiceConnection connection = await Lockdown.StartLockdownServiceAsync(ServiceName, _includeEscrowBag, cancellationToken: cancellationToken).ConfigureAwait(false);
+                lock (_lock) {
+                    _service = connection;
+                    _connectTcs = null;
+                }
+
+                tcs.SetResult();
+                return;
+            }
+            catch (OperationCanceledException) {
+                ResetConnectAttempt(tcs);
+                tcs.TrySetCanceled(cancellationToken);
+                throw;
+            }
+            catch (Exception ex) {
+                ResetConnectAttempt(tcs);
+                tcs.TrySetException(ex);
+                throw;
+            }
+        }
+
+        await tcs.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public virtual async ValueTask DisposeAsync() {
+        await CloseAsync().ConfigureAwait(false);
         GC.SuppressFinalize(this);
     }
 
@@ -112,5 +210,15 @@ public abstract class LockdownService : IDisposable {
                 yield return (address.Ip, lockdown);
             }
         }
+    }
+
+    /// <summary>
+    /// Returns the service connection, connecting first if necessary.
+    /// This replaces the lazy-proxy behavior of the Python <c>service</c> property.
+    /// </summary>
+    /// <exception cref="StartServiceException">The service failed to start.</exception>
+    public async ValueTask<ServiceConnection> GetServiceAsync(CancellationToken cancellationToken = default) {
+        await ConnectAsync(cancellationToken).ConfigureAwait(false);
+        return Service ?? throw new InvalidOperationException("service is not connected");
     }
 }
