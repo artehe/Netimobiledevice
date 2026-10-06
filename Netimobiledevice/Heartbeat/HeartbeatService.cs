@@ -2,14 +2,15 @@
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
 using System;
-using System.IO;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Heartbeat;
 
 /// <summary>
-/// Used to keep an active connection with lockdownd by providing a regular ping
+/// Keeps an active connection alive with the device's heartbeat lockdown service, by periodically 
+/// sending <c>Marco</c> messages and expecting a <c>Polo</c> reply
 /// </summary>
 public sealed class HeartbeatService(
     LockdownServiceProvider lockdown,
@@ -22,70 +23,37 @@ public sealed class HeartbeatService(
     private const string LockdownServiceName = "com.apple.mobile.heartbeat";
     private const string RemoteServiceName = "com.apple.mobile.heartbeat.shim.remote";
 
-    private CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
     /// <summary>
-    /// Have the interval be 10 seconds as default for the heartbeat
+    /// Starts the heartbeat exchange loop.
     /// </summary>
-    private int _interval = 10 * 1000;
-    private Task? _heartbeatTask;
+    /// <param name="interval">
+    /// When set, the loop stops once roughly this much time has elapsed since it started;
+    /// when <see langword="null"/>, the loop runs until <paramref name="cancellationToken"/> is cancelled.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the loop.</param>
+    public async Task StartAsync(TimeSpan? interval = null, CancellationToken cancellationToken = default) {
+        long start = Stopwatch.GetTimestamp();
 
-    private async Task Heartbeat() {
+        await Lockdown.StartLockdownServiceAsync(ServiceName, cancellationToken: cancellationToken);
         if (Service is not null) {
-            Service.SetTimeout(500);
-            do {
-                try {
-                    PropertyNode? response = await Service.ReceivePlistAsync(_cancellationTokenSource.Token).ConfigureAwait(false);
+            using (Service) {
+                while (true) {
+                    PropertyNode? response = await Service.ReceivePlistAsync(cancellationToken);
                     DictionaryNode responseDict = response?.AsDictionaryNode() ?? [];
-
-                    // If the interval exists update it adding an extra second to be certain we have waited long enough
-                    if (responseDict.TryGetValue("Interval", out PropertyNode? intervalNode)) {
-                        _interval = (int) ((intervalNode.AsIntegerNode().Value + 1) * 1000);
+                    if (Logger.IsEnabled(LogLevel.Debug)) {
+                        Logger.LogDebug("{Response}", PropertyList.SaveAsStringAsync(responseDict, PlistFormat.Xml));
                     }
 
-                    await Service.SendPlistAsync(
-                        new DictionaryNode() {
-                        { "Command", new StringNode("Polo") }
-                        }
-                    ).ConfigureAwait(false);
-                }
-                catch (IOException) {
-                    // If there is an IO exception we also have to assume that the service is closed so we abort the listener
-                    break;
-                }
-                catch (ObjectDisposedException) {
-                    // If the object is disposed the most likely reason is that the service is closed
-                    break;
-                }
-                catch (TimeoutException) {
-                    Logger.LogDebug("No heartbeat received, trying again");
-                }
-                catch (Exception ex) {
-                    if (!_cancellationTokenSource.Token.IsCancellationRequested) {
-                        throw new HeartbeatException("Heartbeat service has an error", ex);
+                    if (interval is TimeSpan limit && Stopwatch.GetElapsedTime(start) >= limit) {
+                        break;
                     }
+
+                    DictionaryNode message = new DictionaryNode() {
+                        ["Command"] = new StringNode("Polo")
+                    };
+                    await Service.SendPlistAsync(message, PlistFormat.Xml, cancellationToken);
                 }
-                await Task.Delay(_interval);
-            } while (!_cancellationTokenSource.Token.IsCancellationRequested);
+            }
         }
-    }
-
-    public override ValueTask DisposeAsync() {
-        Stop();
-        return base.DisposeAsync();
-    }
-
-    /// <summary>
-    /// Start the heartbeat service
-    /// </summary>
-    public void Start() {
-        if (_heartbeatTask == null) {
-            _cancellationTokenSource = new CancellationTokenSource();
-            _heartbeatTask = Task.Run(Heartbeat, _cancellationTokenSource.Token);
-        }
-    }
-
-    public void Stop() {
-        _cancellationTokenSource.Cancel();
-        _heartbeatTask = null;
     }
 }
