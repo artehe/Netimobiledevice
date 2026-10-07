@@ -5,7 +5,7 @@ using Netimobiledevice.InstallationProxy;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.NotificationProxy;
 using Netimobiledevice.Plist;
-using Netimobiledevice.SpringBoardServices;
+using Netimobiledevice.Services;
 using System;
 using System.ComponentModel;
 using System.IO;

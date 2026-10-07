@@ -1,12 +1,12 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice;
 using Netimobiledevice.Backup;
-using Netimobiledevice.Heartbeat;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Pairing;
 using Netimobiledevice.NotificationProxy;
 using Netimobiledevice.Remoted;
 using Netimobiledevice.Remoted.Tunnel;
+using Netimobiledevice.Services;
 using Netimobiledevice.Usbmuxd;
 using System.ComponentModel;
 

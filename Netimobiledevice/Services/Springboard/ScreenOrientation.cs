@@ -1,4 +1,4 @@
-﻿namespace Netimobiledevice.SpringBoardServices;
+﻿namespace Netimobiledevice.Services.Springboard;
 
 /// <summary>
 /// Represent the interface orientations same as <see href="https://developer.apple.com/documentation/uikit/uiinterfaceorientation">UIKit UIInterfaceOrientation</see>.

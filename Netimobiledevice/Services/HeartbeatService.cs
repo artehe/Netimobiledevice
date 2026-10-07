@@ -6,7 +6,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Netimobiledevice.Heartbeat;
+namespace Netimobiledevice.Services;
 
 /// <summary>
 /// Keeps an active connection alive with the device's heartbeat lockdown service, by periodically 

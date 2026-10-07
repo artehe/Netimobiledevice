@@ -1,12 +1,13 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
+using Netimobiledevice.Services.Springboard;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Netimobiledevice.SpringBoardServices;
+namespace Netimobiledevice.Services;
 
 /// <summary>
 /// Provides a service to interact with the home screen getting icons from the installed apps on the device,
