@@ -1,5 +1,4 @@
-﻿using Netimobiledevice.EndianBitConversion;
-using System;
+﻿using System;
 using System.Buffers.Binary;
 using System.Globalization;
 using System.IO;
@@ -60,13 +59,35 @@ public sealed class UidNode : PropertyNode<ulong> {
         }
     }
 
-    private byte[] WriteInternal() => BinaryLength switch {
-        0 => [(byte) Value],
-        1 => EndianBitConverter.BigEndian.GetBytes((ushort) Value),
-        2 => EndianBitConverter.BigEndian.GetBytes((uint) Value),
-        3 => EndianBitConverter.BigEndian.GetBytes(Value),
-        _ => throw new PlistException($"Unexpected length: {BinaryLength}."),
-    };
+    private byte[] WriteInternal() {
+        switch (BinaryLength) {
+            case 0: {
+                return [(byte) Value];
+            }
+
+            case 1: {
+                byte[] bytes = new byte[sizeof(ushort)];
+                BinaryPrimitives.WriteUInt16BigEndian(bytes, (ushort) Value);
+                return bytes;
+            }
+
+            case 2: {
+                byte[] bytes = new byte[sizeof(uint)];
+                BinaryPrimitives.WriteUInt32BigEndian(bytes, (uint) Value);
+                return bytes;
+            }
+
+            case 3: {
+                byte[] bytes = new byte[sizeof(ulong)];
+                BinaryPrimitives.WriteUInt64BigEndian(bytes, Value);
+                return bytes;
+            }
+
+            default: {
+                throw new PlistException($"Unexpected length: {BinaryLength}.");
+            }
+        }
+    }
 
     internal override void Parse(string data) => throw new NotSupportedException("UID nodes cannot be parsed from XML plist format.");
 

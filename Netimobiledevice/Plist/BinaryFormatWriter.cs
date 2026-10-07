@@ -1,5 +1,5 @@
-﻿using Netimobiledevice.EndianBitConversion;
-using System;
+﻿using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -9,8 +9,7 @@ namespace Netimobiledevice.Plist;
 /// <summary>
 /// A class used to write a <see cref="PropertyNode"/> in the binary format to a stream 
 /// </summary>
-internal class BinaryFormatWriter
-{
+internal class BinaryFormatWriter {
     /// <summary>
     /// The Header (bplist00)
     /// </summary>
@@ -23,8 +22,7 @@ internal class BinaryFormatWriter
     /// <summary>
     /// Initializes a new instance of the <see cref="BinaryFormatWriter"/> class.
     /// </summary>
-    internal BinaryFormatWriter()
-    {
+    internal BinaryFormatWriter() {
     }
 
     /// <summary>
@@ -33,17 +31,20 @@ internal class BinaryFormatWriter
     /// <param name="index">The index.</param>
     /// <param name="nodeIndexSize">The node index size.</param>
     /// <returns>The formated idx.</returns>
-    private static byte[] FormatIdx(int index, byte nodeIndexSize)
-    {
+    private static byte[] FormatIdx(int index, byte nodeIndexSize) {
         switch (nodeIndexSize) {
             case 1: {
                 return [(byte) index];
             }
             case 2: {
-                return EndianBitConverter.BigEndian.GetBytes((short) index);
+                byte[] bytes = new byte[sizeof(short)];
+                BinaryPrimitives.WriteInt16BigEndian(bytes, (short) index);
+                return bytes;
             }
             case 4: {
-                return EndianBitConverter.BigEndian.GetBytes(index);
+                byte[] bytes = new byte[sizeof(int)];
+                BinaryPrimitives.WriteInt32BigEndian(bytes, index);
+                return bytes;
             }
             default: {
                 throw new PlistFormatException("Invalid node index size");
@@ -51,8 +52,7 @@ internal class BinaryFormatWriter
         }
     }
 
-    private static int GetNodeCount(PropertyNode node)
-    {
+    private static int GetNodeCount(PropertyNode node) {
         ArgumentNullException.ThrowIfNull(node);
 
         // Special case: array
@@ -86,8 +86,7 @@ internal class BinaryFormatWriter
     /// <param name="offsets">Node offsets.</param>
     /// <param name="node">The plist node.</param>
     /// <returns>The Idx of the written node</returns>
-    internal int WriteInternal(Stream stream, byte nodeIndexSize, List<int> offsets, PropertyNode node)
-    {
+    internal int WriteInternal(Stream stream, byte nodeIndexSize, List<int> offsets, PropertyNode node) {
         int elementIdx = offsets.Count;
         if (node.IsBinaryUnique && node is IEquatable<PropertyNode>) {
             if (!_uniqueElements.TryGetValue(node.BinaryTag, out Dictionary<PropertyNode, int>? value)) {
@@ -133,8 +132,7 @@ internal class BinaryFormatWriter
         return elementIdx;
     }
 
-    private void WriteInternal(Stream stream, byte nodeIndexSize, List<int> offsets, ArrayNode array)
-    {
+    private void WriteInternal(Stream stream, byte nodeIndexSize, List<int> offsets, ArrayNode array) {
         byte[] nodes = new byte[nodeIndexSize * array.Count];
         long streamPos = stream.Position;
 
@@ -149,8 +147,7 @@ internal class BinaryFormatWriter
         stream.Seek(0, SeekOrigin.End);
     }
 
-    private void WriteInternal(Stream stream, byte nodeIndexSize, List<int> offsets, DictionaryNode dictionary)
-    {
+    private void WriteInternal(Stream stream, byte nodeIndexSize, List<int> offsets, DictionaryNode dictionary) {
         byte[] keys = new byte[nodeIndexSize * dictionary.Count];
         byte[] values = new byte[nodeIndexSize * dictionary.Count];
         long streamPos = stream.Position;
@@ -182,8 +179,7 @@ internal class BinaryFormatWriter
     /// <param name="offsets">Node offsets.</param>
     /// <param name="node">The plist node.</param>
     /// <returns>The Idx of the written node</returns>
-    internal async Task<int> WriteInternalAsync(Stream stream, byte nodeIndexSize, List<int> offsets, PropertyNode node)
-    {
+    internal async Task<int> WriteInternalAsync(Stream stream, byte nodeIndexSize, List<int> offsets, PropertyNode node) {
         int elementIdx = offsets.Count;
         if (node.IsBinaryUnique && node is IEquatable<PropertyNode>) {
             if (!_uniqueElements.TryGetValue(node.BinaryTag, out Dictionary<PropertyNode, int>? value)) {
@@ -229,8 +225,7 @@ internal class BinaryFormatWriter
         return elementIdx;
     }
 
-    private async Task WriteInternalAsync(Stream stream, byte nodeIndexSize, List<int> offsets, ArrayNode array)
-    {
+    private async Task WriteInternalAsync(Stream stream, byte nodeIndexSize, List<int> offsets, ArrayNode array) {
         byte[] nodes = new byte[nodeIndexSize * array.Count];
         long streamPos = stream.Position;
 
@@ -245,8 +240,7 @@ internal class BinaryFormatWriter
         stream.Seek(0, SeekOrigin.End);
     }
 
-    private async Task WriteInternalAsync(Stream stream, byte nodeIndexSize, List<int> offsets, DictionaryNode dictionary)
-    {
+    private async Task WriteInternalAsync(Stream stream, byte nodeIndexSize, List<int> offsets, DictionaryNode dictionary) {
         byte[] keys = new byte[nodeIndexSize * dictionary.Count];
         byte[] values = new byte[nodeIndexSize * dictionary.Count];
         long streamPos = stream.Position;
@@ -275,11 +269,10 @@ internal class BinaryFormatWriter
     /// </summary>
     /// <param name="stream">The stream.</param>
     /// <param name="node">The plist node.</param>
-    public void Write(Stream stream, PropertyNode node)
-    {
+    public void Write(Stream stream, PropertyNode node) {
         stream.Write(_header, 0, _header.Length);
 
-        var offsets = new List<int>();
+        List<int> offsets = new List<int>();
         int nodeCount = GetNodeCount(node);
 
         byte nodeIndexSize;
@@ -317,11 +310,15 @@ internal class BinaryFormatWriter
                     break;
                 }
                 case 2: {
-                    buf = EndianBitConverter.BigEndian.GetBytes((short) offsets[i]);
+                    byte[] bytes = new byte[sizeof(short)];
+                    BinaryPrimitives.WriteInt16BigEndian(bytes, (short) offsets[i]);
+                    buf = bytes;
                     break;
                 }
                 case 4: {
-                    buf = EndianBitConverter.BigEndian.GetBytes(offsets[i]);
+                    byte[] bytes = new byte[sizeof(int)];
+                    BinaryPrimitives.WriteInt32BigEndian(bytes, offsets[i]);
+                    buf = bytes;
                     break;
                 }
             }
@@ -334,9 +331,9 @@ internal class BinaryFormatWriter
         header[6] = offsetSize;
         header[7] = nodeIndexSize;
 
-        EndianBitConverter.BigEndian.GetBytes(nodeCount).CopyTo(header, 12);
-        EndianBitConverter.BigEndian.GetBytes(topOffestIdx).CopyTo(header, 20);
-        EndianBitConverter.BigEndian.GetBytes(offsetTableOffset).CopyTo(header, 28);
+        BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(12), nodeCount);
+        BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(20), topOffestIdx);
+        BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(28), offsetTableOffset);
 
         stream.Write(header, 0, header.Length);
     }
@@ -346,11 +343,10 @@ internal class BinaryFormatWriter
     /// </summary>
     /// <param name="stream">The stream.</param>
     /// <param name="node">The plist node.</param>
-    public async Task WriteAsync(Stream stream, PropertyNode node)
-    {
+    public async Task WriteAsync(Stream stream, PropertyNode node) {
         await stream.WriteAsync(_header).ConfigureAwait(false);
 
-        var offsets = new List<int>();
+        List<int> offsets = new List<int>();
         int nodeCount = GetNodeCount(node);
 
         byte nodeIndexSize;
@@ -388,11 +384,15 @@ internal class BinaryFormatWriter
                     break;
                 }
                 case 2: {
-                    buf = EndianBitConverter.BigEndian.GetBytes((short) offsets[i]);
+                    byte[] bytes = new byte[sizeof(short)];
+                    BinaryPrimitives.WriteInt16BigEndian(bytes, (short) offsets[i]);
+                    buf = bytes;
                     break;
                 }
                 case 4: {
-                    buf = EndianBitConverter.BigEndian.GetBytes(offsets[i]);
+                    byte[] bytes = new byte[sizeof(int)];
+                    BinaryPrimitives.WriteInt32BigEndian(bytes, offsets[i]);
+                    buf = bytes;
                     break;
                 }
             }
@@ -405,9 +405,9 @@ internal class BinaryFormatWriter
         header[6] = offsetSize;
         header[7] = nodeIndexSize;
 
-        EndianBitConverter.BigEndian.GetBytes(nodeCount).CopyTo(header, 12);
-        EndianBitConverter.BigEndian.GetBytes(topOffestIdx).CopyTo(header, 20);
-        EndianBitConverter.BigEndian.GetBytes(offsetTableOffset).CopyTo(header, 28);
+        BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(12), nodeCount);
+        BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(20), topOffestIdx);
+        BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(28), offsetTableOffset);
 
         await stream.WriteAsync(header).ConfigureAwait(false);
     }

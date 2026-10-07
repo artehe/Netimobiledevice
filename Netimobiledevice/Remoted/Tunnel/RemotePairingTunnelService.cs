@@ -1,5 +1,4 @@
-﻿using Netimobiledevice.EndianBitConversion;
-using Netimobiledevice.Remote.Xpc;
+﻿using Netimobiledevice.Remote.Xpc;
 using Netimobiledevice.Serialisation;
 using System;
 using System.Buffers.Binary;
@@ -117,10 +116,12 @@ public class RemotePairingTunnelService : RemotePairingProtocol {
         byte[] encodedBytes = Encoding.UTF8.GetBytes(encodedJson);
 
         ushort messageLength = (ushort) encodedBytes.Length;
+        Span<byte> messageLengthBuffer = stackalloc byte[sizeof(ushort)];
+        BinaryPrimitives.WriteUInt16BigEndian(messageLengthBuffer, messageLength);
 
         byte[] packet = [
             .. Encoding.UTF8.GetBytes(REPAIRING_PACKET_MAGIC_STRING),
-            .. EndianBitConverter.BigEndian.GetBytes(messageLength),
+            .. messageLengthBuffer,
             .. encodedBytes
         ];
 

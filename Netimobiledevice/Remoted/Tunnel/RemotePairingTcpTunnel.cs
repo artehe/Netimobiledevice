@@ -1,9 +1,10 @@
-﻿using Netimobiledevice.EndianBitConversion;
-using Netimobiledevice.Serialisation;
+﻿using Netimobiledevice.Serialisation;
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -35,7 +36,7 @@ public class RemotePairingTcpTunnel : RemotePairingTunnel {
                     byte[] ipv6Header = new byte[IPV6_HEADER_SIZE];
                     await _stream.ReadExactlyAsync(ipv6Header);
 
-                    ushort ipv6Length = EndianBitConverter.BigEndian.ToUInt16(ipv6Header, 4);
+                    ushort ipv6Length = BinaryPrimitives.ReadUInt16BigEndian(ipv6Header.Skip(4).ToArray());
                     byte[] ipv6Body = new byte[ipv6Length];
                     await _stream.ReadExactlyAsync(ipv6Body);
                     if (OperatingSystem.IsWindows()) {

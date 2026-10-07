@@ -1,5 +1,4 @@
-﻿using Netimobiledevice.EndianBitConversion;
-using System;
+﻿using System;
 using System.Buffers.Binary;
 using System.IO;
 using System.Linq;
@@ -13,9 +12,9 @@ namespace Netimobiledevice.Plist;
 internal sealed class BinaryFormatReader {
     private static ulong GetNodeOffset(BinaryReaderState readerState, byte[] bufKeys, int index) => readerState.ObjectRefSize switch {
         1 => bufKeys[index],
-        2 => EndianBitConverter.BigEndian.ToUInt16(bufKeys, readerState.ObjectRefSize * index),
-        4 => EndianBitConverter.BigEndian.ToUInt32(bufKeys, readerState.ObjectRefSize * index),
-        8 => EndianBitConverter.BigEndian.ToUInt64(bufKeys, readerState.ObjectRefSize * index),
+        2 => BinaryPrimitives.ReadUInt16BigEndian(bufKeys.Skip(readerState.ObjectRefSize * index).ToArray()),
+        4 => BinaryPrimitives.ReadUInt32BigEndian(bufKeys.Skip(readerState.ObjectRefSize * index).ToArray()),
+        8 => BinaryPrimitives.ReadUInt64BigEndian(bufKeys.Skip(readerState.ObjectRefSize * index).ToArray()),
         _ => throw new PlistFormatException($"Unexpected index size: {readerState.ObjectRefSize}."),
     };
 
@@ -292,15 +291,14 @@ internal sealed class BinaryFormatReader {
         stream.ReadExactly(buffer);
 
         // all data in a binary plist file is big-endian
-        EndianBitConverter converter = EndianBitConverter.BigEndian;
-        var trailer = new PlistTrailer {
+        PlistTrailer trailer = new PlistTrailer {
             Unused = [.. buffer[..5]],
             SortVersionl = buffer[5],
             OffsetIntSize = buffer[6],
             ObjectRefSize = buffer[7],
-            NumObjects = converter.ToUInt64(buffer, 8),
-            TopObject = converter.ToUInt64(buffer, 16),
-            OffsetTableOffset = converter.ToUInt64(buffer, 24)
+            NumObjects = BinaryPrimitives.ReadUInt64BigEndian(buffer.AsSpan(8)),
+            TopObject = BinaryPrimitives.ReadUInt64BigEndian(buffer.AsSpan(16)),
+            OffsetTableOffset = BinaryPrimitives.ReadUInt64BigEndian(buffer.AsSpan(24))
         };
 
         return trailer;
@@ -313,15 +311,14 @@ internal sealed class BinaryFormatReader {
         await stream.ReadExactlyAsync(buffer).ConfigureAwait(false);
 
         // all data in a binary plist file is big-endian
-        EndianBitConverter converter = EndianBitConverter.BigEndian;
-        var trailer = new PlistTrailer {
+        PlistTrailer trailer = new PlistTrailer {
             Unused = new byte[5],
             SortVersionl = buffer[5],
             OffsetIntSize = buffer[6],
             ObjectRefSize = buffer[7],
-            NumObjects = converter.ToUInt64(buffer, 8),
-            TopObject = converter.ToUInt64(buffer, 16),
-            OffsetTableOffset = converter.ToUInt64(buffer, 24)
+            NumObjects = BinaryPrimitives.ReadUInt64BigEndian(buffer.AsSpan(8)),
+            TopObject = BinaryPrimitives.ReadUInt64BigEndian(buffer.AsSpan(16)),
+            OffsetTableOffset = BinaryPrimitives.ReadUInt64BigEndian(buffer.AsSpan(24))
         };
 
         return trailer;

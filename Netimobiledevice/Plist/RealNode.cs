@@ -1,5 +1,4 @@
-﻿using Netimobiledevice.EndianBitConversion;
-using System;
+﻿using System;
 using System.Buffers.Binary;
 using System.Globalization;
 using System.IO;
@@ -71,12 +70,14 @@ public sealed class RealNode : PropertyNode<double> {
     /// Writes this element binary to the writer.
     /// </summary>
     internal override void WriteBinary(Stream stream) {
-        byte[] buf = EndianBitConverter.BigEndian.GetBytes(Value);
-        stream.Write(buf, 0, buf.Length);
+        Span<byte> buffer = stackalloc byte[sizeof(double)];
+        BinaryPrimitives.WriteDoubleBigEndian(buffer, Value);
+        stream.Write(buffer);
     }
 
     internal override async Task WriteBinaryAsync(Stream stream) {
-        byte[] buf = EndianBitConverter.BigEndian.GetBytes(Value);
-        await stream.WriteAsync(buf).ConfigureAwait(false);
+        byte[] buffer = new byte[sizeof(double)];
+        BinaryPrimitives.WriteDoubleBigEndian(buffer, Value);
+        await stream.WriteAsync(buffer);
     }
 }

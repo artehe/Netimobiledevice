@@ -1,5 +1,4 @@
-﻿using Netimobiledevice.EndianBitConversion;
-using System;
+﻿using System;
 using System.Buffers.Binary;
 using System.Globalization;
 using System.IO;
@@ -75,13 +74,17 @@ public sealed class DateNode : PropertyNode<DateTime> {
     /// </summary>
     internal override void WriteBinary(Stream stream) {
         TimeSpan ts = Value.ToUniversalTime() - MacEpoch;
-        byte[] buf = EndianBitConverter.BigEndian.GetBytes(ts.TotalSeconds);
-        stream.Write(buf);
+
+        Span<byte> buffer = stackalloc byte[sizeof(double)];
+        BinaryPrimitives.WriteDoubleBigEndian(buffer, ts.TotalSeconds);
+        stream.Write(buffer);
     }
 
     internal override async Task WriteBinaryAsync(Stream stream) {
         TimeSpan ts = Value.ToUniversalTime() - MacEpoch;
-        byte[] buf = EndianBitConverter.BigEndian.GetBytes(ts.TotalSeconds);
-        await stream.WriteAsync(buf).ConfigureAwait(false);
+
+        byte[] buffer = new byte[sizeof(double)];
+        BinaryPrimitives.WriteDoubleBigEndian(buffer, ts.TotalSeconds);
+        await stream.WriteAsync(buffer);
     }
 }

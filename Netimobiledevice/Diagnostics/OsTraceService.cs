@@ -1,8 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
-using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -17,8 +17,7 @@ namespace Netimobiledevice.Diagnostics;
 /// Provides the service to show process lists, stream formatted and/or filtered syslogs
 /// as well as getting old stored syslog archives in the PAX format.
 /// </summary>
-public sealed class OsTraceService : LockdownService
-{
+public sealed class OsTraceService : LockdownService {
 
     private const string LOCKDOWN_SERVICE_NAME = "com.apple.os_trace_relay";
     private const string RSD_SERVICE_NAME = "com.apple.os_trace_relay.shim.remote";
@@ -27,21 +26,22 @@ public sealed class OsTraceService : LockdownService
 
     public OsTraceService(LockdownClient lockdown, ILogger? logger = null) : base(lockdown, LOCKDOWN_SERVICE_NAME, logger: logger) { }
 
-    private static SyslogEntry ParseSyslogData(List<byte> data)
-    {
+    private static SyslogEntry ParseSyslogData(List<byte> data) {
         data.RemoveRange(0, 9); // Skip the first 9 bytes            
-        int pid = EndianBitConverter.LittleEndian.ToInt32([.. data], 0);
+        int pid = BinaryPrimitives.ReadInt32LittleEndian([.. data]);
         data.RemoveRange(0, sizeof(int) + 42); // Skip size of int + 42 bytes
         DateTime timestamp = ParseTimeStamp(data.Take(12));
         data.RemoveRange(0, 12 + 1); // Remove the size of the timestamp + 1 byte
         SyslogLevel level = (SyslogLevel) data[0];
         data.RemoveRange(0, 1 + 38); // Remove the enum byte followed by the next 38 bytes
-        short imageNameSize = EndianBitConverter.LittleEndian.ToInt16([.. data], 0);
-        short messageSize = EndianBitConverter.LittleEndian.ToInt16([.. data], 2);
-        data.RemoveRange(0, sizeof(short) + sizeof(short) + 6); // Skip size of the two shorts + 6 bytes
-        int subsystemSize = EndianBitConverter.LittleEndian.ToInt32([.. data], 0);
-        int categorySize = EndianBitConverter.LittleEndian.ToInt32([.. data], 4);
-        data.RemoveRange(0, sizeof(int) + sizeof(int) + 6); // Skip size of the two ints + 4 bytes
+        short imageNameSize = BinaryPrimitives.ReadInt16LittleEndian([.. data]);
+        data.RemoveRange(0, sizeof(short));
+        short messageSize = BinaryPrimitives.ReadInt16LittleEndian([.. data]);
+        data.RemoveRange(0, sizeof(short) + 6); // Skip size of the two shorts + 6 bytes
+        int subsystemSize = BinaryPrimitives.ReadInt32LittleEndian([.. data]);
+        data.RemoveRange(0, sizeof(int));
+        int categorySize = BinaryPrimitives.ReadInt32LittleEndian([.. data]);
+        data.RemoveRange(0, sizeof(int) + 6); // Skip size of the two ints + 4 bytes
 
         int filenameSize = 0;
         for (int i = 0; i < data.Count; i++) {
@@ -71,15 +71,13 @@ public sealed class OsTraceService : LockdownService
         return new SyslogEntry(pid, timestamp, level, imageName, filename, message, label);
     }
 
-    private static DateTime ParseTimeStamp(IEnumerable<byte> data)
-    {
-        int seconds = EndianBitConverter.LittleEndian.ToInt32([.. data], 0);
-        int microseconds = EndianBitConverter.LittleEndian.ToInt32([.. data], 8) / 1000000;
+    private static DateTime ParseTimeStamp(IEnumerable<byte> data) {
+        int seconds = BinaryPrimitives.ReadInt32LittleEndian([.. data]);
+        int microseconds = BinaryPrimitives.ReadInt32LittleEndian([.. data.Skip(8)]) / 1000000;
         return DateTime.UnixEpoch.AddSeconds(seconds).AddMilliseconds(microseconds * 1000);
     }
 
-    public DictionaryNode GetPidList()
-    {
+    public DictionaryNode GetPidList() {
         DictionaryNode request = new DictionaryNode() {
             { "Request", new StringNode("PidList") },
         };
@@ -92,8 +90,7 @@ public sealed class OsTraceService : LockdownService
         return response;
     }
 
-    public async Task<DictionaryNode> GetPidListAsync(CancellationToken cancellationToken = default)
-    {
+    public async Task<DictionaryNode> GetPidListAsync(CancellationToken cancellationToken = default) {
         DictionaryNode request = new DictionaryNode() {
             { "Request", new StringNode("PidList") },
         };
@@ -107,9 +104,8 @@ public sealed class OsTraceService : LockdownService
         return dict;
     }
 
-    public void CreateArchive(string outputPath, int? sizeLimit = null, int? ageLimit = null, int? startTime = null)
-    {
-        var request = new DictionaryNode() {
+    public void CreateArchive(string outputPath, int? sizeLimit = null, int? ageLimit = null, int? startTime = null) {
+        DictionaryNode request = new DictionaryNode() {
             { "Request", new StringNode("CreateArchive") }
         };
 
@@ -153,8 +149,7 @@ public sealed class OsTraceService : LockdownService
         }
     }
 
-    public IEnumerable<SyslogEntry> WatchSyslog(int pid = -1)
-    {
+    public IEnumerable<SyslogEntry> WatchSyslog(int pid = -1) {
         DictionaryNode request = new DictionaryNode() {
             { "Request", new StringNode("StartActivity") },
             { "MessageFilter", new IntegerNode(65535) },
@@ -164,7 +159,7 @@ public sealed class OsTraceService : LockdownService
         Service.SendPlist(request);
 
         byte[] lengthSizeBytes = Service.Receive(4);
-        int lengthSize = EndianBitConverter.LittleEndian.ToInt32(lengthSizeBytes, 0);
+        int lengthSize = BinaryPrimitives.ReadInt32LittleEndian(lengthSizeBytes);
 
         byte[] lengthBytes = Service.Receive(lengthSize);
         if (lengthBytes.Length < 4) {
@@ -172,7 +167,7 @@ public sealed class OsTraceService : LockdownService
             lengthBytes.CopyTo(tmpArr, 0);
             lengthBytes = tmpArr;
         }
-        int length = EndianBitConverter.LittleEndian.ToInt32(lengthBytes, 0);
+        int length = BinaryPrimitives.ReadInt32LittleEndian(lengthBytes);
 
         byte[] responseBytes = Service.Receive(length);
         DictionaryNode response = PropertyList.LoadFromByteArray(responseBytes).AsDictionaryNode();
@@ -188,15 +183,14 @@ public sealed class OsTraceService : LockdownService
             }
 
             lengthBytes = Service.Receive(4);
-            length = EndianBitConverter.LittleEndian.ToInt32(lengthBytes, 0);
+            length = BinaryPrimitives.ReadInt32LittleEndian(lengthBytes);
 
             byte[] lineBytes = Service.Receive(length);
             yield return ParseSyslogData([.. lineBytes]);
         }
     }
 
-    public async IAsyncEnumerable<SyslogEntry> WatchSyslog(int pid = -1, [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
+    public async IAsyncEnumerable<SyslogEntry> WatchSyslog(int pid = -1, [EnumeratorCancellation] CancellationToken cancellationToken = default) {
         DictionaryNode request = new DictionaryNode() {
             { "Request", new StringNode("StartActivity") },
             { "MessageFilter", new IntegerNode(65535) },
@@ -206,7 +200,7 @@ public sealed class OsTraceService : LockdownService
         await Service.SendPlistAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
 
         byte[] lengthSizeBytes = Service.Receive(4);
-        int lengthSize = EndianBitConverter.LittleEndian.ToInt32(lengthSizeBytes, 0);
+        int lengthSize = BinaryPrimitives.ReadInt32LittleEndian(lengthSizeBytes);
 
         byte[] lengthBytes = await Service.ReceiveAsync(lengthSize, cancellationToken).ConfigureAwait(false);
         if (lengthBytes.Length < 4) {
@@ -214,7 +208,7 @@ public sealed class OsTraceService : LockdownService
             lengthBytes.CopyTo(tmpArr, 0);
             lengthBytes = tmpArr;
         }
-        int length = EndianBitConverter.LittleEndian.ToInt32(lengthBytes, 0);
+        int length = BinaryPrimitives.ReadInt32LittleEndian(lengthBytes);
 
         byte[] responseBytes = await Service.ReceiveAsync(length, cancellationToken).ConfigureAwait(false);
         DictionaryNode response = PropertyList.LoadFromByteArray(responseBytes).AsDictionaryNode();
@@ -230,7 +224,7 @@ public sealed class OsTraceService : LockdownService
             }
 
             lengthBytes = await Service.ReceiveAsync(4, cancellationToken).ConfigureAwait(false);
-            length = EndianBitConverter.LittleEndian.ToInt32(lengthBytes, 0);
+            length = BinaryPrimitives.ReadInt32LittleEndian(lengthBytes);
 
             byte[] lineBytes = await Service.ReceiveAsync(length, cancellationToken).ConfigureAwait(false);
             yield return ParseSyslogData([.. lineBytes]);

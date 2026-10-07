@@ -1,5 +1,5 @@
-using Netimobiledevice.EndianBitConversion;
 using System;
+using System.Buffers.Binary;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -11,8 +11,7 @@ namespace Netimobiledevice.Plist;
 /// <summary>
 /// Represents an integer value from a plist
 /// </summary>
-public sealed class IntegerNode : PropertyNode<ulong>
-{
+public sealed class IntegerNode : PropertyNode<ulong> {
     /// <summary>
     /// Gets the length of this PList element.
     /// </summary>
@@ -50,8 +49,7 @@ public sealed class IntegerNode : PropertyNode<ulong>
     /// Initializes a new instance of the <see cref="IntegerNode"/> class.
     /// </summary>
     /// <param name="value">The value of this element.</param>
-    public IntegerNode(int value) : base((ulong) value)
-    {
+    public IntegerNode(int value) : base((ulong) value) {
         Unsigned = false;
     }
 
@@ -59,8 +57,7 @@ public sealed class IntegerNode : PropertyNode<ulong>
     /// Initializes a new instance of the <see cref="IntegerNode"/> class.
     /// </summary>
     /// <param name="value">The value of this element.</param>
-    public IntegerNode(long value) : base((ulong) value)
-    {
+    public IntegerNode(long value) : base((ulong) value) {
         Unsigned = false;
     }
 
@@ -68,8 +65,7 @@ public sealed class IntegerNode : PropertyNode<ulong>
     /// Initializes a new instance of the <see cref="IntegerNode"/> class.
     /// </summary>
     /// <param name="value">The value of this element.</param>
-    public IntegerNode(short value) : base((ulong) value)
-    {
+    public IntegerNode(short value) : base((ulong) value) {
         Unsigned = false;
     }
 
@@ -77,8 +73,7 @@ public sealed class IntegerNode : PropertyNode<ulong>
     /// Initializes a new instance of the <see cref="IntegerNode"/> class.
     /// </summary>
     /// <param name="value">The value of this element.</param>
-    public IntegerNode(ulong value) : base(value)
-    {
+    public IntegerNode(ulong value) : base(value) {
         Unsigned = true;
     }
 
@@ -86,8 +81,7 @@ public sealed class IntegerNode : PropertyNode<ulong>
     /// Initializes a new instance of the <see cref="IntegerNode"/> class.
     /// </summary>
     /// <param name="value">The value of this element.</param>
-    public IntegerNode(uint value) : base(value)
-    {
+    public IntegerNode(uint value) : base(value) {
         Unsigned = true;
     }
 
@@ -95,8 +89,7 @@ public sealed class IntegerNode : PropertyNode<ulong>
     /// Initializes a new instance of the <see cref="IntegerNode"/> class.
     /// </summary>
     /// <param name="value">The value of this element.</param>
-    public IntegerNode(ushort value) : base(value)
-    {
+    public IntegerNode(ushort value) : base(value) {
         Unsigned = true;
     }
 
@@ -104,8 +97,7 @@ public sealed class IntegerNode : PropertyNode<ulong>
     /// Parses the specified value from a given string, read from Xml.
     /// </summary>
     /// <param name="data">The string whis is parsed.</param>
-    internal override void Parse(string data)
-    {
+    internal override void Parse(string data) {
         if (data.StartsWith('-')) {
             Value = (ulong) long.Parse(data, CultureInfo.InvariantCulture);
             Unsigned = false;
@@ -121,8 +113,7 @@ public sealed class IntegerNode : PropertyNode<ulong>
     /// </summary>
     /// <param name="stream">Stream.</param>
     /// <param name="nodeLength">Node length.</param>
-    internal override void ReadBinary(Stream stream, int nodeLength)
-    {
+    internal override void ReadBinary(Stream stream, int nodeLength) {
         byte[] buf = new byte[1 << nodeLength];
         if (stream.Read(buf, 0, buf.Length) != buf.Length) {
             throw new PlistFormatException();
@@ -134,15 +125,15 @@ public sealed class IntegerNode : PropertyNode<ulong>
                 break;
             }
             case 1: {
-                Value = EndianBitConverter.BigEndian.ToUInt16(buf, 0);
+                Value = BinaryPrimitives.ReadUInt16BigEndian(buf);
                 break;
             }
             case 2: {
-                Value = EndianBitConverter.BigEndian.ToUInt32(buf, 0);
+                Value = BinaryPrimitives.ReadUInt32BigEndian(buf);
                 break;
             }
             case 3: {
-                Value = EndianBitConverter.BigEndian.ToUInt64(buf, 0);
+                Value = BinaryPrimitives.ReadUInt64BigEndian(buf);
                 break;
             }
             default: {
@@ -162,8 +153,7 @@ public sealed class IntegerNode : PropertyNode<ulong>
         }
     }
 
-    internal override async Task ReadBinaryAsync(Stream stream, int nodeLength)
-    {
+    internal override async Task ReadBinaryAsync(Stream stream, int nodeLength) {
         byte[] buf = new byte[1 << nodeLength];
         if (await stream.ReadAsync(buf).ConfigureAwait(false) != buf.Length) {
             throw new PlistFormatException();
@@ -175,15 +165,15 @@ public sealed class IntegerNode : PropertyNode<ulong>
                 break;
             }
             case 1: {
-                Value = EndianBitConverter.BigEndian.ToUInt16(buf, 0);
+                Value = BinaryPrimitives.ReadUInt16BigEndian(buf);
                 break;
             }
             case 2: {
-                Value = EndianBitConverter.BigEndian.ToUInt32(buf, 0);
+                Value = BinaryPrimitives.ReadUInt32BigEndian(buf);
                 break;
             }
             case 3: {
-                Value = EndianBitConverter.BigEndian.ToUInt64(buf, 0);
+                Value = BinaryPrimitives.ReadUInt64BigEndian(buf);
                 break;
             }
             default: {
@@ -209,8 +199,7 @@ public sealed class IntegerNode : PropertyNode<ulong>
     /// <returns>
     /// The XML string representation of the Value.
     /// </returns>
-    internal override string ToXmlString()
-    {
+    internal override string ToXmlString() {
         if (Unsigned) {
             return Value.ToString(CultureInfo.InvariantCulture);
         }
@@ -220,8 +209,7 @@ public sealed class IntegerNode : PropertyNode<ulong>
     /// <summary>
     /// Writes this element binary to the writer.
     /// </summary>
-    internal override void WriteBinary(Stream stream)
-    {
+    internal override void WriteBinary(Stream stream) {
         byte[] buf;
         switch (BinaryLength) {
             case 0: {
@@ -229,15 +217,21 @@ public sealed class IntegerNode : PropertyNode<ulong>
                 break;
             }
             case 1: {
-                buf = EndianBitConverter.BigEndian.GetBytes((ushort) Value);
+                Span<byte> buffer = stackalloc byte[sizeof(ushort)];
+                BinaryPrimitives.WriteUInt16BigEndian(buffer, (ushort) Value);
+                buf = buffer.ToArray();
                 break;
             }
             case 2: {
-                buf = EndianBitConverter.BigEndian.GetBytes((uint) Value);
+                Span<byte> buffer = stackalloc byte[sizeof(uint)];
+                BinaryPrimitives.WriteUInt32BigEndian(buffer, (uint) Value);
+                buf = buffer.ToArray();
                 break;
             }
             case 3: {
-                buf = EndianBitConverter.BigEndian.GetBytes(Value);
+                Span<byte> buffer = stackalloc byte[sizeof(ulong)];
+                BinaryPrimitives.WriteUInt64BigEndian(buffer, Value);
+                buf = buffer.ToArray();
                 break;
             }
             default: {
@@ -247,8 +241,7 @@ public sealed class IntegerNode : PropertyNode<ulong>
         stream.Write(buf, 0, buf.Length);
     }
 
-    internal override async Task WriteBinaryAsync(Stream stream)
-    {
+    internal override async Task WriteBinaryAsync(Stream stream) {
         byte[] buf;
         switch (BinaryLength) {
             case 0: {
@@ -256,15 +249,21 @@ public sealed class IntegerNode : PropertyNode<ulong>
                 break;
             }
             case 1: {
-                buf = EndianBitConverter.BigEndian.GetBytes((ushort) Value);
+                Span<byte> buffer = stackalloc byte[sizeof(ushort)];
+                BinaryPrimitives.WriteUInt16BigEndian(buffer, (ushort) Value);
+                buf = buffer.ToArray();
                 break;
             }
             case 2: {
-                buf = EndianBitConverter.BigEndian.GetBytes((uint) Value);
+                Span<byte> buffer = stackalloc byte[sizeof(uint)];
+                BinaryPrimitives.WriteUInt32BigEndian(buffer, (uint) Value);
+                buf = buffer.ToArray();
                 break;
             }
             case 3: {
-                buf = EndianBitConverter.BigEndian.GetBytes(Value);
+                Span<byte> buffer = stackalloc byte[sizeof(ulong)];
+                BinaryPrimitives.WriteUInt64BigEndian(buffer, Value);
+                buf = buffer.ToArray();
                 break;
             }
             default: {
@@ -278,8 +277,7 @@ public sealed class IntegerNode : PropertyNode<ulong>
     /// Returns a <see cref="string"/> that represents the current PropertyNode
     /// </summary>
     /// <returns>A <see cref="string"/> that represents the current PropertyNode</returns>
-    public override string ToString()
-    {
+    public override string ToString() {
         if (Unsigned) {
             return $"<{XmlTag}>: {Value}";
         }
