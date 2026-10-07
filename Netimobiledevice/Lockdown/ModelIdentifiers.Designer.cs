@@ -1375,6 +1375,87 @@ namespace Netimobiledevice.Lockdown {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to iPhone 17 Pro.
+        /// </summary>
+        internal static string iPhone18_1 {
+            get {
+                return ResourceManager.GetString("iPhone18,1", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to iPhone 17 Pro Max.
+        /// </summary>
+        internal static string iPhone18_2 {
+            get {
+                return ResourceManager.GetString("iPhone18,2", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to iPhone 17.
+        /// </summary>
+        internal static string iPhone18_3 {
+            get {
+                return ResourceManager.GetString("iPhone18,3", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to iPhone Air.
+        /// </summary>
+        internal static string iPhone18_4 {
+            get {
+                return ResourceManager.GetString("iPhone18,4", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to iPhone 17e.
+        /// </summary>
+        internal static string iPhone18_5 {
+            get {
+                return ResourceManager.GetString("iPhone18,5", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to iPhone 18 Pro.
+        /// </summary>
+        internal static string iPhone19_2 {
+            get {
+                return ResourceManager.GetString("iPhone19,2", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to iPhone 18 Pro Max.
+        /// </summary>
+        internal static string iPhone19_3 {
+            get {
+                return ResourceManager.GetString("iPhone19,3", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to iPhone Duo.
+        /// </summary>
+        internal static string iPhone19_4 {
+            get {
+                return ResourceManager.GetString("iPhone19,4", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to iPhone 18 Pro Max (Global).
+        /// </summary>
+        internal static string iPhone19_7 {
+            get {
+                return ResourceManager.GetString("iPhone19,7", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to iPhone 3GS.
         /// </summary>
         internal static string iPhone2_1 {
