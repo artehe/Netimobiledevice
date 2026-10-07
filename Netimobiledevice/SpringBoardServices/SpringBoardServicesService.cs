@@ -1,13 +1,16 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
+using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.SpringBoardServices;
 
 /// <summary>
-/// Provides a service to interact with the home screen getting icons from the installed apps on the device, the current device wallpaper, or the orientation of the device.
+/// Provides a service to interact with the home screen getting icons from the installed apps on the device,
+/// the current device wallpaper, or the orientation of the device.
 /// </summary>
 /// <param name="lockdown"></param>
 /// <param name="logger"></param>
@@ -22,110 +25,167 @@ public sealed class SpringBoardServicesService(
     private const string LockdownServiceName = "com.apple.springboardservices";
     private const string RemoteServiceName = "com.apple.springboardservices.shim.remote";
 
-    private static DictionaryNode CreateCommand(string command) {
-        DictionaryNode cmd = new DictionaryNode() {
-            { "command", new StringNode(command) },
-        };
-        return cmd;
-    }
+    private static DictionaryNode CreateCommand(string command) => new DictionaryNode() {
+        { "command", new StringNode(command) },
+    };
 
-    private PropertyNode ExecuteCommand(DictionaryNode command, string responseNode) {
-        DictionaryNode response = Service.SendReceivePlist(command)?.AsDictionaryNode() ?? [];
-        if (response.TryGetValue(responseNode, out PropertyNode? node)) {
+    private async Task<PropertyNode> ExecuteCommandAsync(
+        DictionaryNode command,
+        string responseNode,
+        CancellationToken cancellationToken
+    ) {
+        if (Service is null) {
+            throw new SpringBoardServicessException("Service is null");
+        }
+
+        PropertyNode? response = await Service.SendReceivePlistAsync(command, cancellationToken);
+        DictionaryNode responseDict = response?.AsDictionaryNode() ?? [];
+        if (responseDict.TryGetValue(responseNode, out PropertyNode? node)) {
             return node;
         }
         throw new SpringBoardServicessException($"Key {responseNode} not found doesn't exist in response");
     }
 
-    private async Task<PropertyNode> ExecuteCommandAsync(DictionaryNode command, string responseNode, CancellationToken cancellationToken) {
-        PropertyNode? response = await Service.SendReceivePlistAsync(command, cancellationToken).ConfigureAwait(false);
-        DictionaryNode dict = response?.AsDictionaryNode() ?? [];
-        if (dict.TryGetValue(responseNode, out PropertyNode? node)) {
-            return node;
+    /// <summary>Retrieve the home screen icon layout metrics.</summary>
+    /// <returns>Mapping of metric names to their numeric values, as reported by SpringBoard.</returns>
+    public async Task<DictionaryNode> GetHomeScreenIconMetricsAsync(CancellationToken cancellationToken = default) {
+        DictionaryNode command = CreateCommand("getHomeScreenIconMetrics");
+
+        if (Service is null) {
+            throw new SpringBoardServicessException("Service is null");
         }
-        throw new SpringBoardServicessException($"Key {responseNode} not found doesn't exist in response");
+
+        PropertyNode? response = await Service.SendReceivePlistAsync(command, cancellationToken);
+        DictionaryNode responseDict = response?.AsDictionaryNode() ?? [];
+
+        return responseDict;
     }
 
     /// <summary>
-    /// Get the icon of the application with the specified <paramref name="bundleId"/>.
+    /// Retrieve the home screen icon image of an installed application.
     /// </summary>
-    /// <param name="bundleId">The bundle identifier of the applicaition.</param>
-    /// <returns>The byte array containing the PNG icon.</returns>
-    public DataNode GetIconPngData(string bundleId) {
+    /// <param name="bundleId">Bundle identifier of the application whose icon is requested.</param>
+    /// <returns>PNG-encoded icon image bytes, or null if no <c>pngData</c> is returned.</returns>
+    public async Task<DataNode> GetIconPngDataAsync(
+        string bundleId,
+        CancellationToken cancellationToken = default
+    ) {
         DictionaryNode command = CreateCommand("getIconPNGData");
         command.Add("bundleId", new StringNode(bundleId));
-        return ExecuteCommand(command, "pngData").AsDataNode();
-    }
 
-    /// <summary>
-    /// Get the icon of the application with the specified <paramref name="bundleId"/>.
-    /// </summary>
-    /// <param name="bundleId">The bundle identifier of the applicaition.</param>
-    /// <returns>The byte array containing the PNG icon.</returns>
-    public async Task<DataNode> GetIconPngDataAsync(string bundleId, CancellationToken cancellationToken = default) {
-        DictionaryNode command = CreateCommand("getIconPNGData");
-        command.Add("bundleId", new StringNode(bundleId));
         PropertyNode result = await ExecuteCommandAsync(command, "pngData", cancellationToken).ConfigureAwait(false);
         return result.AsDataNode();
     }
 
     /// <summary>
-    /// Get the orientation of the device's screen.
+    /// Retrieve the current home screen icon layout.
     /// </summary>
-    public ScreenOrientation GetScreenOrientation() {
+    /// <param name="formatVersion">
+    /// Icon state format version sent to SpringBoard as <c>formatVersion</c>.
+    /// When null or empty, the key is omitted from the request.
+    /// </param>
+    /// <returns>Nested array describing the home screen pages, folders and icons.</returns>
+    public async Task<ArrayNode> GetIconStateAsync(
+        string? formatVersion = "2",
+        CancellationToken cancellationToken = default
+    ) {
+        DictionaryNode cmd = CreateCommand("getIconState");
+        if (!string.IsNullOrEmpty(formatVersion)) {
+            cmd.Add("formatVersion", new StringNode(formatVersion));
+        }
+
+        if (Service is null) {
+            throw new SpringBoardServicessException("Service is null");
+        }
+
+        PropertyNode? responseNode = await Service.SendReceivePlistAsync(cmd, cancellationToken).ConfigureAwait(false);
+        return responseNode?.AsArrayNode() ?? [];
+    }
+
+    /// <summary>
+    /// Query the current SpringBoard interface orientation.
+    /// </summary>
+    public async Task<ScreenOrientation> GetInterfaceOrientationAsync(CancellationToken cancellationToken = default) {
         DictionaryNode command = CreateCommand("getInterfaceOrientation");
-        return (ScreenOrientation) ExecuteCommand(command, "interfaceOrientation").AsIntegerNode().Value;
+        PropertyNode response = await ExecuteCommandAsync(command, "interfaceOrientation", cancellationToken);
+        long value = response.AsIntegerNode().SignedValue;
+        if (!Enum.IsDefined(typeof(ScreenOrientation), value)) {
+            throw new SpringBoardServicessException($"{value} is not a valid {nameof(ScreenOrientation)}");
+        }
+        return (ScreenOrientation) value;
+    }
+
+    /// <summary>Retrieve metadata about a named wallpaper.</summary>
+    /// <param name="wallpaperName">Name of the wallpaper to query.</param>
+    /// <returns>Mapping describing the wallpaper, as reported by SpringBoard.</returns>
+    public async Task<DictionaryNode> GetWallpaperInfoAsync(string wallpaperName, CancellationToken cancellationToken = default) {
+        DictionaryNode command = CreateCommand("getWallpaperInfo");
+        command.Add("wallpaperName", new StringNode(wallpaperName));
+
+        if (Service is null) {
+            throw new SpringBoardServicessException("Service is null");
+        }
+
+        PropertyNode? response = await Service.SendReceivePlistAsync(command, cancellationToken);
+        return response?.AsDictionaryNode() ?? [];
     }
 
     /// <summary>
-    /// Get the orientation of the device's screen.
+    /// Retrieve the current home screen wallpaper image.
     /// </summary>
-    public async Task<ScreenOrientation> GetScreenOrientationAsync(CancellationToken cancellationToken = default) {
-        DictionaryNode command = CreateCommand("getInterfaceOrientation");
-        PropertyNode result = await ExecuteCommandAsync(command, "interfaceOrientation", cancellationToken).ConfigureAwait(false);
-        return (ScreenOrientation) result.AsIntegerNode().Value;
-    }
-
-    /// <summary>
-    /// Get the wallpaper image of the device.
-    /// </summary>
-    /// <returns>The byte array containing the PNG wallpaper.</returns>
-    public DataNode GetWallpaperPngData() {
-        DictionaryNode command = CreateCommand("getHomeScreenWallpaperPNGData");
-        return ExecuteCommand(command, "pngData").AsDataNode();
-    }
-
-    /// <summary>
-    /// Get the wallpaper image of the device.
-    /// </summary>
-    /// <returns>The byte array containing the PNG wallpaper.</returns>
+    /// <returns>
+    /// PNG-encoded wallpaper image bytes, or null if no <c>pngData</c> is returned.
+    /// </returns>
     public async Task<DataNode> GetWallpaperPngDataAsync(CancellationToken cancellationToken = default) {
         DictionaryNode command = CreateCommand("getHomeScreenWallpaperPNGData");
         PropertyNode result = await ExecuteCommandAsync(command, "pngData", cancellationToken).ConfigureAwait(false);
         return result.AsDataNode();
     }
 
-    /// <summary>
-    /// Sets the icon state of the connected device.
-    /// </summary>
-    /// <param name="newState">A plist containing the new iconstate.</param>
-    public DictionaryNode SetIconState(DictionaryNode? newState = null) {
-        DictionaryNode command = CreateCommand("setIconState");
-        newState ??= [];
-        command.Add("iconState", newState);
-        return Service.SendReceivePlist(command)?.AsDictionaryNode() ?? [];
+    /// <summary>Retrieve the preview image for a named wallpaper.</summary>
+    /// <param name="wallpaperName">Name of the wallpaper whose preview image is requested.</param>
+    /// <returns>PNG-encoded preview image bytes.</returns>
+    /// <exception cref="KeyNotFoundException">The response contains no <c>pngData</c>.</exception>
+    public async Task<DataNode> GetWallpaperPreviewImageAsync(string wallpaperName, CancellationToken cancellationToken = default) {
+        DictionaryNode command = CreateCommand("getWallpaperPreviewImage");
+        command.Add("wallpaperName", new StringNode(wallpaperName));
+
+        if (Service is null) {
+            throw new SpringBoardServicessException("Service is null");
+        }
+
+        PropertyNode response = await ExecuteCommandAsync(command, "pngData", cancellationToken);
+        return response.AsDataNode();
     }
 
     /// <summary>
-    /// Sets the icon state of the connected device.
+    /// Re-apply the current icon layout by reading it back and writing it unchanged,
+    /// forcing SpringBoard to reload its layout.
     /// </summary>
-    /// <param name="newState">A plist containing the new iconstate.</param>
-    public async Task<DictionaryNode> SetIconStateAsync(DictionaryNode? newState = null, CancellationToken cancellationToken = default) {
-        DictionaryNode command = CreateCommand("setIconState");
+    public async Task ReloadIconStateAsync(CancellationToken cancellationToken = default) {
+        ArrayNode state = await GetIconStateAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        await SetIconStateAsync(state, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Apply a new home screen icon layout.
+    /// </summary>
+    /// <param name="newState">
+    /// Icon layout in the same structure returned by <see cref="GetIconStateAsync"/>.
+    /// When null, an empty layout is sent.
+    /// </param>
+    public async Task SetIconStateAsync(
+        ArrayNode? newState = null,
+        CancellationToken cancellationToken = default
+    ) {
         newState ??= [];
+
+        DictionaryNode command = CreateCommand("setIconState");
         command.Add("iconState", newState);
 
-        PropertyNode? result = await Service.SendReceivePlistAsync(command, cancellationToken).ConfigureAwait(false);
-        return result?.AsDictionaryNode() ?? [];
+        if (Service is null) {
+            throw new SpringBoardServicessException("Service is null");
+        }
+        await Service.SendReceivePlistAsync(command, cancellationToken).ConfigureAwait(false);
     }
 }
