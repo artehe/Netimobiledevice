@@ -4,6 +4,7 @@ using Netimobiledevice.Backup;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Lockdown.Pairing;
 using Netimobiledevice.NotificationProxy;
+using Netimobiledevice.Plist;
 using Netimobiledevice.Remoted;
 using Netimobiledevice.Remoted.Tunnel;
 using Netimobiledevice.Services;
@@ -55,6 +56,18 @@ public class Program {
         using (LockdownClient lockdown = await MobileDevice.CreateUsingUsbmuxAsync(logger: logger)) {
             await using (HeartbeatService hb = new HeartbeatService(lockdown, logger)) {
                 await hb.StartAsync(TimeSpan.FromSeconds(5), tokenSource.Token);
+            }
+        }
+
+        // Copy and write to screen all of the available provisioning profiles.
+        using (LockdownClient lockdown = await MobileDevice.CreateUsingUsbmuxAsync(logger: logger)) {
+            await using (MisagentService ma = new MisagentService(lockdown, logger)) {
+                await ma.ConnectAsync(tokenSource.Token);
+
+                IReadOnlyList<DictionaryNode> profiles = await ma.CopyAllAsync(tokenSource.Token);
+                foreach (DictionaryNode profile in profiles) {
+                    Console.WriteLine($"Profile found: {PropertyList.SaveAsString(profile, PlistFormat.Xml)}");
+                }
             }
         }
 

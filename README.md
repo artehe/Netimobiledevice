@@ -126,7 +126,6 @@ Any and all contributions are welcome. Please submit a pull request, create an i
 
 This library was based on the following repositories with either some refactoring or in the case of libraries such as libusbmuxd translating from C to C#.
 
-- **[BitConverter](https://github.com/davidrea-MS/BitConverter):** Provides a big-endian and little-endian BitConverter that convert base data types to an array of bytes, and an array of bytes to base data types, regardless of machine architecture.
 - **[libimobiledevice](https://github.com/libimobiledevice/libimobiledevice):** A cross-platform protocol library to communicate with iOS devices
 - **[libusbmuxd](https://github.com/libimobiledevice/libusbmuxd):** A client library for applications to handle usbmux protocol connections with iOS devices.
 - **[MobileDeviceSharp](https://github.com/mveril/MobileDeviceSharp):** A C# object oriented wrapper around Libimobiledevice
