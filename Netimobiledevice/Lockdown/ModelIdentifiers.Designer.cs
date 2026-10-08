@@ -1420,6 +1420,42 @@ namespace Netimobiledevice.Lockdown {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to iPhone 18 Pro.
+        /// </summary>
+        internal static string iPhone19_2 {
+            get {
+                return ResourceManager.GetString("iPhone19,2", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to iPhone 18 Pro Max.
+        /// </summary>
+        internal static string iPhone19_3 {
+            get {
+                return ResourceManager.GetString("iPhone19,3", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to iPhone Duo.
+        /// </summary>
+        internal static string iPhone19_4 {
+            get {
+                return ResourceManager.GetString("iPhone19,4", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to iPhone 18 Pro Max (Global).
+        /// </summary>
+        internal static string iPhone19_7 {
+            get {
+                return ResourceManager.GetString("iPhone19,7", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to iPhone 3GS.
         /// </summary>
         internal static string iPhone2_1 {
