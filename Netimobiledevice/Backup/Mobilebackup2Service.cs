@@ -307,8 +307,7 @@ public sealed class Mobilebackup2Service(
     }
 
     private async Task<DeviceLinkService> GetDeviceLink(string backupDirectory, bool ignoreTransferErrors, bool performBackupSizeCheck, CancellationToken cancellationToken) {
-        ServiceConnection service = await GetServiceAsync(cancellationToken).ConfigureAwait(false);
-        DeviceLinkService dl = new DeviceLinkService(service, backupDirectory, this.Lockdown.OsVersion, ignoreTransferErrors, performBackupSizeCheck, Logger);
+        DeviceLinkService dl = new DeviceLinkService(this.Service, backupDirectory, this.Lockdown.OsVersion, ignoreTransferErrors, performBackupSizeCheck, Logger);
         await dl.VersionExchange(MOBILEBACKUP2_VERSION_MAJOR, MOBILEBACKUP2_VERSION_MINOR, cancellationToken).ConfigureAwait(false);
         await VersionExchange(dl, cancellationToken).ConfigureAwait(false);
         return dl;
