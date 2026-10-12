@@ -1,16 +1,14 @@
 ﻿using Microsoft.Extensions.Logging;
-using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Usbmuxd.Responses;
+using Netimobiledevice.Utils;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Netimobiledevice.Usbmuxd;
 
-internal class BinaryUsbmuxConnection(UsbmuxdSocket sock, ILogger? logger = null) : UsbmuxConnection(sock, UsbmuxdVersion.Binary, logger)
-{
-    private UsbmuxdResult SendReceive(UsbmuxdMessageType messageType)
-    {
+internal class BinaryUsbmuxConnection(UsbmuxdSocket sock, ILogger? logger = null) : UsbmuxConnection(sock, UsbmuxdVersion.Binary, logger) {
+    private UsbmuxdResult SendReceive(UsbmuxdMessageType messageType) {
         SendPacket(messageType, Tag, []);
         (UsbmuxdHeader header, byte[] payload) = Receive(Tag - 1);
 
@@ -25,8 +23,7 @@ internal class BinaryUsbmuxConnection(UsbmuxdSocket sock, ILogger? logger = null
         return response.Result;
     }
 
-    private async Task<UsbmuxdResult> SendReceiveAsync(UsbmuxdMessageType messageType, CancellationToken cancellationToken = default)
-    {
+    private async Task<UsbmuxdResult> SendReceiveAsync(UsbmuxdMessageType messageType, CancellationToken cancellationToken = default) {
         await SendPacketAsync(messageType, Tag, Array.Empty<byte>(), cancellationToken).ConfigureAwait(false);
         UsbmuxPacket packet = await ReceiveAsync(Tag - 1, cancellationToken).ConfigureAwait(false);
 
@@ -41,8 +38,7 @@ internal class BinaryUsbmuxConnection(UsbmuxdSocket sock, ILogger? logger = null
         return response.Result;
     }
 
-    private void ReceiveDeviceStateUpdate()
-    {
+    private void ReceiveDeviceStateUpdate() {
         UsbmuxPacket packet = Receive();
         if (packet.Header.Message == UsbmuxdMessageType.Add) {
             // Old protocol only supported USB devices
@@ -59,8 +55,7 @@ internal class BinaryUsbmuxConnection(UsbmuxdSocket sock, ILogger? logger = null
         }
     }
 
-    private async Task ReceiveDeviceStateUpdateAsync(CancellationToken cancellationToken = default)
-    {
+    private async Task ReceiveDeviceStateUpdateAsync(CancellationToken cancellationToken = default) {
         UsbmuxPacket packet = await ReceiveAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
         if (packet.Header.Message == UsbmuxdMessageType.Add) {
             // Old protocol only supported USB devices
@@ -77,8 +72,7 @@ internal class BinaryUsbmuxConnection(UsbmuxdSocket sock, ILogger? logger = null
         }
     }
 
-    protected override void RequestConnect(long deviceId, ushort port, CancellationToken cancellationToken = default)
-    {
+    protected override void RequestConnect(long deviceId, ushort port, CancellationToken cancellationToken = default) {
         byte[] message =
         [
             .. BitConverter.GetBytes((int) deviceId),
@@ -99,8 +93,7 @@ internal class BinaryUsbmuxConnection(UsbmuxdSocket sock, ILogger? logger = null
         }
     }
 
-    protected override async Task RequestConnectAsync(long deviceId, ushort port, CancellationToken cancellationToken = default)
-    {
+    protected override async Task RequestConnectAsync(long deviceId, ushort port, CancellationToken cancellationToken = default) {
         byte[] message =
         [
             .. BitConverter.GetBytes((int) deviceId),
@@ -121,18 +114,15 @@ internal class BinaryUsbmuxConnection(UsbmuxdSocket sock, ILogger? logger = null
         }
     }
 
-    public override UsbmuxdResult Listen()
-    {
+    public override UsbmuxdResult Listen() {
         return SendReceive(UsbmuxdMessageType.Listen);
     }
 
-    public override async Task<UsbmuxdResult> ListenAsync(CancellationToken cancellationToken = default)
-    {
+    public override async Task<UsbmuxdResult> ListenAsync(CancellationToken cancellationToken = default) {
         return await SendReceiveAsync(UsbmuxdMessageType.Listen, cancellationToken).ConfigureAwait(false);
     }
 
-    public override void UpdateDeviceList(int timeout = 5000)
-    {
+    public override void UpdateDeviceList(int timeout = 5000) {
         // Use timeout to wait for the device list to be fully populated
         AssertNotConnected();
         DateTime end = DateTime.Now + new TimeSpan(timeout * 1000 * 10);
@@ -148,8 +138,7 @@ internal class BinaryUsbmuxConnection(UsbmuxdSocket sock, ILogger? logger = null
         }
     }
 
-    public override async Task UpdateDeviceListAsync(int timeout = 5000, CancellationToken cancellationToken = default)
-    {
+    public override async Task UpdateDeviceListAsync(int timeout = 5000, CancellationToken cancellationToken = default) {
         AssertNotConnected();
         DateTime end = DateTime.Now + new TimeSpan(timeout * 1000 * 10);
         await ListenAsync(cancellationToken).ConfigureAwait(false);

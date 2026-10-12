@@ -1,10 +1,10 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Netimobiledevice.Backup;
-using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -428,7 +428,7 @@ internal sealed class DeviceLinkService : IDisposable {
     private async Task<int> ReadInt32(CancellationToken cancellationToken) {
         byte[] buffer = await _service.ReceiveAsync(sizeof(int), cancellationToken).ConfigureAwait(false);
         if (buffer.Length > 0) {
-            return EndianBitConverter.BigEndian.ToInt32(buffer, 0);
+            return BinaryPrimitives.ReadInt32BigEndian(buffer);
         }
         return -1;
     }
@@ -527,7 +527,10 @@ internal sealed class DeviceLinkService : IDisposable {
     }
 
     private async Task SendPrefixed(byte[] data, int length, CancellationToken cancellationToken) {
-        await _service.SendAsync(EndianBitConverter.BigEndian.GetBytes(length), cancellationToken).ConfigureAwait(false);
+        Span<byte> buffer = stackalloc byte[sizeof(int)];
+        BinaryPrimitives.WriteInt32LittleEndian(buffer, length);
+
+        await _service.SendAsync(buffer.ToArray(), cancellationToken).ConfigureAwait(false);
         await _service.SendAsync(data, cancellationToken).ConfigureAwait(false);
     }
 

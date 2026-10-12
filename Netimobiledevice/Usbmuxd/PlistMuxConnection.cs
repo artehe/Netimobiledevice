@@ -1,8 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
-using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Usbmuxd.Responses;
+using Netimobiledevice.Utils;
 using System;
 using System.IO;
 using System.Reflection;

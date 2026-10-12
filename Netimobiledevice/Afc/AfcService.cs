@@ -1,10 +1,10 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice.Afc.Packets;
-using Netimobiledevice.EndianBitConversion;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Utils;
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -22,8 +22,7 @@ namespace Netimobiledevice.Afc;
 /// <param name="lockdown"></param>
 /// <param name="serviceName"></param>
 /// <param name="logger"></param>
-public class AfcService(LockdownServiceProvider lockdown, string serviceName = "", ILogger? logger = null) : LockdownService(lockdown, GetServiceName(lockdown, serviceName), logger: logger)
-{
+public class AfcService(LockdownServiceProvider lockdown, string serviceName = "", ILogger? logger = null) : LockdownService(lockdown, GetServiceName(lockdown, serviceName), logger: logger) {
     private const string LOCKDOWN_SERVICE_NAME = "com.apple.afc";
     private const string RSD_SERVICE_NAME = "com.apple.afc.shim.remote";
 
@@ -33,8 +32,7 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
 
     private ulong _packetNumber;
 
-    private async Task DispatchPacket(AfcOpCode opCode, AfcPacket packet, CancellationToken cancellationToken, ulong? thisLength = null)
-    {
+    private async Task DispatchPacket(AfcOpCode opCode, AfcPacket packet, CancellationToken cancellationToken, ulong? thisLength = null) {
         packet.Header = new AfcHeader() {
             EntireLength = (ulong) packet.PacketSize,
             Length = (ulong) packet.PacketSize,
@@ -61,8 +59,7 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
     /// <exception cref="AfcException">
     /// Thrown when an AFC protocol error occurs or if the file read operation fails.
     /// </exception>
-    private async Task DownloadFileAsync(ulong handle, ulong size, string downloadFilePath, IProgress<long>? progressTracker, CancellationToken cancellationToken)
-    {
+    private async Task DownloadFileAsync(ulong handle, ulong size, string downloadFilePath, IProgress<long>? progressTracker, CancellationToken cancellationToken) {
         int totalBytes = 0;
         using FileStream? fileStream = new FileStream(downloadFilePath, FileMode.Create);
         AfcFileReadRequest packet = new AfcFileReadRequest {
@@ -105,8 +102,7 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
         }
     }
 
-    private static string GetServiceName(LockdownServiceProvider lockdown, string serviceName)
-    {
+    private static string GetServiceName(LockdownServiceProvider lockdown, string serviceName) {
         if (string.IsNullOrEmpty(serviceName)) {
             if (lockdown is LockdownClient) {
                 return LOCKDOWN_SERVICE_NAME;
@@ -118,16 +114,14 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
         return serviceName;
     }
 
-    private static List<string> ParseFileInfoResponseForMessage(byte[] data)
-    {
+    private static List<string> ParseFileInfoResponseForMessage(byte[] data) {
         string decodedData = Encoding.UTF8.GetString(data);
         List<string> seperatedData = [.. decodedData.Split('\0')];
         seperatedData.RemoveAt(seperatedData.Count - 1);
         return seperatedData;
     }
 
-    private static Dictionary<string, string> ParseFileInfoResponseToDict(byte[] data)
-    {
+    private static Dictionary<string, string> ParseFileInfoResponseToDict(byte[] data) {
         Dictionary<string, string> result = [];
 
         string decodedData = Encoding.UTF8.GetString(data);
@@ -144,8 +138,7 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
         return result;
     }
 
-    private async Task<(AfcError, byte[])> ReceiveData(CancellationToken cancellationToken)
-    {
+    private async Task<(AfcError, byte[])> ReceiveData(CancellationToken cancellationToken) {
         byte[] response = await Service.ReceiveAsync(AfcHeader.GetSize(), cancellationToken).ConfigureAwait(false);
 
         AfcError status = AfcError.Success;
@@ -170,8 +163,7 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
         return (status, data);
     }
 
-    private async Task<string> ResolvePath(string filename, CancellationToken cancellationToken)
-    {
+    private async Task<string> ResolvePath(string filename, CancellationToken cancellationToken) {
         DictionaryNode info = await GetFileInfo(filename, cancellationToken).ConfigureAwait(false) ?? [];
         if (info.TryGetValue("st_ifmt", out PropertyNode? stIfmt) && stIfmt.AsStringNode().Value == "S_IFLNK") {
             string target = info["LinkTarget"].AsStringNode().Value;
@@ -193,8 +185,7 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
     /// <param name="filename">path to directory or a file</param>
     /// <param name="force">True for ignore exception and return False</param>
     /// <returns></returns>
-    private async Task<bool> RmSingle(string filename, CancellationToken cancellationToken, bool force = false)
-    {
+    private async Task<bool> RmSingle(string filename, CancellationToken cancellationToken, bool force = false) {
         AfcRmRequest request = new AfcRmRequest(filename);
         try {
             await RunOperation(AfcOpCode.RemovePath, request, cancellationToken).ConfigureAwait(false);
@@ -210,8 +201,7 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
         }
     }
 
-    private async Task<byte[]> RunOperation(AfcOpCode opCode, AfcPacket packet, CancellationToken cancellationToken)
-    {
+    private async Task<byte[]> RunOperation(AfcOpCode opCode, AfcPacket packet, CancellationToken cancellationToken) {
         await DispatchPacket(opCode, packet, cancellationToken).ConfigureAwait(false);
         (AfcError status, byte[] recievedData) = await ReceiveData(cancellationToken).ConfigureAwait(false);
         if (status != AfcError.Success) {
@@ -234,8 +224,7 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
     /// <exception cref="AfcException">
     /// Thrown when the file info cannot be retrieved or the source path does not point to a regular file.
     /// </exception>
-    public async Task DownloadFileContentsAsync(string sourceFilePath, string downloadFilePath, IProgress<long>? progressTracker, CancellationToken cancellationToken)
-    {
+    public async Task DownloadFileContentsAsync(string sourceFilePath, string downloadFilePath, IProgress<long>? progressTracker, CancellationToken cancellationToken) {
         sourceFilePath = await ResolvePath(sourceFilePath, cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
         DictionaryNode info = (await GetFileInfo(sourceFilePath, cancellationToken).ConfigureAwait(continueOnCapturedContext: false)) ?? [];
         if (!info.TryGetValue("st_ifmt", out PropertyNode? value)) {
@@ -255,8 +244,7 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
         await FileClose(handle, cancellationToken).ConfigureAwait(continueOnCapturedContext: false);
     }
 
-    public async Task<bool> Exists(string filename, CancellationToken cancellationToken)
-    {
+    public async Task<bool> Exists(string filename, CancellationToken cancellationToken) {
         try {
             await GetFileInfo(filename, cancellationToken).ConfigureAwait(false);
             return true;
@@ -271,21 +259,18 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
         }
     }
 
-    public async Task FileClose(ulong handle, CancellationToken cancellationToken)
-    {
+    public async Task FileClose(ulong handle, CancellationToken cancellationToken) {
         AfcFileCloseRequest request = new AfcFileCloseRequest(handle);
         await RunOperation(AfcOpCode.FileRefClose, request, cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<ulong> FileOpen(string filename, CancellationToken cancellationToken, AfcFileOpenMode mode = AfcFileOpenMode.ReadOnly)
-    {
+    public async Task<ulong> FileOpen(string filename, CancellationToken cancellationToken, AfcFileOpenMode mode = AfcFileOpenMode.ReadOnly) {
         AfcFileOpenRequest openRequest = new AfcFileOpenRequest(mode, filename);
         byte[] data = await RunOperation(AfcOpCode.FileRefOpen, openRequest, cancellationToken).ConfigureAwait(false);
         return AfcFileOpenResponse.FromBytes(data).Handle;
     }
 
-    public async Task<byte[]> FileRead(ulong handle, ulong size, CancellationToken cancellationToken = default)
-    {
+    public async Task<byte[]> FileRead(ulong handle, ulong size, CancellationToken cancellationToken = default) {
         byte[] result = new byte[size];
         int offset = 0;
         while (size > 0) {
@@ -324,8 +309,7 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     /// <exception cref="AfcException"></exception>
-    public async Task FileSeek(ulong handle, long offset, ulong whence, CancellationToken cancellationToken = default)
-    {
+    public async Task FileSeek(ulong handle, long offset, ulong whence, CancellationToken cancellationToken = default) {
         if (handle == 0) {
             throw new AfcException(AfcError.InvalidArg);
         }
@@ -347,8 +331,7 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
     /// <param name="handle">File handle of a previously opened.</param>
     /// <param name="cancellationToken"></param>
     /// <returns>Position in bytes of indicator</returns>
-    public async Task<ulong> FileTell(ulong handle, CancellationToken cancellationToken = default)
-    {
+    public async Task<ulong> FileTell(ulong handle, CancellationToken cancellationToken = default) {
         if (handle == 0) {
             throw new AfcException(AfcError.InvalidArg);
         }
@@ -361,14 +344,13 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
         (AfcError status, byte[] data) = await ReceiveData(cancellationToken).ConfigureAwait(false);
         if (data.Length > 0) {
             // Get the position 
-            ulong value = EndianBitConverter.LittleEndian.ToUInt64(data, 0);
+            ulong value = BinaryPrimitives.ReadUInt64LittleEndian(data);
             return value;
         }
         throw new AfcException(status);
     }
 
-    public async Task FileWrite(ulong handle, byte[] data, CancellationToken cancellationToken, int chunkSize = 4096)
-    {
+    public async Task FileWrite(ulong handle, byte[] data, CancellationToken cancellationToken, int chunkSize = 4096) {
         ulong dataSize = (ulong) data.Length;
         int chunksCount = data.Length / chunkSize;
         Logger?.LogDebug("Writing {dataSize} bytes in {chunksCount} chunks", dataSize, chunksCount);
@@ -403,8 +385,7 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
         }
     }
 
-    public async Task<List<string>> GetDirectoryList(CancellationToken cancellationToken)
-    {
+    public async Task<List<string>> GetDirectoryList(CancellationToken cancellationToken) {
         List<string> directoryList = [];
         try {
             AfcFileInfoRequest request = new AfcFileInfoRequest("/");
@@ -417,15 +398,13 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
         return directoryList;
     }
 
-    public async Task<List<string>> GetDirectoryList(string directory, CancellationToken cancellationToken)
-    {
+    public async Task<List<string>> GetDirectoryList(string directory, CancellationToken cancellationToken) {
         AfcFileInfoRequest packet = new AfcFileInfoRequest(directory);
         return ParseFileInfoResponseForMessage(await RunOperation(AfcOpCode.ReadDir, packet, cancellationToken).ConfigureAwait(continueOnCapturedContext: false));
 
     }
 
-    public async Task<byte[]?> GetFileContents(string filename, CancellationToken cancellationToken)
-    {
+    public async Task<byte[]?> GetFileContents(string filename, CancellationToken cancellationToken) {
         filename = await ResolvePath(filename, cancellationToken).ConfigureAwait(false);
 
         DictionaryNode info = await GetFileInfo(filename, cancellationToken).ConfigureAwait(false) ?? [];
@@ -447,8 +426,7 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
         return details;
     }
 
-    public async Task<DictionaryNode?> GetFileInfo(string filename, CancellationToken cancellationToken)
-    {
+    public async Task<DictionaryNode?> GetFileInfo(string filename, CancellationToken cancellationToken) {
         Dictionary<string, string> stat;
         try {
             AfcFileInfoRequest request = new AfcFileInfoRequest(filename);
@@ -486,8 +464,7 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
         return fileInfo;
     }
 
-    public async Task<bool> IsDir(string filename, CancellationToken cancellationToken)
-    {
+    public async Task<bool> IsDir(string filename, CancellationToken cancellationToken) {
         DictionaryNode stat = await GetFileInfo(filename, cancellationToken).ConfigureAwait(false) ?? [];
         if (stat.TryGetValue("st_ifmt", out PropertyNode? value)) {
             return value.AsStringNode().Value == "S_IFDIR";
@@ -495,15 +472,13 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
         return false;
     }
 
-    private async Task<List<string>> ListDirectory(string filename, CancellationToken cancellationToken)
-    {
+    private async Task<List<string>> ListDirectory(string filename, CancellationToken cancellationToken) {
         byte[] data = await RunOperation(AfcOpCode.ReadDir, new AfcReadDirectoryRequest(filename), cancellationToken);
         // Make sure to skip "." and ".."
         return [.. AfcReadDirectoryResponse.Parse(data).Filenames.Skip(2)];
     }
 
-    public async Task<byte[]> Lock(ulong handle, AfcLockModes operation, CancellationToken cancellationToken)
-    {
+    public async Task<byte[]> Lock(ulong handle, AfcLockModes operation, CancellationToken cancellationToken) {
         AfcLockRequest request = new AfcLockRequest(handle, (ulong) operation);
         return await RunOperation(AfcOpCode.FileRefLock, request, cancellationToken).ConfigureAwait(false);
     }
@@ -514,8 +489,7 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
     /// <param name="path">Path to list</param>
     /// <param name="depth">Listing depth, -1 to list infinite depth</param>
     /// <returns>List of files found</returns>
-    public async IAsyncEnumerable<string> LsDirectory(string path, [EnumeratorCancellation] CancellationToken cancellationToken, int depth = -1)
-    {
+    public async IAsyncEnumerable<string> LsDirectory(string path, [EnumeratorCancellation] CancellationToken cancellationToken, int depth = -1) {
         await foreach ((string folder, List<string> dirs, List<string> files) in Walk(path, cancellationToken).ConfigureAwait(false)) {
             if (folder == path) {
                 yield return folder;
@@ -534,8 +508,7 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
         }
     }
 
-    public async Task Pull(string relativeSrc, string dst, CancellationToken cancellationToken, string srcDir = "")
-    {
+    public async Task Pull(string relativeSrc, string dst, CancellationToken cancellationToken, string srcDir = "") {
         string src = srcDir;
         if (string.IsNullOrEmpty(src)) {
             src = relativeSrc;
@@ -581,8 +554,7 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
     /// <param name="filename">path to directory or a file</param>
     /// <param name="force">True for ignore exception and return list of undeleted paths</param>
     /// <returns>A list of undeleted paths</returns>
-    public async Task<List<string>> Rm(string filename, CancellationToken cancellationToken, bool force = false)
-    {
+    public async Task<List<string>> Rm(string filename, CancellationToken cancellationToken, bool force = false) {
         if (!await Exists(filename, cancellationToken).ConfigureAwait(false)) {
             if (!await RmSingle(filename, cancellationToken, force: force).ConfigureAwait(false)) {
                 return [filename];
@@ -636,8 +608,7 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
         return [];
     }
 
-    public async Task SetFileContents(string filename, byte[] data, CancellationToken cancellationToken)
-    {
+    public async Task SetFileContents(string filename, byte[] data, CancellationToken cancellationToken) {
         ulong handle = await FileOpen(filename, cancellationToken, AfcFileOpenMode.WriteOnly).ConfigureAwait(false);
         if (handle == 0) {
             throw new AfcException(AfcError.OpenFailed, "Failed to open file for writing.");
@@ -646,8 +617,7 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
         await FileClose(handle, cancellationToken).ConfigureAwait(false);
     }
 
-    private async IAsyncEnumerable<Tuple<string, List<string>, List<string>>> Walk(string directory, [EnumeratorCancellation] CancellationToken cancellationToken)
-    {
+    private async IAsyncEnumerable<Tuple<string, List<string>, List<string>>> Walk(string directory, [EnumeratorCancellation] CancellationToken cancellationToken) {
         List<string> directories = [];
         List<string> files = [];
 
