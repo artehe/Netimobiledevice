@@ -528,7 +528,7 @@ internal sealed class DeviceLinkService : IDisposable {
 
     private async Task SendPrefixed(byte[] data, int length, CancellationToken cancellationToken) {
         Span<byte> buffer = stackalloc byte[sizeof(int)];
-        BinaryPrimitives.WriteInt32LittleEndian(buffer, length);
+        BinaryPrimitives.WriteInt32BigEndian(buffer, length);
 
         await _service.SendAsync(buffer.ToArray(), cancellationToken).ConfigureAwait(false);
         await _service.SendAsync(data, cancellationToken).ConfigureAwait(false);
