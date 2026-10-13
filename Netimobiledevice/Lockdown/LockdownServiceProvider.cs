@@ -73,7 +73,7 @@ public abstract class LockdownServiceProvider {
         return await GetValueAsync(null, null).ConfigureAwait(false);
     }
 
-    public abstract ServiceConnection StartLockdownService(string name, bool useEscrowBag = false, bool useTrustedConnection = true);
+    public abstract IServiceConnection StartLockdownService(string name, bool useEscrowBag = false, bool useTrustedConnection = true);
 
-    public abstract Task<ServiceConnection> StartLockdownServiceAsync(string name, bool useEscrowBag = false, bool useTrustedConnection = true, CancellationToken cancellationToken = default);
+    public abstract Task<IServiceConnection> StartLockdownServiceAsync(string name, bool useEscrowBag = false, bool useTrustedConnection = true, CancellationToken cancellationToken = default);
 }

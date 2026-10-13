@@ -65,7 +65,7 @@ public class CrashReportsService : IAsyncDisposable {
     /// </summary>
     public async Task FlushAsync(CancellationToken cancellationToken = default) {
         byte[] ack = Encoding.UTF8.GetBytes("ping\0");
-        await using (ServiceConnection service = _lockdown.StartLockdownService(_crashMoverServiceName)) {
+        await using (IServiceConnection service = _lockdown.StartLockdownService(_crashMoverServiceName)) {
             byte[] response = await service.ReceiveAsync(ack.Length, cancellationToken).ConfigureAwait(false);
             if (!response.SequenceEqual(ack)) {
                 throw new AfcException(AfcError.ReadError, "Resposne doesn't equal expected value");

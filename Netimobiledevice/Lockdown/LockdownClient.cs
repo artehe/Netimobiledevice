@@ -38,7 +38,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
     /// The pairing record for the connected device
     /// </summary>
     protected DictionaryNode? _pairRecord;
-    protected readonly ServiceConnection? _service;
+    protected readonly IServiceConnection? _service;
 
     /// <summary>
     /// The connection medium for this client. Defaults to Usbmux 
@@ -89,7 +89,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
     /// <param name="pairingRecordsCacheDirectory">Use the following location to search and save pair records</param>
     /// <param name="port">lockdownd service port</param>
     /// <param name="logger"></param>
-    protected LockdownClient(ServiceConnection service, string hostId, string identifier = "", string label = DEFAULT_CLIENT_NAME, string systemBuid = SYSTEM_BUID,
+    protected LockdownClient(IServiceConnection service, string hostId, string identifier = "", string label = DEFAULT_CLIENT_NAME, string systemBuid = SYSTEM_BUID,
         DictionaryNode? pairRecord = null, DirectoryInfo? pairingRecordsCacheDirectory = null, ushort port = SERVICE_PORT, ILogger? logger = null) : base() {
         _logger = logger ?? NullLogger.Instance;
         _service = service;
@@ -613,7 +613,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
     /// <returns></returns>
     public abstract Task<ServiceConnection> CreateServiceConnectionAsync(ushort port);
 
-    public override ServiceConnection StartLockdownService(string name, bool useEscrowBag = false, bool useTrustedConnection = true) {
+    public override IServiceConnection StartLockdownService(string name, bool useEscrowBag = false, bool useTrustedConnection = true) {
         DictionaryNode attr = GetServiceConnectionAttributes(name, useEscrowBag, useTrustedConnection).AsDictionaryNode();
         ServiceConnection serviceConnection = CreateServiceConnection((ushort) attr["Port"].AsIntegerNode().Value);
 
@@ -633,7 +633,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
         return serviceConnection;
     }
 
-    public override async Task<ServiceConnection> StartLockdownServiceAsync(
+    public override async Task<IServiceConnection> StartLockdownServiceAsync(
         string name,
         bool useEscrowBag = false,
         bool useTrustedConnection = true,

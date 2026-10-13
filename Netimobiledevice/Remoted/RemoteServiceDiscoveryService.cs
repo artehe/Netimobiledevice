@@ -110,7 +110,7 @@ public class RemoteServiceDiscoveryService : LockdownServiceProvider {
         return serviceConnection;
     }
 
-    public override async Task<ServiceConnection> StartLockdownServiceAsync(
+    public override async Task<IServiceConnection> StartLockdownServiceAsync(
         string name,
         bool useEscrowBag = false,
         bool useTrustedConnection = true,
@@ -129,7 +129,7 @@ public class RemoteServiceDiscoveryService : LockdownServiceProvider {
             checkin.Add("EscrowBag", new StringNode(encodedPairRecord));
         }
 
-        PropertyNode? response = await serviceConnection.SendReceivePlistAsync(checkin, CancellationToken.None).ConfigureAwait(false);
+        PropertyNode? response = await serviceConnection.SendReceivePlistAsync(checkin, cancellationToken: CancellationToken.None).ConfigureAwait(false);
         DictionaryNode responseDict = response?.AsDictionaryNode() ?? [];
         if (responseDict["Request"].AsStringNode().Value != "RSDCheckin") {
             throw new NetimobiledeviceException($"Invalid response for RSDCheckIn: {response}. Expected \"RSDCheckIn\"");

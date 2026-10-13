@@ -39,7 +39,7 @@ public sealed class SpringBoardServicesService(
             throw new SpringBoardServicessException("Service is null");
         }
 
-        PropertyNode? response = await Service.SendReceivePlistAsync(command, cancellationToken);
+        PropertyNode? response = await Service.SendReceivePlistAsync(command, cancellationToken: cancellationToken);
         DictionaryNode responseDict = response?.AsDictionaryNode() ?? [];
         if (responseDict.TryGetValue(responseNode, out PropertyNode? node)) {
             return node;
@@ -56,7 +56,7 @@ public sealed class SpringBoardServicesService(
             throw new SpringBoardServicessException("Service is null");
         }
 
-        PropertyNode? response = await Service.SendReceivePlistAsync(command, cancellationToken);
+        PropertyNode? response = await Service.SendReceivePlistAsync(command, cancellationToken: cancellationToken);
         DictionaryNode responseDict = response?.AsDictionaryNode() ?? [];
 
         return responseDict;
@@ -99,7 +99,7 @@ public sealed class SpringBoardServicesService(
             throw new SpringBoardServicessException("Service is null");
         }
 
-        PropertyNode? responseNode = await Service.SendReceivePlistAsync(cmd, cancellationToken).ConfigureAwait(false);
+        PropertyNode? responseNode = await Service.SendReceivePlistAsync(cmd, cancellationToken: cancellationToken).ConfigureAwait(false);
         return responseNode?.AsArrayNode() ?? [];
     }
 
@@ -127,7 +127,7 @@ public sealed class SpringBoardServicesService(
             throw new SpringBoardServicessException("Service is null");
         }
 
-        PropertyNode? response = await Service.SendReceivePlistAsync(command, cancellationToken);
+        PropertyNode? response = await Service.SendReceivePlistAsync(command, cancellationToken: cancellationToken);
         return response?.AsDictionaryNode() ?? [];
     }
 
@@ -187,6 +187,6 @@ public sealed class SpringBoardServicesService(
         if (Service is null) {
             throw new SpringBoardServicessException("Service is null");
         }
-        await Service.SendReceivePlistAsync(command, cancellationToken).ConfigureAwait(false);
+        await Service.SendReceivePlistAsync(command, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 }

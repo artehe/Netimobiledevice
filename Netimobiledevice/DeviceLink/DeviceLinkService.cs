@@ -23,7 +23,7 @@ internal sealed class DeviceLinkService : IDisposable {
     // Set the default timeout to be 5 minutes
     private const int SERVICE_TIMEOUT = 5 * 60 * 1000;
 
-    private readonly ServiceConnection _service;
+    private readonly IServiceConnection _service;
     private readonly string _rootPath;
     private readonly ILogger _logger;
     private readonly Version _iosVersion;
@@ -81,7 +81,7 @@ internal sealed class DeviceLinkService : IDisposable {
     /// </summary>
     public event SendFileErrorEventHandler? SendFileError;
 
-    public DeviceLinkService(ServiceConnection service, string backupDirectory, Version iosVersion, bool ignoreTransferErrors = true, bool performBackupSizeCheck = true, ILogger? logger = null) {
+    public DeviceLinkService(IServiceConnection service, string backupDirectory, Version iosVersion, bool ignoreTransferErrors = true, bool performBackupSizeCheck = true, ILogger? logger = null) {
         _service = service;
         _rootPath = backupDirectory;
         _iosVersion = iosVersion;
@@ -92,7 +92,7 @@ internal sealed class DeviceLinkService : IDisposable {
         _internalCancellationTokenSource = new CancellationTokenSource();
 
         // Adjust the timeout to be long enough to handle device with a large amount of data
-        _service.SetTimeout(SERVICE_TIMEOUT);
+        // TODO _service.SetTimeout(SERVICE_TIMEOUT);
 
         DeviceLinkHandlers = new Dictionary<string, Func<ArrayNode, CancellationToken, Task>>() {
             { DeviceLinkMessage.ContentsOfDirectory, ContentsOfDirectory },
@@ -210,7 +210,7 @@ internal sealed class DeviceLinkService : IDisposable {
             new StringNode("___EmptyParameterString___")
         ];
         try {
-            _service.SendPlist(message, PlistFormat.Binary);
+            // TODO _service.SendPlist(message, PlistFormat.Binary);
         }
         catch (ObjectDisposedException) {
             _logger.LogWarning("Trying to send disconnect from disposed service");

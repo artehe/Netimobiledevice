@@ -34,9 +34,8 @@ public sealed class HeartbeatService(
     public async Task StartAsync(TimeSpan? interval = null, CancellationToken cancellationToken = default) {
         long start = Stopwatch.GetTimestamp();
 
-        await Lockdown.StartLockdownServiceAsync(ServiceName, cancellationToken: cancellationToken);
         if (Service is not null) {
-            using (Service) {
+            await using (Service) {
                 while (true) {
                     PropertyNode? response = await Service.ReceivePlistAsync(cancellationToken);
                     DictionaryNode responseDict = response?.AsDictionaryNode() ?? [];

@@ -22,7 +22,7 @@ public abstract class LockdownService : IAsyncDisposable {
     /// </summary>
     private TaskCompletionSource? _connectTcs;
     private readonly bool _includeEscrowBag;
-    private ServiceConnection? _service;
+    private IServiceConnection? _service;
 
     /// <summary>Service provider used to start the service and reach the device.</summary>
     protected LockdownServiceProvider Lockdown { get; }
@@ -32,7 +32,7 @@ public abstract class LockdownService : IAsyncDisposable {
     /// The established service connection, or <see langword="null"/> if not connected yet.
     /// Use <see cref="GetServiceAsync"/> to connect on demand.
     /// </summary>
-    public ServiceConnection? Service {
+    public IServiceConnection? Service {
         get {
             lock (_lock) {
                 return _service;
@@ -56,7 +56,7 @@ public abstract class LockdownService : IAsyncDisposable {
     protected LockdownService(
         LockdownServiceProvider lockdown,
         string serviceName,
-        ServiceConnection? service = null,
+        IServiceConnection? service = null,
         bool includeEscrowBag = false,
         ILogger? logger = null
     ) {
@@ -84,7 +84,7 @@ public abstract class LockdownService : IAsyncDisposable {
 
     /// <summary>Close the underlying service connection (if any) and reset connection state.</summary>
     public async Task CloseAsync() {
-        ServiceConnection? service;
+        IServiceConnection? service;
 
         lock (_lock) {
             service = _service;
@@ -129,7 +129,7 @@ public abstract class LockdownService : IAsyncDisposable {
         if (!shouldJoin) {
             // We own the connection attempt.
             try {
-                ServiceConnection connection = await Lockdown.StartLockdownServiceAsync(ServiceName, _includeEscrowBag, cancellationToken: cancellationToken).ConfigureAwait(false);
+                IServiceConnection connection = await Lockdown.StartLockdownServiceAsync(ServiceName, _includeEscrowBag, cancellationToken: cancellationToken).ConfigureAwait(false);
                 lock (_lock) {
                     _service = connection;
                     _connectTcs = null;
@@ -217,7 +217,7 @@ public abstract class LockdownService : IAsyncDisposable {
     /// This replaces the lazy-proxy behavior of the Python <c>service</c> property.
     /// </summary>
     /// <exception cref="StartServiceException">The service failed to start.</exception>
-    public async ValueTask<ServiceConnection> GetServiceAsync(CancellationToken cancellationToken = default) {
+    public async ValueTask<IServiceConnection> GetServiceAsync(CancellationToken cancellationToken = default) {
         await ConnectAsync(cancellationToken).ConfigureAwait(false);
         return Service ?? throw new InvalidOperationException("service is not connected");
     }

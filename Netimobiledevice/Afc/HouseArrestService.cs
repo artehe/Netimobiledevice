@@ -39,34 +39,13 @@ public sealed class HouseArrestService : AfcService {
         return houseArrestService;
     }
 
-    public DictionaryNode SendCommand(string bundleId, string cmd = VEND_CONTAINER) {
-        DictionaryNode request = new DictionaryNode() {
-            { "Command", new StringNode(cmd) },
-            { "Identifier", new StringNode(bundleId) }
-        };
-
-        PropertyNode? response = this.Service.SendReceivePlist(request);
-
-        DictionaryNode responseDict = response?.AsDictionaryNode() ?? [];
-        if (responseDict.TryGetValue("Error", out PropertyNode? value)) {
-            string err = value.AsStringNode().Value;
-            if (err == "ApplicationLookupFailed") {
-                throw new AfcException($"No app with bundle id {bundleId} found");
-            }
-            else {
-                throw new NetimobiledeviceException(err);
-            }
-        }
-        return responseDict;
-    }
-
     public async Task<DictionaryNode> SendCommandAsync(string bundleId, string cmd = VEND_CONTAINER, CancellationToken cancellationToken = default) {
         DictionaryNode request = new DictionaryNode() {
             { "Command", new StringNode(cmd) },
             { "Identifier", new StringNode(bundleId) }
         };
 
-        PropertyNode? response = await Service.SendReceivePlistAsync(request, cancellationToken).ConfigureAwait(false);
+        PropertyNode? response = await Service.SendReceivePlistAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
 
         DictionaryNode responseDict = response?.AsDictionaryNode() ?? [];
         if (responseDict.TryGetValue("Error", out PropertyNode? value)) {

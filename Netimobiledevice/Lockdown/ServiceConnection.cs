@@ -15,10 +15,8 @@ using System.Threading.Tasks;
 
 namespace Netimobiledevice.Lockdown;
 
-/// <summary>
-/// A wrapper for usbmux tcp-relay connections
-/// </summary>
-public sealed class ServiceConnection : IDisposable, IAsyncDisposable {
+/// <inheritdoc />
+public sealed class ServiceConnection : IServiceConnection, IDisposable {
     /// <summary>
     /// The internal logger
     /// </summary>
@@ -156,12 +154,12 @@ public sealed class ServiceConnection : IDisposable, IAsyncDisposable {
         return buffer;
     }
 
-    public async Task<byte[]> ReceiveAsync(int length, CancellationToken cancellationToken) {
-        if (length <= 0) {
+    public async ValueTask<byte[]> ReceiveAsync(int size, CancellationToken cancellationToken = default) {
+        if (size <= 0) {
             return [];
         }
 
-        byte[] buffer = new byte[length];
+        byte[] buffer = new byte[size];
 
         TimeSpan timeout = Stream.ReadTimeout == Timeout.Infinite ? Timeout.InfiniteTimeSpan : TimeSpan.FromMilliseconds(Stream.ReadTimeout);
         using (CancellationTokenSource timeoutCts = new CancellationTokenSource(timeout)) {
@@ -185,7 +183,7 @@ public sealed class ServiceConnection : IDisposable, IAsyncDisposable {
         return PropertyList.LoadFromByteArray(plistBytes);
     }
 
-    public async Task<PropertyNode?> ReceivePlistAsync(CancellationToken cancellationToken) {
+    public async ValueTask<PropertyNode?> ReceivePlistAsync(CancellationToken cancellationToken = default) {
         byte[] plistBytes = await ReceivePrefixedAsync(cancellationToken).ConfigureAwait(false);
         if (plistBytes.Length == 0) {
             return null;
@@ -225,9 +223,7 @@ public sealed class ServiceConnection : IDisposable, IAsyncDisposable {
         Stream.Write(data);
     }
 
-    public async Task SendAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken) {
-        await Stream.WriteAsync(data, cancellationToken).ConfigureAwait(false);
-    }
+    public ValueTask SendAsync(ReadOnlyMemory<byte> payload, CancellationToken cancellationToken = default) => Stream.WriteAsync(payload, cancellationToken);
 
     public void SendPlist(PropertyNode data, PlistFormat format = PlistFormat.Xml) {
         byte[] plistBytes = PropertyList.SaveAsByteArray(data, format);
@@ -239,14 +235,13 @@ public sealed class ServiceConnection : IDisposable, IAsyncDisposable {
         Send(plistBytes);
     }
 
-    public async Task SendPlistAsync(PropertyNode data, PlistFormat format = PlistFormat.Xml, CancellationToken cancellationToken = default) {
-        byte[] plistBytes = PropertyList.SaveAsByteArray(data, format);
-
+    public async ValueTask SendPlistAsync(PropertyNode plist, PlistFormat format = PlistFormat.Xml, CancellationToken cancellationToken = default) {
+        byte[] plistBytes = PropertyList.SaveAsByteArray(plist, format);
         byte[] lengthBytes = new byte[sizeof(uint)];
         BinaryPrimitives.WriteUInt32BigEndian(lengthBytes, (uint) plistBytes.Length);
 
-        await SendAsync(lengthBytes, cancellationToken).ConfigureAwait(false);
-        await SendAsync(plistBytes, cancellationToken).ConfigureAwait(false);
+        await SendAsync(lengthBytes.AsMemory(), cancellationToken).ConfigureAwait(false);
+        await SendAsync(plistBytes.AsMemory(), cancellationToken).ConfigureAwait(false);
     }
 
     public PropertyNode? SendReceivePlist(PropertyNode data) {
@@ -254,7 +249,7 @@ public sealed class ServiceConnection : IDisposable, IAsyncDisposable {
         return ReceivePlist();
     }
 
-    public async Task<PropertyNode?> SendReceivePlistAsync(PropertyNode data, CancellationToken cancellationToken) {
+    public async ValueTask<PropertyNode?> SendReceivePlistAsync(PropertyNode data, PlistFormat plistFormat = PlistFormat.Xml, CancellationToken cancellationToken = default) {
         await SendPlistAsync(data, cancellationToken: cancellationToken).ConfigureAwait(false);
         return await ReceivePlistAsync(cancellationToken).ConfigureAwait(false);
     }

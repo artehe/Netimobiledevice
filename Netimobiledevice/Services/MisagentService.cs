@@ -66,7 +66,7 @@ public sealed class MisagentService(
             throw new MisagentException("Service is null");
         }
 
-        PropertyNode? response = await Service.SendReceivePlistAsync(request, cancellationToken).ConfigureAwait(false);
+        PropertyNode? response = await Service.SendReceivePlistAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
         DictionaryNode responseDict = response?.AsDictionaryNode() ?? [];
 
         if (!responseDict.TryGetValue("Status", out PropertyNode? statusNode) ||

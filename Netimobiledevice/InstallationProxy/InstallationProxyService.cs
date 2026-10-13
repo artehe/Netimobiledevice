@@ -113,7 +113,7 @@ public sealed class InstallationProxyService(
             { "ClientOptions", options }
         };
 
-        PropertyNode? result = await Service.SendReceivePlistAsync(cmd, cancellationToken).ConfigureAwait(false);
+        PropertyNode? result = await Service.SendReceivePlistAsync(cmd, cancellationToken: cancellationToken).ConfigureAwait(false);
         DictionaryNode dict = result?.AsDictionaryNode() ?? [];
         return dict["LookupResult"].AsDictionaryNode();
     }

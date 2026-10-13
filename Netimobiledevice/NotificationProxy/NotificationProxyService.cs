@@ -61,7 +61,7 @@ public sealed class NotificationProxyService : LockdownService {
     /// <see cref="ReceiveNotificationAsync"/>.
     /// </summary>
     /// <param name="name">Notification name to observe.</param>
-    public Task NotifyRegisterDispatchAsync(
+    public ValueTask NotifyRegisterDispatchAsync(
         string name,
         CancellationToken cancellationToken = default
     ) {
@@ -81,7 +81,7 @@ public sealed class NotificationProxyService : LockdownService {
     /// device to broadcast the named notification.
     /// </summary>
     /// <param name="name">Notification name to post (e.g. a Darwin notification name).</param>
-    public Task NotifyPostAsync(
+    public ValueTask NotifyPostAsync(
         string name,
         CancellationToken cancellationToken = default
     ) => Service.SendPlistAsync(

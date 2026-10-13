@@ -55,6 +55,7 @@ public class Program {
         // Listen to the heartbeat for ~5 seconds
         using (LockdownClient lockdown = await MobileDevice.CreateUsingUsbmuxAsync(logger: logger)) {
             await using (HeartbeatService hb = new HeartbeatService(lockdown, logger)) {
+                await hb.ConnectAsync(tokenSource.Token);
                 await hb.StartAsync(TimeSpan.FromSeconds(5), tokenSource.Token);
             }
         }

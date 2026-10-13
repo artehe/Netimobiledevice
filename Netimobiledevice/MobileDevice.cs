@@ -112,7 +112,7 @@ public static class MobileDevice {
     /// <param name="port">lockdownd service port</param>
     /// <param name="service">Service connection to use</param>
     /// <returns>RemoteLockdownClient instance</returns>
-    public static RemoteLockdownClient CreateUsingRemote(ServiceConnection service, string identifier = "", string label = LockdownClient.DEFAULT_CLIENT_NAME,
+    public static RemoteLockdownClient CreateUsingRemote(IServiceConnection service, string identifier = "", string label = LockdownClient.DEFAULT_CLIENT_NAME,
         bool autopair = true, float? pairTimeout = null, string localHostname = "", DictionaryNode? pairRecord = null, string pairingRecordsCacheDir = "",
         ushort port = LockdownClient.SERVICE_PORT, ILogger? logger = null) {
         RemoteLockdownClient client = RemoteLockdownClient.Create(service, identifier, label: label, localHostname: localHostname, pairRecord: pairRecord,

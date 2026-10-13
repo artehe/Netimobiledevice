@@ -150,7 +150,7 @@ public class AfcService(LockdownServiceProvider lockdown, string serviceName = "
                 throw new AfcException("Expected more bytes in afc header than receieved");
             }
             int length = (int) header.EntireLength - AfcHeader.GetSize();
-            data = Service.Receive(length);
+            data = await Service.ReceiveAsync(length);
             if (header.Operation == AfcOpCode.Status) {
                 if (length != 8) {
                     Logger?.LogWarning("Status length is not 8 bytes long");
