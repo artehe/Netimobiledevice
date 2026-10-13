@@ -10,14 +10,16 @@ namespace Netimobiledevice.Plist;
 /// Represents a DateTime Value from a PList
 /// </summary>
 public sealed class DateNode : PropertyNode<DateTime> {
-    private static DateTime MacEpoch => new DateTime(2001, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+    /// <summary>The Apple (Cocoa) epoch, 2001-01-01.</summary>
+    public static DateTime AppleEpoch => new DateTime(2001, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
     internal override int BinaryLength => 3;
     internal override PlistType NodeType => PlistType.Date;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DateNode"/> class.
     /// </summary>
-    public DateNode() : base(MacEpoch) { }
+    public DateNode() : base(AppleEpoch) { }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DateNode"/> class.
@@ -48,7 +50,7 @@ public sealed class DateNode : PropertyNode<DateTime> {
         stream.ReadExactly(buf);
 
         double ticks = ReadBinaryInternal(buf, nodeLength);
-        Value = MacEpoch.AddSeconds(ticks);
+        Value = AppleEpoch.AddSeconds(ticks);
     }
 
     internal override async Task ReadBinaryAsync(Stream stream, int nodeLength) {
@@ -56,7 +58,7 @@ public sealed class DateNode : PropertyNode<DateTime> {
         await stream.ReadExactlyAsync(buf).ConfigureAwait(false);
 
         double ticks = ReadBinaryInternal(buf, nodeLength);
-        Value = MacEpoch.AddSeconds(ticks);
+        Value = AppleEpoch.AddSeconds(ticks);
     }
 
     /// <summary>
@@ -73,7 +75,7 @@ public sealed class DateNode : PropertyNode<DateTime> {
     /// Writes this element binary to the writer.
     /// </summary>
     internal override void WriteBinary(Stream stream) {
-        TimeSpan ts = Value.ToUniversalTime() - MacEpoch;
+        TimeSpan ts = Value.ToUniversalTime() - AppleEpoch;
 
         Span<byte> buffer = stackalloc byte[sizeof(double)];
         BinaryPrimitives.WriteDoubleBigEndian(buffer, ts.TotalSeconds);
@@ -81,7 +83,7 @@ public sealed class DateNode : PropertyNode<DateTime> {
     }
 
     internal override async Task WriteBinaryAsync(Stream stream) {
-        TimeSpan ts = Value.ToUniversalTime() - MacEpoch;
+        TimeSpan ts = Value.ToUniversalTime() - AppleEpoch;
 
         byte[] buffer = new byte[sizeof(double)];
         BinaryPrimitives.WriteDoubleBigEndian(buffer, ts.TotalSeconds);

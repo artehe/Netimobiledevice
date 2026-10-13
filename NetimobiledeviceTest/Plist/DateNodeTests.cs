@@ -4,11 +4,9 @@ using System.Globalization;
 namespace NetimobiledeviceTest.Plist;
 
 [TestClass]
-public class DateNodeTests
-{
-    private static void ExecuteWithCulture(Action methodFunc, CultureInfo culture)
-    {
-        var thread = new Thread(() => {
+public class DateNodeTests {
+    private static void ExecuteWithCulture(Action methodFunc, CultureInfo culture) {
+        Thread thread = new Thread(() => {
             methodFunc();
         }) {
             CurrentCulture = culture
@@ -20,32 +18,28 @@ public class DateNodeTests
     }
 
     [TestMethod]
-    public void PropertyCreatesNewDate()
-    {
+    public void PropertyCreatesNewDate() {
         DateTime currentTime = new DateTime(2022, 04, 18, 11, 58, 31, DateTimeKind.Utc);
         DateNode node = new DateNode(currentTime);
         Assert.AreEqual(currentTime, node.Value);
     }
 
     [TestMethod]
-    public void ToStringReturnsNodeType()
-    {
+    public void ToStringReturnsNodeType() {
         DateTime currentTime = new DateTime(2022, 04, 18, 11, 58, 31, DateTimeKind.Utc);
         DateNode node = new DateNode(currentTime);
         Assert.AreEqual($"<date>: {currentTime}", node.ToString());
     }
 
     [TestMethod]
-    public void PropertyNodeConvertsToDateTime()
-    {
+    public void PropertyNodeConvertsToDateTime() {
         DateTime currentTime = new DateTime(2022, 04, 18, 11, 58, 31, DateTimeKind.Utc);
         PropertyNode node = new DateNode(currentTime);
         DateTime value = ((DateNode) node).Value;
         Assert.AreEqual(currentTime, value);
     }
 
-    public static void DateHandlesArabicCulture()
-    {
+    public static void DateHandlesArabicCulture() {
         DateTime originalDateTime = new DateTime(2015, 9, 30, 0, 0, 0, DateTimeKind.Utc);
         DateNode node = new DateNode(originalDateTime);
         Assert.AreEqual("2015-09-30T00:00:00Z", node.ToXmlString());
@@ -58,16 +52,14 @@ public class DateNodeTests
     }
 
     [TestMethod]
-    public void DateHandlesArabicCultureTest()
-    {
-        var cultureInfo = new CultureInfo("ar-SA");
+    public void DateHandlesArabicCultureTest() {
+        CultureInfo cultureInfo = new CultureInfo("ar-SA");
         cultureInfo.DateTimeFormat.Calendar = new UmAlQuraCalendar();
         ExecuteWithCulture(() => DateHandlesArabicCulture(), cultureInfo);
     }
 
     [TestMethod]
-    public void XmlStringIsValid()
-    {
+    public void XmlStringIsValid() {
         DateTime currentTime = new DateTime(2005, 06, 17, 18, 19, 21, 222, DateTimeKind.Utc);
         DateNode node = new DateNode(currentTime);
 
