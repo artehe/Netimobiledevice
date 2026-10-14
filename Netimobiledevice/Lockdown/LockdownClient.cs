@@ -196,7 +196,7 @@ public abstract class LockdownClient : LockdownServiceProvider, IDisposable {
     private async Task<DictionaryNode> RequestAsync(string request, DictionaryNode? options = null, bool verifyRequest = true, CancellationToken cancellationToken = default) {
         DictionaryNode message = CreateRequestMessage(request, options);
         if (_service != null) {
-            PropertyNode? response = await _service.SendReceivePlistAsync(message, cancellationToken).ConfigureAwait(false);
+            PropertyNode? response = await _service.SendReceivePlistAsync(message, cancellationToken: cancellationToken).ConfigureAwait(false);
             if (response is DictionaryNode responseDict) {
                 return VerifyRequestResponse(request, verifyRequest, responseDict);
             }

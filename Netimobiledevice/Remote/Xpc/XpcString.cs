@@ -1,4 +1,4 @@
-﻿using Netimobiledevice.Afc;
+﻿using Netimobiledevice.Utils;
 using System.Text;
 
 namespace Netimobiledevice.Remote.Xpc;
@@ -17,6 +17,6 @@ public class XpcString(string? data) : XpcObject<string>(data?.TrimEnd('\0')) {
 
     public override byte[] Serialise() {
         string str = Data ?? string.Empty;
-        return str.AsCString(Encoding.UTF8).GetBytes();
+        return CString.GetBytes(str);
     }
 }

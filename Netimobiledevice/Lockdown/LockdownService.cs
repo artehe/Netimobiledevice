@@ -83,7 +83,7 @@ public abstract class LockdownService : IAsyncDisposable {
     }
 
     /// <summary>Close the underlying service connection (if any) and reset connection state.</summary>
-    public async Task CloseAsync() {
+    public virtual async ValueTask CloseAsync() {
         IServiceConnection? service;
 
         lock (_lock) {

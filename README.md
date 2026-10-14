@@ -5,12 +5,13 @@ Netimobiledevice is a pure C# implementation for working with iOS devices (iPhon
 - [Netimobiledevice](#Netimobiledevice)
     * [Features](#Features)
     * [Usage](#Usage)
-    * [Services](#Services)
     * [License](#License)
     * [Contributing](#Contributing)
     * [Acknowledgments](#Acknowledgments)
 
 ## Features
+
+*Note*: this list is not exhaustive
 
  - Backup and Restore an iOS device in the normal iTunes way or as customised as you like. 
  - Device discovery and connection via Usbmux.
@@ -52,16 +53,6 @@ private static void SubscriptionCallback(UsbmuxdDevice device, UsbmuxdConnection
     Console.WriteLine("NewCallbackExecuted");
     Console.WriteLine($"Connection event: {connectionEvent}");
     Console.WriteLine($"Device: {device.DeviceId} - {device.Serial}");
-}
-```
-
-Get the app icon displayed on the home screen as a PNG:
-
-```csharp
-using (UsbmuxLockdownClient lockdown = MobileDevice.CreateUsingUsbmux("60653a518d33eb53b3ca2322de3f44e162a42069"))
-{
-    SpringBoardServicesService springBoard = new SpringBoardServicesService(lockdown);
-    PropertyNode png = springBoard.GetIconPNGData("net.whatsapp.WhatsApp");
 }
 ```
 

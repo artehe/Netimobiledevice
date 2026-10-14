@@ -9,7 +9,7 @@ public class CoreDeviceTunnelProxy(LockdownServiceProvider lockdown) : StartTcpT
 
     private readonly LockdownServiceProvider _lockdown = lockdown;
 
-    private ServiceConnection? _service;
+    private IServiceConnection? _service;
 
     public override string RemoteIdentifier => _lockdown.Udid;
 

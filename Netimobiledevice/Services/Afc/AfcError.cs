@@ -1,7 +1,6 @@
-﻿namespace Netimobiledevice.Afc;
+﻿namespace Netimobiledevice.Services.Afc;
 
-public enum AfcError : ulong
-{
+public enum AfcError : ulong {
     Success = 0,
     UnknownError = 1,
     OpHeaderInvalid = 2,

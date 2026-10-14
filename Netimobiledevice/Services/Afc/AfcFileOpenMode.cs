@@ -1,7 +1,6 @@
-﻿namespace Netimobiledevice.Afc;
+﻿namespace Netimobiledevice.Services.Afc;
 
-public enum AfcFileOpenMode : ulong
-{
+public enum AfcFileOpenMode : ulong {
     /// <summary>
     /// r O_RDONLY
     /// </summary>

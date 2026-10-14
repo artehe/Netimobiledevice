@@ -1,11 +1,11 @@
 ﻿using Microsoft.Extensions.Logging;
-using Netimobiledevice.Afc;
 using Netimobiledevice.DeviceLink;
 using Netimobiledevice.InstallationProxy;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.NotificationProxy;
 using Netimobiledevice.Plist;
 using Netimobiledevice.Services;
+using Netimobiledevice.Services.Afc;
 using System;
 using System.ComponentModel;
 using System.IO;
@@ -211,11 +211,11 @@ public sealed class Mobilebackup2Service(
                 foreach (string iTuneFile in iTunesFiles) {
                     string filePath = $"/iTunes_Control/iTunes/{iTuneFile}";
                     try {
-                        byte[] dataBuffer = await afc.GetFileContents(filePath, cancellationToken) ?? [];
+                        byte[] dataBuffer = await afc.GetFileContentsAsync(filePath, cancellationToken) ?? [];
                         files.Add(iTuneFile, new DataNode(dataBuffer));
                     }
                     catch (AfcException ex) {
-                        if (ex.AfcError == AfcError.ObjectNotFound) {
+                        if (ex.Status == AfcError.ObjectNotFound) {
                             continue;
                         }
                         else {
@@ -256,11 +256,11 @@ public sealed class Mobilebackup2Service(
                 }
 
                 try {
-                    byte[] dataBuffer = await afc.GetFileContents("/Books/iBooksData2.plist", cancellationToken).ConfigureAwait(false) ?? [];
+                    byte[] dataBuffer = await afc.GetFileContentsAsync("/Books/iBooksData2.plist", cancellationToken).ConfigureAwait(false) ?? [];
                     info.Add("iBooks Data 2", new DataNode(dataBuffer));
                 }
                 catch (AfcException ex) {
-                    if (ex.AfcError != AfcError.ObjectNotFound) {
+                    if (ex.Status != AfcError.ObjectNotFound) {
                         throw;
                     }
                 }

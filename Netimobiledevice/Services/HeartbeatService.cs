@@ -40,7 +40,7 @@ public sealed class HeartbeatService(
                     PropertyNode? response = await Service.ReceivePlistAsync(cancellationToken);
                     DictionaryNode responseDict = response?.AsDictionaryNode() ?? [];
                     if (Logger.IsEnabled(LogLevel.Debug)) {
-                        Logger.LogDebug("{Response}", PropertyList.SaveAsStringAsync(responseDict, PlistFormat.Xml));
+                        Logger.LogDebug("Heartbeat -> {Response}", PropertyList.SaveAsString(responseDict, PlistFormat.Xml));
                     }
 
                     if (interval is TimeSpan limit && Stopwatch.GetElapsedTime(start) >= limit) {

@@ -12,8 +12,7 @@ namespace Netimobiledevice.Diagnostics;
 /// Provides a service to query MobileGestalt & IORegistry keys, as well functionality to
 /// reboot, shutdown, or put the device into sleep mode.
 /// </summary>
-public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger? logger = null) : LockdownService(lockdown, ServiceNameUsed, GetDiagnosticsServiceConnection(lockdown), logger: logger)
-{
+public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger? logger = null) : LockdownService(lockdown, ServiceNameUsed, GetDiagnosticsServiceConnection(lockdown), logger: logger) {
     private const string LOCKDOWN_SERVICE_NAME_NEW = "com.apple.mobile.diagnostics_relay";
     private const string LOCKDOWN_SERVICE_NAME_OLD = "com.apple.iosdiagnostics.relay";
     private const string RSD_SERVICE_NAME = "com.apple.mobile.diagnostics_relay.shim.remote";
@@ -960,9 +959,8 @@ public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger
 
     private static string ServiceNameUsed { get; set; } = LOCKDOWN_SERVICE_NAME_NEW;
 
-    private static ServiceConnection? GetDiagnosticsServiceConnection(LockdownServiceProvider lockdown)
-    {
-        ServiceConnection? service = null;
+    private static IServiceConnection? GetDiagnosticsServiceConnection(LockdownServiceProvider lockdown) {
+        IServiceConnection? service = null;
         if (lockdown is LockdownClient) {
             try {
                 service = lockdown.StartLockdownService(LOCKDOWN_SERVICE_NAME_NEW);
@@ -980,8 +978,7 @@ public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger
         return service;
     }
 
-    private PropertyNode ExecuteCommand(StringNode action)
-    {
+    private PropertyNode ExecuteCommand(StringNode action) {
         DictionaryNode command = new DictionaryNode() {
             { "Request", action }
         };
@@ -993,13 +990,12 @@ public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger
         return response["Diagnostics"];
     }
 
-    private async Task<PropertyNode> ExecuteCommandAsync(StringNode action, CancellationToken cancellationToken)
-    {
+    private async Task<PropertyNode> ExecuteCommandAsync(StringNode action, CancellationToken cancellationToken) {
         DictionaryNode command = new DictionaryNode() {
             { "Request", action }
         };
 
-        PropertyNode? response = await Service.SendReceivePlistAsync(command, cancellationToken).ConfigureAwait(false);
+        PropertyNode? response = await Service.SendReceivePlistAsync(command, cancellationToken: cancellationToken).ConfigureAwait(false);
         DictionaryNode dict = response?.AsDictionaryNode() ?? [];
         if (dict.TryGetValue("Status", out PropertyNode? statusNode) && statusNode.AsStringNode().Value != "Success") {
             throw new DiagnosticsException($"Failed to perform action: {action.Value}");
@@ -1007,8 +1003,7 @@ public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger
         return dict["Diagnostics"];
     }
 
-    public DictionaryNode IORegistry(string? plane = null, string? name = null, string? ioClass = null)
-    {
+    public DictionaryNode IORegistry(string? plane = null, string? name = null, string? ioClass = null) {
         DictionaryNode dict = new DictionaryNode() {
             { "Request", new StringNode("IORegistry") }
         };
@@ -1035,8 +1030,7 @@ public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger
         return [];
     }
 
-    public async Task<DictionaryNode> IORegistryAsync(string? plane = null, string? name = null, string? ioClass = null, CancellationToken cancellationToken = default)
-    {
+    public async Task<DictionaryNode> IORegistryAsync(string? plane = null, string? name = null, string? ioClass = null, CancellationToken cancellationToken = default) {
         DictionaryNode dict = new DictionaryNode() {
             { "Request", new StringNode("IORegistry") }
         };
@@ -1051,7 +1045,7 @@ public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger
             dict.Add("EntryClass", new StringNode(ioClass));
         }
 
-        PropertyNode? response = await Service.SendReceivePlistAsync(dict, cancellationToken).ConfigureAwait(false);
+        PropertyNode? response = await Service.SendReceivePlistAsync(dict, cancellationToken: cancellationToken).ConfigureAwait(false);
         DictionaryNode responseDict = response?.AsDictionaryNode() ?? [];
         if (responseDict.TryGetValue("Status", out PropertyNode? statusNode) && statusNode.AsStringNode().Value != "Success") {
             throw new DiagnosticsException($"Got invalid response: {response}");
@@ -1064,18 +1058,15 @@ public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger
         return [];
     }
 
-    public DictionaryNode GetBattery()
-    {
+    public DictionaryNode GetBattery() {
         return IORegistry(null, null, "IOPMPowerSource");
     }
 
-    public async Task<DictionaryNode> GetBatteryAsync(CancellationToken cancellationToken)
-    {
+    public async Task<DictionaryNode> GetBatteryAsync(CancellationToken cancellationToken) {
         return await IORegistryAsync(null, null, "IOPMPowerSource", cancellationToken).ConfigureAwait(false);
     }
 
-    public Dictionary<string, ulong> GetStorageDetails()
-    {
+    public Dictionary<string, ulong> GetStorageDetails() {
         Dictionary<string, ulong> storageData = [];
         DictionaryNode storageList = MobileGestalt(["DiskUsage"]);
         if (storageList.ContainsKey("DiskUsage")) {
@@ -1086,8 +1077,7 @@ public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger
         return storageData;
     }
 
-    public async Task<Dictionary<string, ulong>> GetStorageDetailsAsync(CancellationToken cancellationToken)
-    {
+    public async Task<Dictionary<string, ulong>> GetStorageDetailsAsync(CancellationToken cancellationToken) {
         Dictionary<string, ulong> storageData = [];
         DictionaryNode storageList = await MobileGestaltAsync(["DiskUsage"], cancellationToken).ConfigureAwait(false);
         if (storageList.ContainsKey("DiskUsage")) {
@@ -1098,8 +1088,7 @@ public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger
         return storageData;
     }
 
-    public DictionaryNode GetBatteryDetails()
-    {
+    public DictionaryNode GetBatteryDetails() {
         string[] keys = [
             "HasBattery",
             "IsThereEnoughBatteryLevelForSoftwareUpdate",
@@ -1113,8 +1102,7 @@ public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger
         return batteryData;
     }
 
-    public async Task<DictionaryNode> GetBatteryDetails(CancellationToken cancellationToken)
-    {
+    public async Task<DictionaryNode> GetBatteryDetails(CancellationToken cancellationToken) {
         string[] keys = [
             "HasBattery",
             "IsThereEnoughBatteryLevelForSoftwareUpdate",
@@ -1128,18 +1116,15 @@ public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger
         return batteryData;
     }
 
-    public PropertyNode Info(string diagnosticType = "All")
-    {
+    public PropertyNode Info(string diagnosticType = "All") {
         return ExecuteCommand(new StringNode(diagnosticType));
     }
 
-    public async Task<PropertyNode> Info(string diagnosticType = "All", CancellationToken cancellationToken = default)
-    {
+    public async Task<PropertyNode> Info(string diagnosticType = "All", CancellationToken cancellationToken = default) {
         return await ExecuteCommandAsync(new StringNode(diagnosticType), cancellationToken).ConfigureAwait(false);
     }
 
-    public DictionaryNode MobileGestalt(string[] keys)
-    {
+    public DictionaryNode MobileGestalt(string[] keys) {
         DictionaryNode request = new DictionaryNode() {
             { "Request", new StringNode("MobileGestalt") },
         };
@@ -1170,8 +1155,7 @@ public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger
         throw new DiagnosticsException("Failed to query MobileGestalt");
     }
 
-    public async Task<DictionaryNode> MobileGestaltAsync(string[] keys, CancellationToken cancellationToken)
-    {
+    public async Task<DictionaryNode> MobileGestaltAsync(string[] keys, CancellationToken cancellationToken) {
         DictionaryNode request = new DictionaryNode() {
             { "Request", new StringNode("MobileGestalt") },
         };
@@ -1181,7 +1165,7 @@ public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger
         }
         request.Add("MobileGestaltKeys", mobileGestaltKeys);
 
-        PropertyNode? response = await Service.SendReceivePlistAsync(request, cancellationToken).ConfigureAwait(false);
+        PropertyNode? response = await Service.SendReceivePlistAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
         DictionaryNode dict = response?.AsDictionaryNode() ?? [];
         if (dict.TryGetValue("Status", out PropertyNode? statusNode) && statusNode.AsStringNode().Value != "Success") {
             throw new DiagnosticsException("Failed to query MobileGestalt");
@@ -1207,8 +1191,7 @@ public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger
     /// Query MobileGestalt using all the available keys
     /// </summary>
     /// <returns></returns>
-    public DictionaryNode MobileGestalt()
-    {
+    public DictionaryNode MobileGestalt() {
         return MobileGestalt([.. _mobileGestaltKeys]);
     }
 
@@ -1216,38 +1199,31 @@ public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger
     /// Query MobileGestalt using all the available keys
     /// </summary>
     /// <returns></returns>
-    public async Task<DictionaryNode> MobileGestaltAsync(CancellationToken cancellationToken)
-    {
+    public async Task<DictionaryNode> MobileGestaltAsync(CancellationToken cancellationToken) {
         return await MobileGestaltAsync([.. _mobileGestaltKeys], cancellationToken).ConfigureAwait(false);
     }
 
-    public void Restart()
-    {
+    public void Restart() {
         ExecuteCommand(new StringNode("Restart"));
     }
 
-    public async Task Restart(CancellationToken cancellationToken)
-    {
+    public async Task Restart(CancellationToken cancellationToken) {
         await ExecuteCommandAsync(new StringNode("Restart"), cancellationToken).ConfigureAwait(false);
     }
 
-    public void Shutdown()
-    {
+    public void Shutdown() {
         ExecuteCommand(new StringNode("Shutdown"));
     }
 
-    public async Task ShutdownAsync(CancellationToken cancellationToken)
-    {
+    public async Task ShutdownAsync(CancellationToken cancellationToken) {
         await ExecuteCommandAsync(new StringNode("Shutdown"), cancellationToken).ConfigureAwait(false);
     }
 
-    public void Sleep()
-    {
+    public void Sleep() {
         ExecuteCommand(new StringNode("Sleep"));
     }
 
-    public async Task SleepAsync(CancellationToken cancellationToken)
-    {
+    public async Task SleepAsync(CancellationToken cancellationToken) {
         await ExecuteCommandAsync(new StringNode("Sleep"), cancellationToken).ConfigureAwait(false);
     }
 }

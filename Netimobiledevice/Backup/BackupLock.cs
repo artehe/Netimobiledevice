@@ -1,5 +1,6 @@
-﻿using Netimobiledevice.Afc;
-using Netimobiledevice.NotificationProxy;
+﻿using Netimobiledevice.NotificationProxy;
+using Netimobiledevice.Services;
+using Netimobiledevice.Services.Afc;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,31 +17,31 @@ internal sealed class BackupLock(AfcService afc, NotificationProxyService np) : 
 
     public void Dispose() {
         Task.Run(async () => {
-            await _afc.Lock(_syncLockFileHandle, AfcLockModes.Unlock, CancellationToken.None).ConfigureAwait(false);
-            await _afc.FileClose(_syncLockFileHandle, CancellationToken.None).ConfigureAwait(false);
+            await _afc.LockAsync(_syncLockFileHandle, AfcLockModes.Unlock, CancellationToken.None).ConfigureAwait(false);
+            await _afc.FileCloseAsync(_syncLockFileHandle, CancellationToken.None).ConfigureAwait(false);
         }).GetAwaiter().GetResult();
         _np.NotifyPostAsync(SendableNotificaton.SyncDidFinish);
     }
 
     public async Task AquireBackupLock(CancellationToken cancellationToken) {
         await _np.NotifyPostAsync(SendableNotificaton.SyncWillStart, cancellationToken).ConfigureAwait(false);
-        _syncLockFileHandle = await _afc.FileOpen(SYNC_LOCK_FILE_PATH, cancellationToken, AfcFileOpenMode.ReadWrite).ConfigureAwait(false);
+        _syncLockFileHandle = await _afc.FileOpenAsync(SYNC_LOCK_FILE_PATH, AfcFileOpenMode.ReadWrite, cancellationToken).ConfigureAwait(false);
         if (_syncLockFileHandle > 0) {
             await _np.NotifyPostAsync(SendableNotificaton.SyncLockRequest, cancellationToken).ConfigureAwait(false);
 
             bool lockAquired = false;
             for (int i = 0; i < 50; i++) {
                 try {
-                    await _afc.Lock(_syncLockFileHandle, AfcLockModes.ExclusiveLock, cancellationToken).ConfigureAwait(false);
+                    await _afc.LockAsync(_syncLockFileHandle, AfcLockModes.ExclusiveLock, cancellationToken).ConfigureAwait(false);
                     lockAquired = true;
                     break;
                 }
                 catch (AfcException e) {
-                    if (e.AfcError == AfcError.OpWouldBlock) {
+                    if (e.Status == AfcError.OpWouldBlock) {
                         await Task.Delay(200, cancellationToken).ConfigureAwait(false);
                     }
                     else {
-                        await _afc.FileClose(_syncLockFileHandle, cancellationToken).ConfigureAwait(false);
+                        await _afc.FileCloseAsync(_syncLockFileHandle, cancellationToken).ConfigureAwait(false);
                         throw;
                     }
                 }

@@ -1,7 +1,6 @@
-﻿namespace Netimobiledevice.Afc;
+﻿namespace Netimobiledevice.Services.Afc;
 
-internal enum AfcOpCode : ulong
-{
+public enum AfcOpCode : ulong {
     Status = 0x00000001,
     Data = 0x00000002,
     ReadDir = 0x00000003,
@@ -17,11 +16,23 @@ internal enum AfcOpCode : ulong
     /// tmp file+rename
     /// </summary>
     WriteFileAtomic = 0x0000000C,
-    FileRefOpen = 0x0000000D,
+    /// <summary>
+    /// FileRefOpen
+    /// </summary>
+    FileOpen = 0x0000000D,
     FileRefOpenResult = 0x0000000E,
-    FileRefRead = 0x0000000F,
-    FileRefWrite = 0x00000010,
-    FileRefSeek = 0x00000011,
+    /// <summary>
+    /// FileRefRead
+    /// </summary>
+    FileRead = 0x0000000F,
+    /// <summary>
+    /// FileRefWrite
+    /// </summary>
+    FileWrite = 0x00000010,
+    /// <summary>
+    /// FileRefSeek
+    /// </summary>
+    FileSeek = 0x00000011,
     FileRefTell = 0x00000012,
     FileRefTellResult = 0x00000013,
     FileRefClose = 0x00000014,
@@ -34,7 +45,10 @@ internal enum AfcOpCode : ulong
     RenamePath = 0x00000018,
     SetFSBlockSize = 0x00000019,
     SetSocketBlockSize = 0x0000001A,
-    FileRefLock = 0x0000001B,
+    /// <summary>
+    /// FileRefLock
+    /// </summary>
+    FileLock = 0x0000001B,
     MakeLink = 0x0000001C,
     /// <summary>
     /// Set st_mtime

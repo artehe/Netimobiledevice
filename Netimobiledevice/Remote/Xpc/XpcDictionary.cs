@@ -1,4 +1,4 @@
-using Netimobiledevice.Afc;
+using Netimobiledevice.Utils;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -47,7 +47,7 @@ public class XpcDictionary : XpcObject, IDictionary<string, XpcObject> {
     }
 
     private static byte[] SerialiseAlignedString(string str) {
-        byte[] stringBytes = str.AsCString(Encoding.UTF8).GetBytes();
+        byte[] stringBytes = CString.GetBytes(str);
         byte[] alignedStr = XpcSerialiser.AlignData(stringBytes, 4);
         return alignedStr;
     }

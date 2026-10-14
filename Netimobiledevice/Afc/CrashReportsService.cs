@@ -1,4 +1,6 @@
 ﻿using Netimobiledevice.Lockdown;
+using Netimobiledevice.Services;
+using Netimobiledevice.Services.Afc;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -43,7 +45,7 @@ public class CrashReportsService : IAsyncDisposable {
     public async Task Clear(CancellationToken cancellationToken = default) {
         List<string> undeletedFiles = [];
         foreach (string filename in await GetCrashReportsList("/", cancellationToken: cancellationToken).ConfigureAwait(false)) {
-            undeletedFiles.AddRange(await _afcService.Rm(filename, cancellationToken, force: true).ConfigureAwait(false));
+            undeletedFiles.AddRange(await _afcService.RemoveAsync(filename, force: true, cancellationToken: cancellationToken).ConfigureAwait(false));
         }
 
         foreach (string item in undeletedFiles) {
@@ -68,7 +70,7 @@ public class CrashReportsService : IAsyncDisposable {
         await using (IServiceConnection service = _lockdown.StartLockdownService(_crashMoverServiceName)) {
             byte[] response = await service.ReceiveAsync(ack.Length, cancellationToken).ConfigureAwait(false);
             if (!response.SequenceEqual(ack)) {
-                throw new AfcException(AfcError.ReadError, "Resposne doesn't equal expected value");
+                throw new AfcException("Resposne doesn't equal expected value", AfcError.ReadError);
             }
         }
     }
@@ -80,14 +82,14 @@ public class CrashReportsService : IAsyncDisposable {
     /// <param name="entry">File or folder to pull</param>
     /// <param name="erase">Whether to erase the original file form the CrashReports directory</param>
     public async Task GetCrashReport(string outDir, string entry = "/", bool erase = false, CancellationToken cancellationToken = default) {
-        await _afcService.Pull(entry, outDir, cancellationToken).ConfigureAwait(false);
+        await _afcService.PullAsync(entry, outDir, cancellationToken: cancellationToken).ConfigureAwait(false);
         if (erase) {
             string[] paths = [".", "/"];
             if (paths.Contains(entry.Trim())) {
                 await Clear(cancellationToken).ConfigureAwait(false);
             }
             else {
-                await _afcService.Rm(entry, cancellationToken, force: true).ConfigureAwait(false);
+                await _afcService.RemoveAsync(entry, force: true, cancellationToken: cancellationToken).ConfigureAwait(false);
             }
         }
     }
@@ -101,7 +103,7 @@ public class CrashReportsService : IAsyncDisposable {
     public async Task<List<string>> GetCrashReportsList(string path = "/", int depth = 1, CancellationToken cancellationToken = default) {
         // Get the results then skip the root path '/'
         List<string> results = [];
-        await foreach (string item in _afcService.LsDirectory(path, cancellationToken, depth).ConfigureAwait(false)) {
+        await foreach (string item in _afcService.EnumerateDirectoryAsync(path, depth, cancellationToken).ConfigureAwait(false)) {
             results.Add(item);
         }
         return [.. results.Skip(1)];

@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 namespace Netimobiledevice.Lockdown;
 
 /// <inheritdoc />
-public sealed class ServiceConnection : IServiceConnection, IDisposable {
+public sealed class ServiceConnection : IServiceConnection {
     /// <summary>
     /// The internal logger
     /// </summary>

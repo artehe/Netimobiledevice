@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
-using Netimobiledevice.Afc;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
+using Netimobiledevice.Services;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -86,7 +86,7 @@ public sealed class InstallationProxyService(
 
         await using (AfcService afc = new AfcService(Lockdown)) {
             await afc.ConnectAsync(cancellationToken);
-            await afc.SetFileContents(TEMP_REMOTE_IPA_FILE, ipaContents, cancellationToken).ConfigureAwait(false);
+            await afc.SetFileContentsAsync(TEMP_REMOTE_IPA_FILE, ipaContents, cancellationToken).ConfigureAwait(false);
         }
         Logger.LogInformation("IPA sent to device");
 

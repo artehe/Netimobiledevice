@@ -19,7 +19,7 @@ public class Program {
     internal static async Task Main() {
         using ILoggerFactory factory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Debug).AddConsole());
         ILogger logger = factory.CreateLogger("NetimobiledeviceDemo");
-        logger.LogInformation("Hello World! Logging is {Description}.", "fun");
+        logger.LogInformation("Hello World! Logging is fun.");
 
         TaskScheduler.UnobservedTaskException += (sender, args) => {
             Console.WriteLine($"UnobservedTaskException error: {args.Exception}");
@@ -33,45 +33,57 @@ public class Program {
         };
         Console.WriteLine("Press Ctrl+C to cancel the operation.");
 
-        List<UsbmuxdDevice> devices = Usbmux.GetDeviceList();
+        List<UsbmuxdDevice> devices = await Usbmux.GetDeviceListAsync(cancellationToken: tokenSource.Token);
         if (devices.Count == 0) {
             logger.LogError("No device is connected to the system.");
             return;
         }
-
-        logger.LogDebug("There's {deviceCount} devices connected", devices.Count);
-        foreach (UsbmuxdDevice device in devices) {
-            Console.WriteLine($"Device found: {device.DeviceId} - {device.Serial}");
-        }
-
-        using (LockdownClient lockdown = await MobileDevice.CreateUsingUsbmuxAsync(autopair: false, logger: logger)) {
-            Progress<PairingState> progress = new();
-            progress.ProgressChanged += Progress_ProgressChanged;
-            if (!lockdown.IsPaired) {
-                await lockdown.PairAsync(progress);
+        else if (logger.IsEnabled(LogLevel.Information)) {
+            logger.LogInformation("There's {deviceCount} devices connected", devices.Count);
+            foreach (UsbmuxdDevice device in devices) {
+                logger.LogInformation("Device found: {DeviceId} - {Serial}", device.DeviceId, device.Serial);
             }
         }
 
-        // Listen to the heartbeat for ~5 seconds
         using (LockdownClient lockdown = await MobileDevice.CreateUsingUsbmuxAsync(logger: logger)) {
+            await using (AfcService afc = new AfcService(lockdown, logger: logger)) {
+                await afc.StartAsync();
+
+                Dictionary<string, string> deviceInfo = await afc.GetDeviceInfoAsync(tokenSource.Token);
+                if (logger.IsEnabled(LogLevel.Information)) {
+                    logger.LogInformation("Attached AFC device info:");
+                    foreach (KeyValuePair<string, string> info in deviceInfo) {
+                        logger.LogInformation("{Key} - {Value}", info.Key, info.Value);
+                        await Task.Delay(500, tokenSource.Token);
+                    }
+                }
+            }
+
+            // Listen to the heartbeat for ~5 seconds
             await using (HeartbeatService hb = new HeartbeatService(lockdown, logger)) {
                 await hb.ConnectAsync(tokenSource.Token);
-                await hb.StartAsync(TimeSpan.FromSeconds(5), tokenSource.Token);
+                try {
+                    await hb.StartAsync(TimeSpan.FromSeconds(5), tokenSource.Token);
+                }
+                catch (Exception ex) when (ex is TimeoutException) {
+                    // Nothing to do as this is the expected timeout.
+                }
             }
-        }
 
-        // Copy and write to screen all of the available provisioning profiles.
-        using (LockdownClient lockdown = await MobileDevice.CreateUsingUsbmuxAsync(logger: logger)) {
+            // Copy and write to screen all of the available provisioning profiles.
             await using (MisagentService ma = new MisagentService(lockdown, logger)) {
                 await ma.ConnectAsync(tokenSource.Token);
 
                 IReadOnlyList<DictionaryNode> profiles = await ma.CopyAllAsync(tokenSource.Token);
                 foreach (DictionaryNode profile in profiles) {
-                    Console.WriteLine($"Profile found: {PropertyList.SaveAsString(profile, PlistFormat.Xml)}");
+                    if (logger.IsEnabled(LogLevel.Information)) {
+                        logger.LogInformation("Profile found: {profile}", PropertyList.SaveAsString(profile, PlistFormat.Xml));
+                    }
                 }
             }
         }
 
+        // TODO below this line hasn't been finished yet.
         using (UsbmuxLockdownClient lockdown = await MobileDevice.CreateUsingUsbmuxAsync(logger: logger)) {
             await using (Mobilebackup2Service mb2 = new Mobilebackup2Service(lockdown, logger: logger)) {
                 await mb2.ConnectAsync(tokenSource.Token);
@@ -89,10 +101,6 @@ public class Program {
 
                 await mb2.Backup(false, false, true, "backups", tokenSource.Token);
             }
-        }
-
-        while (true) {
-            await Task.Delay(1000, tokenSource.Token);
         }
     }
 

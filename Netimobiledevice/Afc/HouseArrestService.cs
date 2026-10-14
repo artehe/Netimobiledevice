@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Logging;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
+using Netimobiledevice.Services;
+using Netimobiledevice.Services.Afc;
 using System.Threading;
 using System.Threading.Tasks;
 
