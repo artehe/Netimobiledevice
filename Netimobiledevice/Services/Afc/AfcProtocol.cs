@@ -10,11 +10,12 @@ namespace Netimobiledevice.Services.Afc;
 internal static class AfcProtocol {
     public const int HeaderSize = 40;
 
-    private static ReadOnlySpan<byte> Magic => "CFA6LPAA"u8;
     private static readonly UTF8Encoding StrictUtf8 = new(
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true
     );
+
+    internal static ReadOnlySpan<byte> Magic => "CFA6LPAA"u8;
 
     public static byte[] Concat(params ReadOnlySpan<byte[]> parts) {
         int total = 0;

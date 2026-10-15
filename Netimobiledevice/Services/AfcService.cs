@@ -258,29 +258,6 @@ public class AfcService(
         }
     }
 
-    /// <summary>
-    /// Remove a single file or empty directory (one <c>REMOVE_PATH</c>; does not recurse).
-    /// </summary>
-    /// <param name="force">Swallow an <see cref="AfcException"/> and return <c>false</c> instead of throwing.</param>
-    /// <returns><c>true</c> on success; <c>false</c> if removal failed and <paramref name="force"/> is set.</returns>
-    private async Task<bool> RemoveSingleAsync(
-        string filename,
-        bool force = false,
-        CancellationToken cancellationToken = default
-    ) {
-        try {
-            await DoOperationAsync(
-                AfcOpCode.RemovePath,
-                CString.GetBytes(filename),
-                filename, cancellationToken
-            ).ConfigureAwait(false);
-        }
-        catch (AfcException) when (force) {
-            return false;
-        }
-        return true;
-    }
-
     private async Task WriteChunkAsync(
         byte[] fileHandle,
         ReadOnlyMemory<byte> chunk,
@@ -801,6 +778,29 @@ public class AfcService(
         }
 
         return [];
+    }
+
+    /// <summary>
+    /// Remove a single file or empty directory (one <c>REMOVE_PATH</c>; does not recurse).
+    /// </summary>
+    /// <param name="force">Swallow an <see cref="AfcException"/> and return <c>false</c> instead of throwing.</param>
+    /// <returns><c>true</c> on success; <c>false</c> if removal failed and <paramref name="force"/> is set.</returns>
+    public async Task<bool> RemoveSingleAsync(
+        string filename,
+        bool force = false,
+        CancellationToken cancellationToken = default
+    ) {
+        try {
+            await DoOperationAsync(
+                AfcOpCode.RemovePath,
+                CString.GetBytes(filename),
+                filename, cancellationToken
+            ).ConfigureAwait(false);
+        }
+        catch (AfcException) when (force) {
+            return false;
+        }
+        return true;
     }
 
     /// <summary>Rename or move a file or directory.</summary>

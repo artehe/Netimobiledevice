@@ -45,15 +45,15 @@ public sealed class AfcFileInfo {
 
     public string this[string key] => Raw[key];
 
-    /// <summary>Attributes in device order with converted values, formatted as the Python shell printed them.</summary>
+    /// <summary>Attributes in device order with converted values.</summary>
     public IEnumerable<KeyValuePair<string, string>> ToDisplayEntries() {
         foreach ((string? key, string? value) in Raw) {
             string display = key switch {
                 "st_size" => Size.ToString(CultureInfo.InvariantCulture),
                 "st_blocks" => Blocks.ToString(CultureInfo.InvariantCulture),
                 "st_nlink" => NLink.ToString(CultureInfo.InvariantCulture),
-                "st_mtime" => FormatPythonDateTime(MTime),
-                "st_birthtime" => FormatPythonDateTime(BirthTime),
+                "st_mtime" => FormatDateTime(MTime),
+                "st_birthtime" => FormatDateTime(BirthTime),
                 _ => value,
             };
             yield return new KeyValuePair<string, string>(key, display);
@@ -62,7 +62,7 @@ public sealed class AfcFileInfo {
 
     private static DateTimeOffset FromNanoseconds(long ns) => DateTimeOffset.UnixEpoch.AddTicks(ns / 100);
 
-    private static string FormatPythonDateTime(DateTimeOffset value) {
+    private static string FormatDateTime(DateTimeOffset value) {
         DateTime local = value.LocalDateTime;
         return local.Ticks % TimeSpan.TicksPerSecond / 10 == 0
             ? local.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)

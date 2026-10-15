@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice.DeviceLink;
-using Netimobiledevice.InstallationProxy;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.NotificationProxy;
 using Netimobiledevice.Plist;
@@ -180,7 +179,7 @@ public sealed class Mobilebackup2Service(
             await using (SpringBoardServicesService springBoardServicesService = new SpringBoardServicesService(Lockdown)) {
                 await springBoardServicesService.ConnectAsync(cancellationToken);
                 try {
-                    ArrayNode apps = await installationProxyService.Browse(
+                    ArrayNode apps = await installationProxyService.BrowseAsync(
                         new DictionaryNode() { { "ApplicationType", new StringNode("User") } },
                         [
                             new StringNode("CFBundleIdentifier"),

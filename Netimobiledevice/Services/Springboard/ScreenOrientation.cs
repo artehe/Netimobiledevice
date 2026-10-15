@@ -3,7 +3,7 @@
 /// <summary>
 /// Represent the interface orientations same as <see href="https://developer.apple.com/documentation/uikit/uiinterfaceorientation">UIKit UIInterfaceOrientation</see>.
 /// </summary>
-public enum ScreenOrientation {
+public enum ScreenOrientation : long {
     /// <summary>
     /// The interface orientation is unknown.
     /// </summary>

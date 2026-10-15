@@ -8,6 +8,7 @@ using Netimobiledevice.Plist;
 using Netimobiledevice.Remoted;
 using Netimobiledevice.Remoted.Tunnel;
 using Netimobiledevice.Services;
+using Netimobiledevice.Services.Springboard;
 using Netimobiledevice.Usbmuxd;
 using System.ComponentModel;
 
@@ -70,6 +71,19 @@ public class Program {
                 }
             }
 
+            // Get all installed apps and list them out
+            await using (InstallationProxyService ip = new InstallationProxyService(lockdown, logger)) {
+                await ip.ConnectAsync(tokenSource.Token);
+
+                DictionaryNode apps = await ip.GetAppsAsync(Netimobiledevice.Services.InstallationProxy.ApplicationType.Any, true, ct: tokenSource.Token);
+                foreach (KeyValuePair<string, PropertyNode> app in apps) {
+                    if (logger.IsEnabled(LogLevel.Information)) {
+                        logger.LogInformation("App bundle found: {appIdentifier}", app.Key);
+                    }
+                    await Task.Delay(100, tokenSource.Token);
+                }
+            }
+
             // Copy and write to screen all of the available provisioning profiles.
             await using (MisagentService ma = new MisagentService(lockdown, logger)) {
                 await ma.ConnectAsync(tokenSource.Token);
@@ -78,8 +92,21 @@ public class Program {
                 foreach (DictionaryNode profile in profiles) {
                     if (logger.IsEnabled(LogLevel.Information)) {
                         logger.LogInformation("Profile found: {profile}", PropertyList.SaveAsString(profile, PlistFormat.Xml));
+                        await Task.Delay(500, tokenSource.Token);
                     }
                 }
+            }
+
+            // Get the current orientation of the device.
+            await using (SpringBoardServicesService sb = new SpringBoardServicesService(lockdown, logger)) {
+                await sb.ConnectAsync(tokenSource.Token);
+
+                ScreenOrientation orientation = await sb.GetInterfaceOrientationAsync(tokenSource.Token);
+                if (logger.IsEnabled(LogLevel.Information)) {
+                    logger.LogInformation("Device Interface Orientation: {orientation}", orientation);
+
+                }
+                await Task.Delay(500, tokenSource.Token);
             }
         }
 
