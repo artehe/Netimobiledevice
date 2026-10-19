@@ -63,64 +63,6 @@ public sealed class InstallationProxyService(
     };
 
     /// <summary>
-    /// Install an app or carrier bundle from a local path.
-    /// A <c>.ipcc</c> suffix is treated as a carrier bundle (<c>PackageType</c> forced to
-    /// <c>"CarrierBundle"</c>); a directory is treated as an unpackaged app and zipped into an
-    /// <c>.ipa</c>; any other path is read as <c>.ipa</c> bytes. When <paramref name="developer"/> is
-    /// set, <c>PackageType</c> is forced to <c>"Developer"</c>.
-    /// </summary>
-    /// <exception cref="AppInstallException">The installation fails.</exception>
-    private async Task InstallFromLocalAsync(
-        string packagePath,
-        string cmd = "Install",
-        DictionaryNode? options = null,
-        Action<int>? handler = null,
-        bool developer = false,
-        CancellationToken ct = default
-    ) {
-        options ??= [];
-
-        bool ipccMode = Path.GetExtension(packagePath) == ".ipcc";
-
-        byte[] ipaContents = [];
-        if (ipccMode) {
-            options["PackageType"] = new StringNode("CarrierBundle");
-        }
-        else if (Directory.Exists(packagePath)) {
-            // treat as app, convert into an ipa
-            ipaContents = await CreateIpaContentsFromDirectory(packagePath, ct);
-        }
-        else {
-            // treat as ipa
-            ipaContents = await File.ReadAllBytesAsync(packagePath, ct);
-        }
-
-        if (developer) {
-            options["PackageType"] = new StringNode("Developer");
-        }
-
-        await using (AfcService afc = new AfcService(Lockdown)) {
-            await afc.ConnectAsync(ct);
-
-            string fname = $"{TemporaryRemoteBaseDirectory}/{Guid.NewGuid()}.{(ipccMode ? "ipcc" : "ipa")}";
-            try {
-                if (!ipccMode) {
-                    await afc.MakeDirsAsync(TemporaryRemoteBaseDirectory, ct);
-                    await afc.SetFileContentsAsync(fname, ipaContents, ct);
-                }
-                else {
-                    await UploadIpccFromPathAsync(packagePath, fname, afc, ct);
-                }
-
-                await SendPackageAsync(cmd, options, handler, fname, ct);
-            }
-            finally {
-                await afc.RemoveSingleAsync(fname, force: true, cancellationToken: ct);
-            }
-        }
-    }
-
-    /// <summary>
     /// Send a command that targets an installed app by its bundle identifier and wait for completion.
     /// Sends <c>{"Command": cmd, "ApplicationIdentifier": bundleIdentifier, "ClientOptions": options}</c>,
     /// then consumes progress/status responses until the operation completes.
@@ -393,6 +335,64 @@ public sealed class InstallationProxyService(
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Install an app or carrier bundle from a local path.
+    /// A <c>.ipcc</c> suffix is treated as a carrier bundle (<c>PackageType</c> forced to
+    /// <c>"CarrierBundle"</c>); a directory is treated as an unpackaged app and zipped into an
+    /// <c>.ipa</c>; any other path is read as <c>.ipa</c> bytes. When <paramref name="developer"/> is
+    /// set, <c>PackageType</c> is forced to <c>"Developer"</c>.
+    /// </summary>
+    /// <exception cref="AppInstallException">The installation fails.</exception>
+    public async Task InstallFromLocalAsync(
+        string packagePath,
+        string cmd = "Install",
+        DictionaryNode? options = null,
+        Action<int>? handler = null,
+        bool developer = false,
+        CancellationToken ct = default
+    ) {
+        options ??= [];
+
+        bool ipccMode = Path.GetExtension(packagePath) == ".ipcc";
+
+        byte[] ipaContents = [];
+        if (ipccMode) {
+            options["PackageType"] = new StringNode("CarrierBundle");
+        }
+        else if (Directory.Exists(packagePath)) {
+            // treat as app, convert into an ipa
+            ipaContents = await CreateIpaContentsFromDirectory(packagePath, ct);
+        }
+        else {
+            // treat as ipa
+            ipaContents = await File.ReadAllBytesAsync(packagePath, ct);
+        }
+
+        if (developer) {
+            options["PackageType"] = new StringNode("Developer");
+        }
+
+        await using (AfcService afc = new AfcService(Lockdown)) {
+            await afc.ConnectAsync(ct);
+
+            string fname = $"{TemporaryRemoteBaseDirectory}/{Guid.NewGuid()}.{(ipccMode ? "ipcc" : "ipa")}";
+            try {
+                if (!ipccMode) {
+                    await afc.MakeDirsAsync(TemporaryRemoteBaseDirectory, ct);
+                    await afc.SetFileContentsAsync(fname, ipaContents, ct);
+                }
+                else {
+                    await UploadIpccFromPathAsync(packagePath, fname, afc, ct);
+                }
+
+                await SendPackageAsync(cmd, options, handler, fname, ct);
+            }
+            finally {
+                await afc.RemoveSingleAsync(fname, force: true, cancellationToken: ct);
+            }
+        }
     }
 
     /// <summary>
