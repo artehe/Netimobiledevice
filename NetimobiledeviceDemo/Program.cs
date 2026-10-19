@@ -8,6 +8,7 @@ using Netimobiledevice.Plist;
 using Netimobiledevice.Remoted;
 using Netimobiledevice.Remoted.Tunnel;
 using Netimobiledevice.Services;
+using Netimobiledevice.Services.HouseArrest;
 using Netimobiledevice.Services.Springboard;
 using Netimobiledevice.Usbmuxd;
 using System.ComponentModel;
@@ -69,6 +70,14 @@ public class Program {
                 catch (Exception ex) when (ex is TimeoutException) {
                     // Nothing to do as this is the expected timeout.
                 }
+            }
+
+            try {
+                HouseArrestService ha = await HouseArrestService.CreateAsync(lockdown, "test.bundle.app", true, tokenSource.Token);
+                await using (ha) { }
+            }
+            catch (HouseArrestException ex) {
+                logger.LogWarning("Failed to start HouseArrestService: {reason}", ex);
             }
 
             // Get all installed apps and list them out

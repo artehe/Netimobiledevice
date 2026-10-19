@@ -92,7 +92,7 @@ internal sealed class DeviceLinkService : IDisposable {
         _internalCancellationTokenSource = new CancellationTokenSource();
 
         // Adjust the timeout to be long enough to handle device with a large amount of data
-        // TODO _service.SetTimeout(SERVICE_TIMEOUT);
+        _service.SetTimeout(SERVICE_TIMEOUT);
 
         DeviceLinkHandlers = new Dictionary<string, Func<ArrayNode, CancellationToken, Task>>() {
             { DeviceLinkMessage.ContentsOfDirectory, ContentsOfDirectory },
@@ -210,7 +210,7 @@ internal sealed class DeviceLinkService : IDisposable {
             new StringNode("___EmptyParameterString___")
         ];
         try {
-            // TODO _service.SendPlist(message, PlistFormat.Binary);
+            _service.SendPlist(message, PlistFormat.Binary);
         }
         catch (ObjectDisposedException) {
             _logger.LogWarning("Trying to send disconnect from disposed service");
