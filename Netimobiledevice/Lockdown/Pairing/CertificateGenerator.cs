@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Security.Cryptography;
+using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
@@ -46,7 +47,37 @@ public static class CertificateGenerator {
     }
 
     internal static X509Certificate2 LoadCertificate(string certPem, string privateKeyPem) {
-        X509Certificate2 certificate = X509Certificate2.CreateFromPem(certPem, privateKeyPem);
-        return X509CertificateLoader.LoadPkcs12(certificate.Export(X509ContentType.Pkcs12), null);
+        if (!OperatingSystem.IsMacOS()) {
+            using X509Certificate2 tmp = X509Certificate2.CreateFromPem(certPem, privateKeyPem);
+            return X509CertificateLoader.LoadPkcs12(tmp.Export(X509ContentType.Pkcs12), null);
+        }
+
+        using (X509Certificate2 publicCert = X509Certificate2.CreateFromPem(certPem)) {
+            using (RSA rsa = RSA.Create()) {
+                rsa.ImportFromPem(privateKeyPem);
+
+                // Only exists in memory; macOS needs a non-null password for the import
+                const string password = "netimobiledevice";
+
+                // 3DES/SHA1 is the most reliably accepted PFX format for the macOS importer
+                PbeParameters pbe = new PbeParameters(PbeEncryptionAlgorithm.TripleDes3KeyPkcs12, HashAlgorithmName.SHA1, 2000);
+
+                // Links the cert and key bags so they load as one identity
+                Pkcs9LocalKeyId localKeyId = new Pkcs9LocalKeyId(publicCert.GetCertHash());
+
+                Pkcs12SafeContents certContents = new Pkcs12SafeContents();
+                certContents.AddCertificate(publicCert).Attributes.Add(localKeyId);
+
+                Pkcs12SafeContents keyContents = new Pkcs12SafeContents();
+                keyContents.AddShroudedKey(rsa, password, pbe).Attributes.Add(localKeyId);
+
+                Pkcs12Builder builder = new Pkcs12Builder();
+                builder.AddSafeContentsEncrypted(certContents, password, pbe);
+                builder.AddSafeContentsUnencrypted(keyContents);
+                builder.SealWithMac(password, HashAlgorithmName.SHA1, 2000);
+
+                return X509CertificateLoader.LoadPkcs12(builder.Encode(), password);
+            }
+        }
     }
 }
