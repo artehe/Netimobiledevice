@@ -3,8 +3,7 @@
 /// <summary>
 /// Host-To-Device (sendable) notifications.
 /// </summary>
-public static class SendableNotificaton
-{
+public static class SendableNotificaton {
     /// <summary>
     /// The host notifies the device that it's about to start the backup.
     /// </summary>
