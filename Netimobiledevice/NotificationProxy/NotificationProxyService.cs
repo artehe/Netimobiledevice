@@ -38,7 +38,7 @@ public sealed class NotificationProxyService : LockdownService {
         TimeSpan? timeout = null,
         ILogger? logger = null
     ) : base(lockdown, ResolveServiceName(lockdown, insecure), logger: logger) {
-        if (timeout is { } t) {
+        if (timeout is TimeSpan t) {
             // Applies to synchronous reads; async reads are bounded in ReceiveNotificationAsync.
             Service.SetTimeout((int) t.TotalMilliseconds);
             _timeout = t;

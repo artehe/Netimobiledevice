@@ -1,18 +1,9 @@
-﻿namespace Netimobiledevice.Backup;
+﻿namespace Netimobiledevice.Services.Mobilebackup2;
 
 /// <summary>
 /// The backup snapshot state.
 /// </summary>
-public enum SnapshotState
-{
-    /// <summary>
-    /// Custom added state to signal the process is waiting for the device to get ready.
-    /// </summary>
-    Waiting = -2,
-    /// <summary>
-    /// Custom added state to signal the process has not yet started.
-    /// </summary>
-    Uninitialized = -1,
+public enum SnapshotState {
     /// <summary>
     /// Status.plist defined state signaling files are being transferred from the device to the host.
     /// </summary>
