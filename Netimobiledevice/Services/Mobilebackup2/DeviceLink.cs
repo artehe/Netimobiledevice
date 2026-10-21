@@ -226,11 +226,13 @@ internal sealed class DeviceLink : IAsyncDisposable {
     }
 
     private static void DeleteFileIfExists(string path) {
-        try {
-            File.Delete(path);
-        }
-        catch (DirectoryNotFoundException) {
-            // This is fine :)
+        if (File.Exists(path)) {
+            try {
+                File.Delete(path);
+            }
+            catch (DirectoryNotFoundException) {
+                // This is fine :)
+            }
         }
     }
 
@@ -641,8 +643,13 @@ internal sealed class DeviceLink : IAsyncDisposable {
 
             string? parent = Path.GetDirectoryName(path);
             while (parent is not null && !string.Equals(Path.TrimEndingDirectorySeparator(parent), root, StringComparison.Ordinal)) {
+                bool directoryIsEmpty = Directory.Exists(parent) && !Directory.EnumerateFileSystemEntries(parent).Any();
+                if (!directoryIsEmpty) {
+                    break;
+                }
+
                 try {
-                    Directory.Delete(parent, true);
+                    Directory.Delete(parent);
                 }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException) {
                     break;
