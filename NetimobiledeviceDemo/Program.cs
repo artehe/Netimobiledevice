@@ -136,6 +136,23 @@ public class Program {
             }
             await Task.Delay(500, ct);
         }
+
+        // Read 100 lines of the syslog then exit.
+        await using (SyslogService sl = new SyslogService(lsp, logger)) {
+            await sl.ConnectAsync(ct);
+
+            int count = 0;
+            await foreach (string line in sl.WatchAsync(ct)) {
+                if (logger.IsEnabled(LogLevel.Debug)) {
+                    logger.LogDebug("{syslog}", line);
+                }
+
+                count++;
+                if (count >= 100) {
+                    break;
+                }
+            }
+        }
     }
 
     private static bool BackupFilterCallback(BackupFile backupFile) {
