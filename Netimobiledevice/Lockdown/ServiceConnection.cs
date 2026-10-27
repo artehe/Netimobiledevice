@@ -209,7 +209,7 @@ public sealed class ServiceConnection : IServiceConnection {
     /// Receive a data block prefixed with a u32 length field
     /// </summary>
     /// <returns>The data without the u32 field length as a byte array</returns>
-    public async Task<byte[]> ReceivePrefixedAsync(CancellationToken cancellationToken = default) {
+    public async ValueTask<byte[]> ReceivePrefixedAsync(CancellationToken cancellationToken = default) {
         byte[] sizeBytes = await ReceiveAsync(4, cancellationToken).ConfigureAwait(false);
         if (sizeBytes.Length != 4) {
             return [];

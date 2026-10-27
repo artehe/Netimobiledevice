@@ -9,6 +9,7 @@ using Netimobiledevice.Remoted.Tunnel;
 using Netimobiledevice.Services;
 using Netimobiledevice.Services.HouseArrest;
 using Netimobiledevice.Services.Mobilebackup2;
+using Netimobiledevice.Services.OsTrace;
 using Netimobiledevice.Services.Springboard;
 using Netimobiledevice.Usbmuxd;
 
@@ -124,6 +125,23 @@ public class Program {
                 patchManifest: true,
                 cancellationToken: ct
             );
+        }
+
+        // Read 100 lines of the os trace syslog then exit.
+        await using (OsTraceService ot = new OsTraceService(lsp, logger: logger)) {
+            await ot.ConnectAsync(ct);
+
+            int count = 0;
+            await foreach (SyslogEntry entry in ot.SyslogAsync(cancellationToken: ct)) {
+                if (logger.IsEnabled(LogLevel.Debug)) {
+                    logger.LogDebug("{level} {timestamp} {msg}", entry.Level, entry.MachTimestamp, entry.Message);
+                }
+
+                count++;
+                if (count >= 100) {
+                    break;
+                }
+            }
         }
 
         // Get the current orientation of the device.
