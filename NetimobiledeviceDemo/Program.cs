@@ -68,6 +68,19 @@ public class Program {
             }
         }
 
+        // Get the current battery state from the diagnostics service.
+        await using (DiagnosticsService diag = new DiagnosticsService(lsp, logger)) {
+            await diag.ConnectAsync(ct);
+
+            DictionaryNode battery = await diag.GetBatteryAsync(ct);
+            if (logger.IsEnabled(LogLevel.Information)) {
+                logger.LogInformation(
+                    "Current Batter Info: \n{battery}",
+                    PropertyList.SaveAsString(battery, PlistFormat.Xml)
+                );
+            }
+        }
+
         // Listen to the heartbeat for ~5 seconds
         await using (HeartbeatService hb = new HeartbeatService(lsp, logger)) {
             await hb.ConnectAsync(ct);

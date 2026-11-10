@@ -1,23 +1,39 @@
 ﻿using Microsoft.Extensions.Logging;
 using Netimobiledevice.Lockdown;
 using Netimobiledevice.Plist;
-using System;
+using Netimobiledevice.Services.Diagnostics;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Netimobiledevice.Diagnostics;
+namespace Netimobiledevice.Services;
 
 /// <summary>
-/// Provides a service to query MobileGestalt & IORegistry keys, as well functionality to
-/// reboot, shutdown, or put the device into sleep mode.
+/// Client for the device's Diagnostic's lockdown service.
 /// </summary>
-public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger? logger = null) : LockdownService(lockdown, ServiceNameUsed, GetDiagnosticsServiceConnection(lockdown), logger: logger) {
-    private const string LOCKDOWN_SERVICE_NAME_NEW = "com.apple.mobile.diagnostics_relay";
-    private const string LOCKDOWN_SERVICE_NAME_OLD = "com.apple.iosdiagnostics.relay";
-    private const string RSD_SERVICE_NAME = "com.apple.mobile.diagnostics_relay.shim.remote";
+/// <remarks>
+/// Exposes the diagnostics relay over a plist request/response channel, allowing callers to:
+/// <list type="bullet">
+///   <item>Query MobileGestalt and IORegistry keys.</item>
+///   <item>Read diagnostic information reports (e.g. battery, Wi-Fi, generic diagnostics).</item>
+///   <item>Restart, shut down or put the device to sleep.</item>
+/// </list>
+/// </remarks>
+public sealed class DiagnosticsService(
+    LockdownServiceProvider lockdown,
+    ILogger? logger = null
+) : LockdownService(
+    lockdown,
+    lockdown is LockdownClient ? LockdownServiceName : RemoteServiceName,
+    logger: logger
+) {
+    public const string LockdownServiceName = "com.apple.mobile.diagnostics_relay";
+    public const string OldServiceName = "com.apple.iosdiagnostics.relay";
+    public const string RemoteServiceName = "com.apple.mobile.diagnostics_relay.shim.remote";
 
-    private static readonly string[] _mobileGestaltKeys = [
+    /// <summary>The full built-in list of MobileGestalt keys queried when none are specified.</summary>
+    public static readonly IReadOnlyList<string> MobileGestaltKeys =
+    [
         "3GProximityCapability",
         "3GVeniceCapability",
         "3Gvenice",
@@ -957,98 +973,115 @@ public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger
         "youtubePlugin"
     ];
 
-    private static string ServiceNameUsed { get; set; } = LOCKDOWN_SERVICE_NAME_NEW;
-
-    private static IServiceConnection? GetDiagnosticsServiceConnection(LockdownServiceProvider lockdown) {
-        IServiceConnection? service = null;
-        if (lockdown is LockdownClient) {
-            try {
-                service = lockdown.StartLockdownService(LOCKDOWN_SERVICE_NAME_NEW);
-                ServiceNameUsed = LOCKDOWN_SERVICE_NAME_NEW;
-            }
-            catch (Exception ex) {
-                lockdown.Logger.LogWarning(ex, "Failed to start the new lockdown service, falling back to the old service.");
-                service = lockdown.StartLockdownService(LOCKDOWN_SERVICE_NAME_OLD);
-                ServiceNameUsed = LOCKDOWN_SERVICE_NAME_OLD;
-            }
-        }
-        else {
-            ServiceNameUsed = RSD_SERVICE_NAME;
-        }
-        return service;
-    }
-
-    private PropertyNode ExecuteCommand(StringNode action) {
+    /// <summary>
+    /// Send a single diagnostics relay request and return its <c>Diagnostics</c> payload.
+    /// </summary>
+    /// <param name="action">Request name to send (e.g. <c>Restart</c>, <c>Shutdown</c>, <c>Sleep</c>, <c>All</c>).</param>
+    /// <returns>The response's <c>Diagnostics</c> payload, or <c>null</c> when the response carries no such payload.</returns>
+    /// <exception cref="DiagnosticsException">If the response status is not <c>Success</c>.</exception>
+    private async Task<DictionaryNode> ActionAsync(
+        StringNode action,
+        CancellationToken cancellationToken = default
+    ) {
         DictionaryNode command = new DictionaryNode() {
-            { "Request", action }
+            ["Request"] = action
         };
 
-        DictionaryNode response = Service.SendReceivePlist(command)?.AsDictionaryNode() ?? [];
-        if (response.TryGetValue("Status", out PropertyNode? statusNode) && statusNode.AsStringNode().Value != "Success") {
-            throw new DiagnosticsException($"Failed to perform action: {action.Value}");
+        if (Service is null) {
+            throw new DiagnosticsException("Service is null");
         }
-        return response["Diagnostics"];
-    }
 
-    private async Task<PropertyNode> ExecuteCommandAsync(StringNode action, CancellationToken cancellationToken) {
-        DictionaryNode command = new DictionaryNode() {
-            { "Request", action }
-        };
-
-        PropertyNode? response = await Service.SendReceivePlistAsync(command, cancellationToken: cancellationToken).ConfigureAwait(false);
+        PropertyNode? response = await Service.SendReceivePlistAsync(
+            command,
+            cancellationToken: cancellationToken
+        ).ConfigureAwait(false);
         DictionaryNode dict = response?.AsDictionaryNode() ?? [];
         if (dict.TryGetValue("Status", out PropertyNode? statusNode) && statusNode.AsStringNode().Value != "Success") {
-            throw new DiagnosticsException($"Failed to perform action: {action.Value}");
-        }
-        return dict["Diagnostics"];
-    }
-
-    public DictionaryNode IORegistry(string? plane = null, string? name = null, string? ioClass = null) {
-        DictionaryNode dict = new DictionaryNode() {
-            { "Request", new StringNode("IORegistry") }
-        };
-
-        if (!string.IsNullOrWhiteSpace(plane)) {
-            dict.Add("CurrentPlane", new StringNode(plane));
-        }
-        if (!string.IsNullOrWhiteSpace(name)) {
-            dict.Add("EntryName", new StringNode(name));
-        }
-        if (!string.IsNullOrWhiteSpace(ioClass)) {
-            dict.Add("EntryClass", new StringNode(ioClass));
+            throw new DiagnosticsException($"Failed to perform action: {action}");
         }
 
-        DictionaryNode response = Service.SendReceivePlist(dict)?.AsDictionaryNode() ?? [];
-        if (response.ContainsKey("Status") && response["Status"].AsStringNode().Value != "Success") {
-            throw new DiagnosticsException($"Got invalid response: {response}");
-        }
-
-        if (response.ContainsKey("Diagnostics")) {
-            DictionaryNode diagnosticsDict = response["Diagnostics"].AsDictionaryNode();
-            return diagnosticsDict["IORegistry"].AsDictionaryNode();
+        if (dict.TryGetValue("Diagnostics", out PropertyNode? diagnostics)) {
+            return diagnostics.AsDictionaryNode();
         }
         return [];
     }
 
-    public async Task<DictionaryNode> IORegistryAsync(string? plane = null, string? name = null, string? ioClass = null, CancellationToken cancellationToken = default) {
-        DictionaryNode dict = new DictionaryNode() {
-            { "Request", new StringNode("IORegistry") }
-        };
+    /// <summary>
+    /// Fetch battery/power-source information from the IORegistry
+    /// (the entry of class <c>IOPMPowerSource</c>).
+    /// </summary>
+    /// <returns>The IORegistry data for the power-source entry, or <c>null</c> if it is absent.</returns>
+    /// <exception cref="DiagnosticsException">If the underlying IORegistry request did not complete successfully.</exception>
+    public Task<DictionaryNode> GetBatteryAsync(CancellationToken cancellationToken = default) => IoRegistryAsync(
+        ioClass: "IOPMPowerSource",
+        cancellationToken: cancellationToken
+    );
 
-        if (!string.IsNullOrWhiteSpace(plane)) {
-            dict.Add("CurrentPlane", new StringNode(plane));
+    /// <summary>
+    /// Fetch the Wi-Fi interface information from the IORegistry.
+    /// </summary>
+    /// <remarks>
+    /// First attempts the entry named <c>AppleBCMWLANSkywalkInterface</c>; if that yields no result, falls back
+    /// to the entry of class <c>IO80211Interface</c>.
+    /// </remarks>
+    /// <returns>The IORegistry data for the Wi-Fi interface, or <c>null</c> if neither lookup matches.</returns>
+    /// <exception cref="DiagnosticsException">If an underlying IORegistry request did not complete successfully.</exception>
+    public async Task<DictionaryNode> GetWifiAsync(CancellationToken cancellationToken = default) {
+        DictionaryNode result = await IoRegistryAsync(
+            name: "AppleBCMWLANSkywalkInterface",
+            cancellationToken: cancellationToken
+        ).ConfigureAwait(false);
+
+        if (result.Count > 0) {
+            return result;
         }
-        if (!string.IsNullOrWhiteSpace(name)) {
-            dict.Add("EntryName", new StringNode(name));
+        return await IoRegistryAsync(
+            ioClass: "IO80211Interface",
+            cancellationToken: cancellationToken
+        ).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Query the device's IORegistry, optionally narrowed by plane, entry name and/or entry class.
+    /// </summary>
+    /// <param name="plane">
+    /// IORegistry plane to traverse, sent as <c>CurrentPlane</c> (e.g. <c>IODeviceTree</c>, <c>IOService</c>).
+    /// Omitted when null or empty.
+    /// </param>
+    /// <param name="name">Name of the registry entry to look up, sent as <c>EntryName</c>. Omitted when null or empty.</param>
+    /// <param name="ioClass">Class of the registry entry to look up, sent as <c>EntryClass</c>. Omitted when null or empty.</param>
+    /// <returns>
+    /// The <c>IORegistry</c> portion of the response's <c>Diagnostics</c> payload, or <c>null</c> when the
+    /// response carries no such payload.
+    /// </returns>
+    /// <exception cref="DiagnosticsException">If the response status is not <c>Success</c>.</exception>
+    public async Task<DictionaryNode> IoRegistryAsync(
+        string? plane = null,
+        string? name = null,
+        string? ioClass = null,
+        CancellationToken cancellationToken = default
+    ) {
+        DictionaryNode request = [];
+
+        if (!string.IsNullOrEmpty(plane)) {
+            request["CurrentPlane"] = new StringNode(plane);
         }
-        if (!string.IsNullOrWhiteSpace(ioClass)) {
-            dict.Add("EntryClass", new StringNode(ioClass));
+        if (!string.IsNullOrEmpty(name)) {
+            request["EntryName"] = new StringNode(name);
+        }
+        if (!string.IsNullOrEmpty(ioClass)) {
+            request["EntryClass"] = new StringNode(ioClass);
+        }
+        request["Request"] = new StringNode("IORegistry");
+
+        if (Service is null) {
+            throw new DiagnosticsException("Service is null");
         }
 
-        PropertyNode? response = await Service.SendReceivePlistAsync(dict, cancellationToken: cancellationToken).ConfigureAwait(false);
+        PropertyNode? response = await Service.SendReceivePlistAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
         DictionaryNode responseDict = response?.AsDictionaryNode() ?? [];
         if (responseDict.TryGetValue("Status", out PropertyNode? statusNode) && statusNode.AsStringNode().Value != "Success") {
-            throw new DiagnosticsException($"Got invalid response: {response}");
+            throw new DiagnosticsException($"Got invalid response: {PropertyList.SaveAsString(responseDict, PlistFormat.Xml)}");
         }
 
         if (responseDict.TryGetValue("Diagnostics", out PropertyNode? diagnosticsNode)) {
@@ -1058,172 +1091,99 @@ public sealed class DiagnosticsService(LockdownServiceProvider lockdown, ILogger
         return [];
     }
 
-    public DictionaryNode GetBattery() {
-        return IORegistry(null, null, "IOPMPowerSource");
-    }
+    /// <summary>Fetch a diagnostics information report from the device.</summary>
+    /// <param name="diagType">
+    /// Diagnostics report type to request; sent as the <c>Request</c> field. Defaults to <c>All</c>.
+    /// </param>
+    /// <returns>The <c>Diagnostics</c> payload of the response.</returns>
+    /// <exception cref="DiagnosticsException">If the request did not complete successfully.</exception>
+    public Task<DictionaryNode> InfoAsync(
+        string diagType = "All",
+        CancellationToken cancellationToken = default
+    ) => ActionAsync(new StringNode(diagType), cancellationToken);
 
-    public async Task<DictionaryNode> GetBatteryAsync(CancellationToken cancellationToken) {
-        return await IORegistryAsync(null, null, "IOPMPowerSource", cancellationToken).ConfigureAwait(false);
-    }
-
-    public Dictionary<string, ulong> GetStorageDetails() {
-        Dictionary<string, ulong> storageData = [];
-        DictionaryNode storageList = MobileGestalt(["DiskUsage"]);
-        if (storageList.ContainsKey("DiskUsage")) {
-            foreach (KeyValuePair<string, PropertyNode> kvp in storageList["DiskUsage"].AsDictionaryNode()) {
-                storageData.Add(kvp.Key, kvp.Value.AsIntegerNode().Value);
-            }
-        }
-        return storageData;
-    }
-
-    public async Task<Dictionary<string, ulong>> GetStorageDetailsAsync(CancellationToken cancellationToken) {
-        Dictionary<string, ulong> storageData = [];
-        DictionaryNode storageList = await MobileGestaltAsync(["DiskUsage"], cancellationToken).ConfigureAwait(false);
-        if (storageList.ContainsKey("DiskUsage")) {
-            foreach (KeyValuePair<string, PropertyNode> kvp in storageList["DiskUsage"].AsDictionaryNode()) {
-                storageData.Add(kvp.Key, kvp.Value.AsIntegerNode().Value);
-            }
-        }
-        return storageData;
-    }
-
-    public DictionaryNode GetBatteryDetails() {
-        string[] keys = [
-            "HasBattery",
-            "IsThereEnoughBatteryLevelForSoftwareUpdate",
-            "RequiredBatteryLevelForSoftwareUpdate",
-            "BatteryCurrentCapacity",
-            "BatteryIsCharging",
-            "BatteryIsFullyCharged",
-            "BatterySerialNumber"
-        ];
-        DictionaryNode batteryData = MobileGestalt(keys);
-        return batteryData;
-    }
-
-    public async Task<DictionaryNode> GetBatteryDetails(CancellationToken cancellationToken) {
-        string[] keys = [
-            "HasBattery",
-            "IsThereEnoughBatteryLevelForSoftwareUpdate",
-            "RequiredBatteryLevelForSoftwareUpdate",
-            "BatteryCurrentCapacity",
-            "BatteryIsCharging",
-            "BatteryIsFullyCharged",
-            "BatterySerialNumber"
-        ];
-        DictionaryNode batteryData = await MobileGestaltAsync(keys, cancellationToken).ConfigureAwait(false);
-        return batteryData;
-    }
-
-    public PropertyNode Info(string diagnosticType = "All") {
-        return ExecuteCommand(new StringNode(diagnosticType));
-    }
-
-    public async Task<PropertyNode> Info(string diagnosticType = "All", CancellationToken cancellationToken = default) {
-        return await ExecuteCommandAsync(new StringNode(diagnosticType), cancellationToken).ConfigureAwait(false);
-    }
-
-    public DictionaryNode MobileGestalt(string[] keys) {
-        DictionaryNode request = new DictionaryNode() {
-            { "Request", new StringNode("MobileGestalt") },
-        };
+    /// <summary>
+    /// Query MobileGestalt values from the device.
+    /// </summary>
+    /// <remarks>
+    /// Sends a <c>MobileGestalt</c> request and returns the resolved key/value mapping (with the internal
+    /// <c>Status</c> entry stripped out).
+    /// </remarks>
+    /// <param name="keys">
+    /// MobileGestalt keys to query. If <c>null</c> or empty, the full built-in <see cref="MobileGestaltKeys"/>
+    /// list is queried.
+    /// </param>
+    /// <returns>Mapping of each requested MobileGestalt key to its value.</returns>
+    /// <exception cref="DeprecatedException">If MobileGestalt is reported as deprecated (iOS &gt;= 17.4).</exception>
+    /// <exception cref="PyMobileDevice3Exception">
+    /// If the request or the MobileGestalt query did not complete successfully.
+    /// </exception>
+    public async Task<DictionaryNode> MobileGestaltAsync(
+        IReadOnlyList<string>? keys = null,
+        CancellationToken cancellationToken = default
+    ) {
         ArrayNode mobileGestaltKeys = [];
+        if (keys is null || keys.Count == 0) {
+            keys = MobileGestaltKeys;
+        }
         foreach (string key in keys) {
             mobileGestaltKeys.Add(new StringNode(key));
         }
-        request.Add("MobileGestaltKeys", mobileGestaltKeys);
 
-        DictionaryNode response = Service.SendReceivePlist(request)?.AsDictionaryNode() ?? [];
-        if (response.ContainsKey("Status") && response["Status"].AsStringNode().Value != "Success") {
-            throw new DiagnosticsException("Failed to query MobileGestalt");
-        }
-
-        if (response.TryGetValue("Diagnostics", out PropertyNode? diagnosticsNode)) {
-            if (diagnosticsNode.AsDictionaryNode().TryGetValue("MobileGestalt", out PropertyNode? mobileGestaltNode)) {
-                PropertyNode status = mobileGestaltNode.AsDictionaryNode()["Status"];
-                if (status.AsStringNode().Value == "MobileGestaltDeprecated") {
-                    throw new DeprecatedException("Failed to query MobileGestalt; deprecated as of iOS >= 17.4.");
-                }
-                else if (status.AsStringNode().Value != "Success") {
-                    throw new DiagnosticsException("Failed to query MobileGestalt");
-                }
-                return mobileGestaltNode.AsDictionaryNode();
-            }
-        }
-
-        throw new DiagnosticsException("Failed to query MobileGestalt");
-    }
-
-    public async Task<DictionaryNode> MobileGestaltAsync(string[] keys, CancellationToken cancellationToken) {
         DictionaryNode request = new DictionaryNode() {
-            { "Request", new StringNode("MobileGestalt") },
+            ["Request"] = new StringNode("MobileGestalt"),
+            ["MobileGestaltKeys"] = mobileGestaltKeys,
         };
-        ArrayNode mobileGestaltKeys = [];
-        foreach (string key in keys) {
-            mobileGestaltKeys.Add(new StringNode(key));
-        }
-        request.Add("MobileGestaltKeys", mobileGestaltKeys);
 
-        PropertyNode? response = await Service.SendReceivePlistAsync(request, cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (Service is null) {
+            throw new DiagnosticsException("Service is null");
+        }
+
+        PropertyNode? response = await Service.SendReceivePlistAsync(
+            request,
+            cancellationToken: cancellationToken
+        ).ConfigureAwait(false);
+
         DictionaryNode dict = response?.AsDictionaryNode() ?? [];
+
         if (dict.TryGetValue("Status", out PropertyNode? statusNode) && statusNode.AsStringNode().Value != "Success") {
             throw new DiagnosticsException("Failed to query MobileGestalt");
         }
 
         if (dict.TryGetValue("Diagnostics", out PropertyNode? diagnosticsNode)) {
             if (diagnosticsNode.AsDictionaryNode().TryGetValue("MobileGestalt", out PropertyNode? mobileGestaltNode)) {
+                DictionaryNode mobileGestalt = mobileGestaltNode.AsDictionaryNode();
                 PropertyNode status = mobileGestaltNode.AsDictionaryNode()["Status"];
-                if (status.AsStringNode().Value == "MobileGestaltDeprecated") {
-                    throw new DeprecatedException("Failed to query MobileGestalt; deprecated as of iOS >= 17.4.");
+                if (mobileGestalt.TryGetValue("Status", out PropertyNode? mgStatusNode) && mgStatusNode.AsStringNode().Value == "MobileGestaltDeprecated") {
+                    throw new DeprecatedException($"Failed to query MobileGestalt; deprecated as of iOS >= 17.4. {PropertyList.SaveAsString(dict, PlistFormat.Xml)}");
                 }
                 else if (status.AsStringNode().Value != "Success") {
                     throw new DiagnosticsException("Failed to query MobileGestalt");
                 }
-                return mobileGestaltNode.AsDictionaryNode();
+                return mobileGestalt;
             }
         }
-
-        throw new DiagnosticsException("Failed to query MobileGestalt");
+        return [];
     }
 
-    /// <summary>
-    /// Query MobileGestalt using all the available keys
-    /// </summary>
-    /// <returns></returns>
-    public DictionaryNode MobileGestalt() {
-        return MobileGestalt([.. _mobileGestaltKeys]);
-    }
+    /// <summary>Restart the device by sending the <c>Restart</c> request.</summary>
+    /// <exception cref="DiagnosticsException">If the request did not complete successfully.</exception>
+    public Task RestartAsync(CancellationToken cancellationToken = default) => ActionAsync(
+        new StringNode("Restart"),
+        cancellationToken
+    );
 
-    /// <summary>
-    /// Query MobileGestalt using all the available keys
-    /// </summary>
-    /// <returns></returns>
-    public async Task<DictionaryNode> MobileGestaltAsync(CancellationToken cancellationToken) {
-        return await MobileGestaltAsync([.. _mobileGestaltKeys], cancellationToken).ConfigureAwait(false);
-    }
+    /// <summary>Shut the device down by sending the <c>Shutdown</c> request.</summary>
+    /// <exception cref="DiagnosticsException">If the request did not complete successfully.</exception>
+    public Task ShutdownAsync(CancellationToken cancellationToken = default) => ActionAsync(
+        new StringNode("Shutdown"),
+        cancellationToken
+    );
 
-    public void Restart() {
-        ExecuteCommand(new StringNode("Restart"));
-    }
-
-    public async Task Restart(CancellationToken cancellationToken) {
-        await ExecuteCommandAsync(new StringNode("Restart"), cancellationToken).ConfigureAwait(false);
-    }
-
-    public void Shutdown() {
-        ExecuteCommand(new StringNode("Shutdown"));
-    }
-
-    public async Task ShutdownAsync(CancellationToken cancellationToken) {
-        await ExecuteCommandAsync(new StringNode("Shutdown"), cancellationToken).ConfigureAwait(false);
-    }
-
-    public void Sleep() {
-        ExecuteCommand(new StringNode("Sleep"));
-    }
-
-    public async Task SleepAsync(CancellationToken cancellationToken) {
-        await ExecuteCommandAsync(new StringNode("Sleep"), cancellationToken).ConfigureAwait(false);
-    }
+    /// <summary>Put the device to sleep by sending the <c>Sleep</c> request.</summary>
+    /// <exception cref="DiagnosticsException">If the request did not complete successfully.</exception>
+    public Task SleepAsync(CancellationToken cancellationToken = default) => ActionAsync(
+        new StringNode("Sleep"),
+        cancellationToken
+    );
 }
