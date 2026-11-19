@@ -24,7 +24,7 @@ namespace Netimobiledevice.Services;
 /// over classic lockdown, or <see cref="RemoteServiceName"/> over RemoteXPC/RSD.
 /// </para>
 /// </summary>
-public sealed class Mobilebackup2Service(
+public class Mobilebackup2Service(
     LockdownServiceProvider lockdown,
     ILogger? logger = null
 ) : LockdownService(
@@ -412,7 +412,7 @@ public sealed class Mobilebackup2Service(
     /// <exception cref="BackupFilterPasswordRequiredException">
     /// If manifest patching is requested without a password while the device encrypts backups.
     /// </exception>
-    public async Task BackupAsync(
+    public virtual async Task BackupAsync(
         bool fullBackup = true,
         string backupDirectory = ".",
         ProgressCallback? progressCallback = null,

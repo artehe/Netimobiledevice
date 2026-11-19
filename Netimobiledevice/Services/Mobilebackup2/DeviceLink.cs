@@ -20,7 +20,7 @@ namespace Netimobiledevice.Services.Mobilebackup2;
 /// device drives the session with <c>DLMessage*</c> requests and the host serves them against
 /// a local backup directory.
 /// </summary>
-internal sealed class DeviceLink : IAsyncDisposable {
+public class DeviceLink : IAsyncDisposable {
     // Frame layout: a big-endian uint32 length, then a one-byte code, then payload.
     private const int SizeLength = sizeof(uint);
     private const int CodeLength = sizeof(byte);
@@ -375,21 +375,6 @@ internal sealed class DeviceLink : IAsyncDisposable {
 
     private string FullPath(string relative) => Path.Combine(_rootPath, relative);
 
-    private async Task GetFreeDiskSpaceAsync(ArrayNode message, CancellationToken ct) {
-        // On Unix DriveInfo accepts any path; on Windows it needs the volume root.
-        string target = OperatingSystem.IsWindows() ? Path.GetPathRoot(Path.GetFullPath(_rootPath)) ?? _rootPath : _rootPath;
-        long freeSpace = new DriveInfo(target).AvailableFreeSpace;
-
-        if (_logger.IsEnabled(LogLevel.Debug)) {
-            _logger.LogDebug("Reporting {FreeSpace} bytes free at {RootPath}", freeSpace, _rootPath);
-        }
-
-        _reportedFreeSpace = freeSpace;
-        IntegerNode freeSpaceNode = new IntegerNode(freeSpace);
-
-        await StatusResponseAsync(0, statusDict: freeSpaceNode, ct: ct).ConfigureAwait(false);
-    }
-
     /// <summary>
     /// Describe an <c>MBErrorDomain/105</c> refusal in terms of the bytes involved.
     /// </summary>
@@ -630,6 +615,21 @@ internal sealed class DeviceLink : IAsyncDisposable {
         }
 
         await StatusResponseAsync(0, ct: ct).ConfigureAwait(false);
+    }
+
+    protected virtual async Task GetFreeDiskSpaceAsync(ArrayNode message, CancellationToken ct) {
+        // On Unix DriveInfo accepts any path; on Windows it needs the volume root.
+        string target = OperatingSystem.IsWindows() ? Path.GetPathRoot(Path.GetFullPath(_rootPath)) ?? _rootPath : _rootPath;
+        long freeSpace = new DriveInfo(target).AvailableFreeSpace;
+
+        if (_logger.IsEnabled(LogLevel.Debug)) {
+            _logger.LogDebug("Reporting {FreeSpace} bytes free at {RootPath}", freeSpace, _rootPath);
+        }
+
+        _reportedFreeSpace = freeSpace;
+        IntegerNode freeSpaceNode = new IntegerNode(freeSpace);
+
+        await StatusResponseAsync(0, statusDict: freeSpaceNode, ct: ct).ConfigureAwait(false);
     }
 
     /// <summary>

@@ -615,7 +615,6 @@ public class AfcService(
     /// <param name="callback">Called as <c>callback(src, dst)</c> after each regular file is copied.</param>
     /// <param name="srcDir">Base device directory joined with <paramref name="relativeSrc"/>.</param>
     /// <param name="ignoreErrors">Log and skip per-entry errors during directory recursion.</param>
-    /// <param name="progressBar">Show a progress bar while streaming large files.</param>
     public async Task PullAsync(
         string relativeSrc,
         string dst,
@@ -623,7 +622,6 @@ public class AfcService(
         Func<string, string, ValueTask>? callback = null,
         string srcDir = "",
         bool ignoreErrors = false,
-        bool progressBar = true,
         CancellationToken cancellationToken = default
     ) {
         string src = await ResolvePathAsync(PosixPath.Join(srcDir, relativeSrc), cancellationToken).ConfigureAwait(false);
@@ -691,7 +689,6 @@ public class AfcService(
                         match,
                         callback,
                         ignoreErrors: ignoreErrors,
-                        progressBar: progressBar,
                         cancellationToken: cancellationToken
                     ).ConfigureAwait(false);
                 }
