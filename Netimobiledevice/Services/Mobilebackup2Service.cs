@@ -297,7 +297,7 @@ public class Mobilebackup2Service(
     /// Optional predicate taking a <see cref="BackupFile"/> and returning whether to preserve it.
     /// </param>
     /// <returns><see langword="true"/> if the file should be preserved, <see langword="false"/> otherwise.</returns>
-    private static bool ShouldPreserveBackupFile(
+    protected static bool ShouldPreserveBackupFile(
         string fileName,
         string deviceName,
         BackupFilterCallback? filterCallback
