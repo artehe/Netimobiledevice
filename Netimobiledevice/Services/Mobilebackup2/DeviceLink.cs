@@ -541,28 +541,6 @@ public class DeviceLink : IAsyncDisposable {
         await StatusResponseAsync(0, ct: ct).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Sends a status report to the backup service.
-    /// </summary>
-    /// <param name="statusCode">The error code to send (as errno value).</param>
-    /// <param name="statusStr">An optional error message to send.</param>
-    /// <param name="statusDict">An optional DictionaryNode with additional value(s).</param>
-    private ValueTask StatusResponseAsync(
-        long statusCode,
-        string? statusStr = null,
-        PropertyNode? statusDict = null,
-        CancellationToken ct = default
-    ) => _service.SendPlistAsync(
-        new ArrayNode() {
-            new StringNode(DeviceLinkMessage.MessageStatusResponse),
-            new IntegerNode(statusCode),
-            string.IsNullOrEmpty(statusStr) ? new StringNode(EmptyParameterString) : new StringNode(statusStr),
-            statusDict ?? new DictionaryNode()
-        },
-        PlistFormat.Binary,
-        ct
-    );
-
     private async Task UploadFilesAsync(ArrayNode message, CancellationToken ct) {
         while (true) {
             string deviceName = Encoding.UTF8.GetString(await PrefixedReceiveAsync(ct).ConfigureAwait(false));
@@ -631,6 +609,28 @@ public class DeviceLink : IAsyncDisposable {
 
         await StatusResponseAsync(0, statusDict: freeSpaceNode, ct: ct).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Sends a status report to the backup service.
+    /// </summary>
+    /// <param name="statusCode">The error code to send (as errno value).</param>
+    /// <param name="statusStr">An optional error message to send.</param>
+    /// <param name="statusDict">An optional DictionaryNode with additional value(s).</param>
+    protected ValueTask StatusResponseAsync(
+        long statusCode,
+        string? statusStr = null,
+        PropertyNode? statusDict = null,
+        CancellationToken ct = default
+    ) => _service.SendPlistAsync(
+        new ArrayNode() {
+            new StringNode(DeviceLinkMessage.MessageStatusResponse),
+            new IntegerNode(statusCode),
+            string.IsNullOrEmpty(statusStr) ? new StringNode(EmptyParameterString) : new StringNode(statusStr),
+            statusDict ?? new DictionaryNode()
+        },
+        PlistFormat.Binary,
+        ct
+    );
 
     /// <summary>
     /// Remove temporary placeholders created for payloads rejected by a backup filter.

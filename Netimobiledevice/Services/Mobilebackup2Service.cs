@@ -95,36 +95,6 @@ public class Mobilebackup2Service(
         ["TargetIdentifier"] = new StringNode(Lockdown.Udid),
     };
 
-    /// <summary>
-    /// Create a connected <see cref="DeviceLink"/> for backup operations.
-    /// <para>
-    /// Performs the device-link and mobilebackup2 version exchanges on entry. Dispose the returned
-    /// link to disconnect. The given filter callback governs which incoming files are written to disk.
-    /// </para>
-    /// </summary>
-    /// <param name="backupDirectory">Directory the device link reads from and writes to.</param>
-    /// <param name="filterCallback">Optional predicate controlling which files are preserved.</param>
-    private async Task<DeviceLink> DeviceLinkAsync(
-            string backupDirectory,
-            BackupFilterCallback? filterCallback = null,
-            CancellationToken ct = default
-        ) {
-        await ConnectAsync(ct).ConfigureAwait(false);
-        if (Service is null) {
-            throw new Mobilebackup2Exception("mobilebackup2 service failed to connect");
-        }
-
-        DeviceLink dl = new DeviceLink(
-            Service,
-            backupDirectory,
-            preserveFile: (fileName, deviceName) => ShouldPreserveBackupFile(fileName, deviceName, filterCallback)
-        );
-        await dl.VersionExchangeAsync(400, 0, ct).ConfigureAwait(false);
-        await VersionExchangeAsync(dl, cancellationToken: ct).ConfigureAwait(false);
-
-        return dl;
-    }
-
     private static bool HasIncrementalBackupMetadata(
         string deviceDirectory
     ) => IncrementalBackupRequiredFiles.All(filename => {
@@ -355,7 +325,7 @@ public class Mobilebackup2Service(
     /// <param name="localVersions">
     /// Protocol versions supported by the host; defaults to <see cref="SupportedVersions"/>.
     /// </param>
-    private static async Task VersionExchangeAsync(
+    protected static async Task VersionExchangeAsync(
         DeviceLink dl,
         ArrayNode? localVersions = null,
         CancellationToken cancellationToken = default
@@ -388,6 +358,36 @@ public class Mobilebackup2Service(
     }
 
     /// <summary>
+    /// Create a connected <see cref="DeviceLink"/> for backup operations.
+    /// <para>
+    /// Performs the device-link and mobilebackup2 version exchanges on entry. Dispose the returned
+    /// link to disconnect. The given filter callback governs which incoming files are written to disk.
+    /// </para>
+    /// </summary>
+    /// <param name="backupDirectory">Directory the device link reads from and writes to.</param>
+    /// <param name="filterCallback">Optional predicate controlling which files are preserved.</param>
+    protected virtual async Task<DeviceLink> DeviceLinkAsync(
+            string backupDirectory,
+            BackupFilterCallback? filterCallback = null,
+            CancellationToken ct = default
+        ) {
+        await ConnectAsync(ct).ConfigureAwait(false);
+        if (Service is null) {
+            throw new Mobilebackup2Exception("mobilebackup2 service failed to connect");
+        }
+
+        DeviceLink dl = new DeviceLink(
+            Service,
+            backupDirectory,
+            preserveFile: (fileName, deviceName) => ShouldPreserveBackupFile(fileName, deviceName, filterCallback)
+        );
+        await dl.VersionExchangeAsync(400, 0, ct).ConfigureAwait(false);
+        await VersionExchangeAsync(dl, cancellationToken: ct).ConfigureAwait(false);
+
+        return dl;
+    }
+
+    /// <summary>
     /// Back up the device into <c><paramref name="backupDirectory"/>/&lt;device-udid&gt;</c>.
     /// </summary>
     /// <param name="fullBackup">
@@ -412,7 +412,7 @@ public class Mobilebackup2Service(
     /// <exception cref="BackupFilterPasswordRequiredException">
     /// If manifest patching is requested without a password while the device encrypts backups.
     /// </exception>
-    public virtual async Task BackupAsync(
+    public async Task BackupAsync(
         bool fullBackup = true,
         string backupDirectory = ".",
         ProgressCallback? progressCallback = null,
